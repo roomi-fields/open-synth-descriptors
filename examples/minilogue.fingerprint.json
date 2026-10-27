@@ -1,0 +1,10 @@
+{
+  "$schema": "https://synthhub.roomi-fields.com/osd/0.2/fingerprint.schema.json",
+  "observed": "2026-10-27",
+  "via": "web-midi",
+  "ports": { "inputs": ["minilogue kbd knob", "minilogue sound"], "outputs": ["minilogue sound"] },
+  "identity_reply": "F0 7E 00 06 02 42 2C 01 00 00 02 01 00 00 F7",
+  "sends": { "active_sensing": false, "note_off": "note_off" },
+  "controls": [{ "cc": 43 }, { "cc": 44 }, { "cc": 16 }],
+  "device": { "descriptor": "korg/minilogue", "firmware": "2.01" }
+}

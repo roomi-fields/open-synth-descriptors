@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Check descriptors against the OSD schemas.
 
-    python tools/validate.py <device|profile|sound|firmware> FILE_OR_DIR...
+    python tools/validate.py <device|profile|sound|firmware|fingerprint> FILE_OR_DIR...
+
+Checked against the newest version in schemas/ (OSD_VERSION=0.1 picks another).
 
 A directory is read for every *.json in it; files whose name starts with _
 are maker profiles (checked as profiles) or other notes, never devices.
 Needs the jsonschema package. Exit status 1 when a file is not valid.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-HERE = Path(__file__).resolve().parent.parent / "schemas" / "0.1"
+SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
+VERSION = os.environ.get("OSD_VERSION") or max((p.name for p in SCHEMAS.iterdir()), key=lambda v: tuple(map(int, v.split("."))))
+HERE = SCHEMAS / VERSION
 
 
 def validators():

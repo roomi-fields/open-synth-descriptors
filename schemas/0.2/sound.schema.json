@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synthhub.roomi-fields.com/osd/0.2/sound.schema.json",
+  "title": "OSD sound descriptor 0.2",
+  "description": "What a shared sound is and who made it, beside its data: a .syx (the device's own SysEx), a .mid, or settings by control address. Covers a single sound, a kit, a pattern or sequence, a project, a bank of the author's sounds, or a MIDI clip any device plays.",
+  "type": "object",
+  "required": [
+    "name",
+    "kind",
+    "content"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people; never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "https://synthhub.roomi-fields.com/osd/0.2/sound.schema.json"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "kind": {
+      "enum": [
+        "sound",
+        "kit",
+        "sequence",
+        "project",
+        "bank",
+        "clip"
+      ]
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "descriptor": {
+          "type": "string",
+          "description": "The OSD device descriptor it is for (maker/file, e.g. korg/minilogue)."
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "vendor",
+        "model"
+      ],
+      "description": "The device it is made for."
+    },
+    "firmware": {
+      "type": "string",
+      "description": "The firmware it was made on, when it matters."
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "sysex": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "Relative to this descriptor."
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people; never read by a program."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A file, beside the descriptor or online."
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9A-Fa-f ]+$",
+              "description": "Hex, F0 … F7 each message."
+            }
+          ],
+          "description": "The device's own data, as it sends and takes it."
+        },
+        "midi": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "Relative to this descriptor."
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people; never read by a program."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A file, beside the descriptor or online."
+            },
+            {
+              "type": "string",
+              "contentEncoding": "base64"
+            }
+          ],
+          "description": "A standard MIDI file."
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array"
+          },
+          "description": "Values by control address of the device descriptor (/filter/cutoff: [80])."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "The sound itself: at least one of sysex, midi, settings."
+    },
+    "author": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "description": "A person or group, as they sign."
+    },
+    "license": {
+      "type": "string",
+      "description": "An SPDX licence id (CC-BY-4.0, CC0-1.0, MIT…), public-domain, or none when the author declared none.",
+      "examples": [
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "public-domain",
+        "none"
+      ]
+    },
+    "license_terms": {
+      "type": "string",
+      "description": "The author's own terms, when they are not a known licence."
+    },
+    "origin": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "author": {
+          "type": "string"
+        },
+        "author_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "description": "Where it was first published, when not here."
+    },
+    "derived_from": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "description": "The sound it is a version of."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "category": {
+      "type": "string",
+      "examples": [
+        "bass",
+        "lead",
+        "pad",
+        "keys",
+        "pluck",
+        "drums",
+        "fx",
+        "sequence"
+      ]
+    },
+    "genres": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tempo": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Beats per minute, for a sequence or clip."
+    },
+    "key": {
+      "type": "string",
+      "examples": [
+        "A minor"
+      ]
+    },
+    "tips": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "How to play it: mod wheel, aftertouch, register."
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "audio": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "Relative to this descriptor."
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people; never read by a program."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A file, beside the descriptor or online."
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
+        },
+        "image": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "Relative to this descriptor."
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people; never read by a program."
+                }
+              },
+              "additionalProperties": false,
+              "description": "A file, beside the descriptor or online."
+            },
+            {
+              "type": "string",
+              "format": "uri"
+            }
+          ]
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false
+    },
+    "captured_with": {
+      "type": "string",
+      "description": "The tool that took it from the device, and its version."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "published": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "url"
+        ]
+      }
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "clip"
+        }
+      }
+    },
+    {
+      "required": [
+        "device"
+      ]
+    }
+  ]
+}

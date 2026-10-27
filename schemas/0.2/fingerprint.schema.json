@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synthhub.roomi-fields.com/osd/0.2/fingerprint.schema.json",
+  "title": "OSD fingerprint 0.2",
+  "description": "What a detection observed of one device plugged in, and the device the person confirmed it is. Matched against device descriptors (their identity block and controls) to recognise a model that does not identify itself; confirmed fingerprints teach the next detection. It holds nothing about the person or the machine: port names are kept as their words, without numbers.",
+  "type": "object",
+  "required": [
+    "observed"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people; never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "https://synthhub.roomi-fields.com/osd/0.2/fingerprint.schema.json"
+    },
+    "observed": {
+      "type": "string",
+      "format": "date",
+      "description": "The day, no time."
+    },
+    "via": {
+      "enum": [
+        "web-midi",
+        "native"
+      ],
+      "description": "A web browser (no USB identity) or a program on the machine."
+    },
+    "ports": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "The device's MIDI port names, lower case, words only."
+    },
+    "usb": {
+      "$ref": "device.schema.json#/$defs/usb_id"
+    },
+    "identity_reply": {
+      "type": "string",
+      "pattern": "^F0( [0-9A-F]{2})* F7$",
+      "description": "Its answer to the Universal Identity Request, hex."
+    },
+    "maker_replies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "additionalProperties": false,
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "properties": {
+          "request": {
+            "type": "string"
+          },
+          "reply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null: no answer."
+          }
+        }
+      },
+      "description": "Read-only maker requests sent (those a device descriptor names) and what came back."
+    },
+    "sends": {
+      "$ref": "device.schema.json#/$defs/sends"
+    },
+    "controls": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "properties": {
+          "cc": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "nrpn_msb": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "nrpn_lsb": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15
+          }
+        }
+      },
+      "description": "The controls that arrived while the person turned knobs, in order, without their values."
+    },
+    "device": {
+      "type": "object",
+      "required": [
+        "descriptor"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "properties": {
+        "descriptor": {
+          "type": "string",
+          "description": "The OSD device descriptor it is (maker/file)."
+        },
+        "firmware": {
+          "type": "string"
+        }
+      },
+      "description": "What the person confirmed it is; absent when they did not."
+    }
+  }
+}
