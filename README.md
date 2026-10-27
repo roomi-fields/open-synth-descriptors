@@ -11,7 +11,7 @@ describe some of itself. OSD covers the rest: the thousands of devices that
 never will, the maker-specific SysEx that holds most of a synth, and the
 sounds and firmwares people share.
 
-**Status: 0.2, draft.** It describes the format the
+**Status: 0.3, draft.** It describes the format the
 [SynthHub](https://synthhub.roomi-fields.com/) catalogue is written in:
 every device of it is a valid OSD device descriptor, checked by its tests.
 
@@ -19,16 +19,17 @@ every device of it is a valid OSD device descriptor, checked by its tests.
 
 | Descriptor | What it says | Schema |
 |---|---|---|
-| Device | Identity and how to recognise it (identify reply, port names, USB identity, what it sends by itself); controls (CC, 14-bit CC, NRPN, RPN, SysEx parameters); named messages and checksums; programs and banks; drum and sample notes; what it sends back; where each piece of data comes from and how far it was checked | [`device.schema.json`](schemas/0.2/device.schema.json) |
-| Maker profile | What a maker's or a family's devices share (identify request, program scheme), extended by each device | [`profile.schema.json`](schemas/0.2/profile.schema.json) |
-| Sound | A shared sound, kit, pattern, project, bank or MIDI clip: its data (a `.syx`, a `.mid`, or settings by control address), device and firmware, author, licence, origin, what it derives from, how to play it | [`sound.schema.json`](schemas/0.2/sound.schema.json) |
-| Fingerprint | What a detection observed of a device plugged in (port names, replies, USB identity, the controls its knobs sent) and the model the person confirmed: recognises devices that do not identify themselves, and teaches the next detection | [`fingerprint.schema.json`](schemas/0.2/fingerprint.schema.json) |
-| Firmware | A firmware, mod or script: device, author, repository, licence, what it changes to the MIDI, how to install and revert it, where its users meet. It points to the author's release, never carries it | [`firmware.schema.json`](schemas/0.2/firmware.schema.json) |
+| Device | Identity and how to recognise it (identify reply, port names, USB identity, what it sends by itself); controls (CC, 14-bit CC, NRPN, RPN, SysEx parameters); named messages and checksums; programs and banks; drum and sample notes; what it sends back; where each piece of data comes from and how far it was checked | [`device.schema.json`](schemas/0.3/device.schema.json) |
+| Maker profile | What a maker's or a family's devices share (identify request, program scheme), extended by each device | [`profile.schema.json`](schemas/0.3/profile.schema.json) |
+| Sound | A shared sound, kit, pattern, project, bank or MIDI clip: its data (a `.syx`, a `.mid`, or settings by control address), device and firmware, author, licence, origin, what it derives from, how to play it | [`sound.schema.json`](schemas/0.3/sound.schema.json) |
+| Fingerprint | What a detection observed of a device plugged in (port names, replies, USB identity, the controls its knobs sent) and the model the person confirmed: recognises devices that do not identify themselves, and teaches the next detection | [`fingerprint.schema.json`](schemas/0.3/fingerprint.schema.json) |
+| Firmware | A firmware, mod or script: device, author, repository, licence, what it changes to the MIDI, how to install and revert it, where its users meet. It points to the author's release, never carries it | [`firmware.schema.json`](schemas/0.3/firmware.schema.json) |
 
 Examples: [a device](examples/devices/test_synth.json),
 [a sound](examples/warm-pad.sound.json),
 [a firmware](examples/tribe-0.3-beta.firmware.json),
-[a fingerprint](examples/minilogue.fingerprint.json).
+[a fingerprint](examples/minilogue.fingerprint.json),
+[a device being taught](examples/unknown-device.fingerprint.json).
 
 ## Where MIDI ends and OSD starts
 
@@ -77,6 +78,9 @@ The schemas are also served at
 A version number names a fixed set of schemas: a published version never
 changes, a later one lives beside it.
 
+- **0.3**: a fingerprint may name a device no descriptor describes yet
+  (`device.vendor`, `device.model`) and the controls the person named while
+  teaching it (`names`): the start of a new device descriptor.
 - **0.2**: the device's `identity` adds `usb` (USB vendor and product ids)
   and `sends` (active sensing, clock, how it ends a note); new fingerprint
   descriptor. Every 0.1 device descriptor is a valid 0.2 one.

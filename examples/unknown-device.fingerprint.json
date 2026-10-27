@@ -1,0 +1,12 @@
+{
+  "$schema": "https://synthhub.roomi-fields.com/osd/0.3/fingerprint.schema.json",
+  "observed": "2026-10-27",
+  "via": "web-midi",
+  "ports": { "inputs": ["usb midi interface"] },
+  "controls": [{ "cc": 74 }, { "cc": 71 }],
+  "names": [
+    { "control": { "cc": 74 }, "name": "filter cutoff" },
+    { "control": { "cc": 71 }, "name": "filter resonance" }
+  ],
+  "device": { "vendor": "Example", "model": "Mono One" }
+}

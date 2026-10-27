@@ -12,3 +12,4 @@ jobs:
       - run: python tools/validate.py sound examples/warm-pad.sound.json
       - run: python tools/validate.py firmware examples/tribe-0.3-beta.firmware.json
       - run: python tools/validate.py fingerprint examples/minilogue.fingerprint.json
+      - run: python tools/validate.py fingerprint examples/unknown-device.fingerprint.json

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://synthhub.roomi-fields.com/osd/0.2/firmware.schema.json",
+  "$schema": "https://synthhub.roomi-fields.com/osd/0.3/firmware.schema.json",
   "name": "TRIBE",
   "version": "0.3-beta",
   "device": {

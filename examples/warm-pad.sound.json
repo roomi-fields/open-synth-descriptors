@@ -1,5 +1,5 @@
 {
-  "$schema": "https://synthhub.roomi-fields.com/osd/0.2/sound.schema.json",
+  "$schema": "https://synthhub.roomi-fields.com/osd/0.3/sound.schema.json",
   "name": "Warm pad",
   "kind": "sound",
   "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
