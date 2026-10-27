@@ -12,8 +12,8 @@ never will, the maker-specific SysEx that holds most of a synth, and the
 sounds and firmwares people share.
 
 **Status: 0.2, draft.** It describes the format the
-[SynthHub](https://synthhub.roomi-fields.com/) catalogue already uses for
-1,573 devices: every one of them is a valid OSD device descriptor.
+[SynthHub](https://synthhub.roomi-fields.com/) catalogue is written in:
+every device of it is a valid OSD device descriptor, checked by its tests.
 
 ## What is described
 
