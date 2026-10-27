@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synthhub.roomi-fields.com/osd/0.1/firmware.schema.json",
+  "title": "OSD firmware descriptor 0.1",
+  "description": "A firmware, mod or script a device can run: who makes it, where it lives, its licence, what it changes to the device's MIDI, and how it is installed. It points to the author's own release; it never carries the firmware itself.",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "device"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people; never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "https://synthhub.roomi-fields.com/osd/0.1/firmware.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "firmware",
+        "mod",
+        "script",
+        "extension"
+      ],
+      "default": "firmware"
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "descriptor": {
+          "type": "string",
+          "description": "The OSD device descriptor it is for (maker/file, e.g. korg/minilogue)."
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "vendor",
+        "model"
+      ],
+      "description": "The device it is made for."
+    },
+    "official": {
+      "type": "boolean",
+      "default": false,
+      "description": "Released by the device's maker."
+    },
+    "author": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "description": "A person or group, as they sign."
+      },
+      "minItems": 1
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Where this version is downloaded, from its author."
+    },
+    "license": {
+      "type": "string",
+      "description": "An SPDX licence id (CC-BY-4.0, CC0-1.0, MIT…), public-domain, or none when the author declared none.",
+      "examples": [
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "public-domain",
+        "none"
+      ]
+    },
+    "based_on": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "description": "The firmware it was forked or built from."
+    },
+    "midi": {
+      "type": "object",
+      "properties": {
+        "descriptor": {
+          "type": "string",
+          "description": "The OSD device descriptor of its MIDI."
+        },
+        "same_as": {
+          "type": "string",
+          "description": "When it answers to another firmware's MIDI unchanged, that descriptor."
+        },
+        "changes": {
+          "type": "string",
+          "description": "What it adds or changes, in words."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "What it understands over MIDI."
+    },
+    "identify": {
+      "type": "string",
+      "description": "How the device shows which firmware it runs (its identity reply, a screen)."
+    },
+    "install": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "examples": [
+            "usb-drive",
+            "dfu",
+            "sysex",
+            "maker-app",
+            "sd-card"
+          ]
+        },
+        "steps": {
+          "type": "string"
+        },
+        "revert": {
+          "type": "string",
+          "description": "How to go back to the maker's firmware."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false
+    },
+    "description": {
+      "type": "string"
+    },
+    "communities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "kind": {
+            "enum": [
+              "forum",
+              "discord",
+              "chat",
+              "subreddit",
+              "wiki",
+              "site"
+            ]
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "kind"
+        ]
+      },
+      "description": "Where its users meet."
+    }
+  }
+}
