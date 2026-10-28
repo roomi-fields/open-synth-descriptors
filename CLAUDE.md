@@ -8,7 +8,7 @@ The framework's rules: @node_modules/@roomi-fields/grillhouse/charte.md
 
 ## What decides
 
-The metaframe (`node_modules/@roomi-fields/grillhouse/METACADRE.md`), then the project's frame (`docs/ARCHITECTURE.md`, `osd/docs/CADRE.md`, `osd/docs/INTERFACE.md`), then the specification (the schemas of the newest version and its conformance cases), then the code. A published version never changes; a change of the format is a new version, decided in the architecture first. So the intent decides, and the schemas and the reader follow it.
+The metaframe (`node_modules/@roomi-fields/grillhouse/METACADRE.md`), then the project's frame (`docs/ARCHITECTURE.md`, the specification's `docs/CADRE.md` and `docs/INTERFACE.md`, the reader's `osd/docs/CADRE.md` and `osd/docs/INTERFACE.md`), then the specification (the schemas of the newest version and its conformance cases), then the code. A published version never changes; a change of the format is a new version, decided in the architecture first. So the intent decides, and the schemas and the reader follow it.
 
 ## How we arbitrate
 
@@ -32,5 +32,5 @@ A question no step of the circuit settles goes up to the supervisor, with its ev
 - `cargo test -p osd` (the reader, its conformance cases, the schema against the types); `cargo clippy -p osd -- -D warnings`.
 - `python tools/validate.py <kind> FILE_OR_DIR…` checks descriptors against the schemas until the reader replaces it.
 - The framework does not know Rust yet: `npm run verifier`, `grillhouse maj` and the night pass wait for its Rust tooling.
-- Ticket prefix: `SH-`.
+- Ticket prefix: `OSD-`.
 - Push policy: each commit goes to main and is pushed; ask before rewriting history, deleting a branch, publishing a release or a version of the format, or acting outside the repository.
