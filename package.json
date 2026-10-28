@@ -1,0 +1,11 @@
+{
+  "name": "open-synth-descriptors",
+  "private": true,
+  "description": "The Grillhouse framework for OSD; the format and its reader build with cargo.",
+  "scripts": {
+    "prepare": "grillhouse hooks"
+  },
+  "devDependencies": {
+    "@roomi-fields/grillhouse": "^0.24.13"
+  }
+}
