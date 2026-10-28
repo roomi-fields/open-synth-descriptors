@@ -1,0 +1,13 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "profile": "acme/keys",
+    "member": [
+      1,
+      0
+    ]
+  }
+}

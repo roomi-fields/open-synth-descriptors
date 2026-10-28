@@ -29,7 +29,9 @@ A question no step of the circuit settles goes up to the supervisor, with its ev
 
 ## Commands
 
-- `cargo test -p osd` (the reader, its conformance cases, the schema against the types); `cargo clippy -p osd -- -D warnings`.
+- `cargo test -p osd` (the reader, its conformance cases, the examples); with `SYNTHHUB_DEVICES=<catalogue folder>`, the whole SyntHub catalogue too; `cargo clippy -p osd --all-targets -- -D warnings`; `cargo build -p osd --target wasm32-unknown-unknown`.
+- `SYNTHHUB_DEVICES=<catalogue folder> cargo bench -p osd` measures reading and resolving against R16.
+- `SYNTHHUB_DEVICES=<catalogue folder> cargo test --manifest-path tools/osc-bridge-parity/Cargo.toml` compares the resolution with osc-bridge's, from an osc-bridge checkout beside this repository.
 - `python tools/validate.py <kind> FILE_OR_DIR…` checks descriptors against the schemas until the reader replaces it.
 - The framework does not know Rust yet: `npm run verifier`, `grillhouse maj` and the night pass wait for its Rust tooling.
 - Ticket prefix: `OSD-`.

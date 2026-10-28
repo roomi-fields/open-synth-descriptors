@@ -70,6 +70,11 @@ python tools/validate.py sound my-sound.json
 OSD_VERSION=0.1 python tools/validate.py device old-file.json   # an older version
 ```
 
+In Rust, the reference reader [`osd`](osd/) reads a descriptor strictly
+into typed values and resolves a device's shared MIDI and maker profiles
+(`osd::read`, `osd::resolve`); the cases every reader must pass are in
+[`conformance/`](conformance/).
+
 Every version's schemas have a permanent address,
 `https://w3id.org/osd/<version>/<name>.schema.json` (for example
 [`https://w3id.org/osd/0.4/device.schema.json`](https://w3id.org/osd/0.4/device.schema.json)),
@@ -107,4 +112,5 @@ with an example descriptor that shows the need.
 
 The schemas, examples and this text are dedicated to the public domain
 under [CC0 1.0](LICENSE): use them in any product, open or closed, without
-asking. Published by [SynthHub](https://synthhub.roomi-fields.com/).
+asking. The `osd` reader is licensed MIT or Apache-2.0, at your option
+([`osd/LICENSE-MIT`](osd/LICENSE-MIT), [`osd/LICENSE-APACHE`](osd/LICENSE-APACHE)). Published by [SynthHub](https://synthhub.roomi-fields.com/).

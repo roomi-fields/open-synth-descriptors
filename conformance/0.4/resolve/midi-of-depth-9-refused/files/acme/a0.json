@@ -1,0 +1,8 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth",
+    "revision": "0"
+  },
+  "midi_of": "acme/a1"
+}

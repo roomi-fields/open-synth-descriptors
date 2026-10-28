@@ -1,0 +1,12 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "midi_of": "acme/b",
+  "sysex": {
+    "header": [
+      240
+    ]
+  }
+}

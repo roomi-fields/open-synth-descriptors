@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["osd"]
+exclude = ["tools/osc-bridge-parity"]
+
+# The tests check the whole catalogue against the schemas: the libraries
+# they use run optimised.
+[profile.dev.package."*"]
+opt-level = 2

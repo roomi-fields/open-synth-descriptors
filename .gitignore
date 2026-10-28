@@ -1,5 +1,6 @@
 node_modules/
 target/
+tools/osc-bridge-parity/Cargo.lock
 
 # Beads / Dolt files (added by bd init)
 .dolt/

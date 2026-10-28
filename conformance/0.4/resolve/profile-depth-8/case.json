@@ -1,0 +1,22 @@
+{
+  "_about": "Eight profile links, the driver's included, are followed.",
+  "resolve": "acme/synth",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "p1",
+      "request": [
+        240,
+        126,
+        127,
+        6,
+        1,
+        247
+      ],
+      "profile": "acme/p1"
+    }
+  }
+}

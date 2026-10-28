@@ -1,0 +1,38 @@
+{
+  "_about": "A family profile (acme/keys, kept in _profile.keys) may itself name the maker's profile: the nearest keys win.",
+  "resolve": "acme/synth",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "request": [
+        240,
+        126,
+        127,
+        6,
+        1,
+        247
+      ],
+      "reply": [
+        240,
+        126,
+        "{dev}",
+        6,
+        2,
+        67
+      ],
+      "reply_text": "keys",
+      "family": [
+        7,
+        0
+      ],
+      "member": [
+        1,
+        0
+      ],
+      "profile": "acme/keys"
+    }
+  }
+}

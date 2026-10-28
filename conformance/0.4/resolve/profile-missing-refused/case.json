@@ -1,0 +1,9 @@
+{
+  "_about": "A profile no file holds is refused.",
+  "resolve": "acme/synth",
+  "fault": {
+    "kind": "LinkMissing",
+    "file": "acme/synth",
+    "pointer": "/identity/profile"
+  }
+}

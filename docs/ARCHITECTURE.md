@@ -46,8 +46,8 @@ flowchart TB
 | Part | Responsibility | Owns |
 |---|---|---|
 | `schemas/<version>/` | the shape of each descriptor kind: device, profile, sound, fingerprint, firmware | the published JSON schemas |
-| conformance cases | the meaning: what a reader returns for each case, resolution included | input files and expected results |
-| `osd` | read a descriptor strictly into types, resolve maker profiles and shared MIDI (`midi_of`), report declared capabilities, convert between versions | the Rust types of the format |
+| conformance cases (`conformance/<version>/`) | the meaning: what a reader returns for each case, resolution included | input files and expected results |
+| `osd` (`osd/`, the Cargo workspace at the root) | read a descriptor strictly into types, resolve maker profiles and shared MIDI (`midi_of`), report declared capabilities, convert between versions | the Rust types of the format |
 | `examples/` | one readable example per descriptor kind | example files |
 
 ## 4. Data

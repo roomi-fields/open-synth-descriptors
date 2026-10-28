@@ -1,0 +1,9 @@
+{
+  "_about": "A midi_of link no file holds is refused.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "LinkMissing",
+    "file": "acme/a",
+    "pointer": "/midi_of"
+  }
+}

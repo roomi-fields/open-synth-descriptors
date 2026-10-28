@@ -1,0 +1,19 @@
+[package]
+name = "osd"
+version = "0.1.0"
+edition = "2021"
+description = "The reference reader of Open Synth Descriptors: descriptors read strictly into types, maker profiles and shared MIDI resolved."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/roomi-fields/open-synth-descriptors"
+keywords = ["midi", "osc", "synthesizer", "descriptor"]
+categories = ["multimedia::audio", "parser-implementations"]
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[dev-dependencies]
+jsonschema = { version = "0.60", default-features = false }
+
+[[bench]]
+name = "catalogue"
+harness = false

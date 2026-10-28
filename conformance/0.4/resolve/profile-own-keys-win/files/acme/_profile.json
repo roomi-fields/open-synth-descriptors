@@ -1,0 +1,37 @@
+{
+  "identity": {
+    "request": [
+      240,
+      126,
+      127,
+      6,
+      1,
+      247
+    ],
+    "reply": [
+      240,
+      126,
+      "{dev}",
+      6,
+      2,
+      67
+    ],
+    "firmware": {
+      "decode": "raw_bytes",
+      "at": [
+        10,
+        11
+      ]
+    }
+  },
+  "programs": {
+    "selects": "sound",
+    "program_change": true,
+    "banks": [
+      {
+        "name": "A",
+        "size": 128
+      }
+    ]
+  }
+}

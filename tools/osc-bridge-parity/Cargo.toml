@@ -1,0 +1,18 @@
+# Checks that `osd` resolves every driver of a catalogue into the document
+# osc-bridge resolves it into. It needs an osc-bridge checkout beside this
+# repository (../osc-bridge), so it stays outside the workspace:
+#
+#     SYNTHHUB_DEVICES=<catalogue> cargo test --manifest-path tools/osc-bridge-parity/Cargo.toml
+[package]
+name = "osc-bridge-parity"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dev-dependencies]
+osd = { path = "../../osd" }
+osc-bridge = { path = "../../../osc-bridge" }
+serde_json = "1"

@@ -13,3 +13,14 @@ jobs:
       - run: python tools/validate.py firmware examples/tribe-0.3-beta.firmware.json
       - run: python tools/validate.py fingerprint examples/minilogue.fingerprint.json
       - run: python tools/validate.py fingerprint examples/unknown-device.fingerprint.json
+      - run: python tools/validate.py device conformance/0.4/resolve/*/files
+      - run: python tools/validate.py profile conformance/0.4/resolve/*/files
+  reader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: wasm32-unknown-unknown, components: clippy }
+      - run: cargo test -p osd
+      - run: cargo clippy -p osd --all-targets -- -D warnings
+      - run: cargo build -p osd --target wasm32-unknown-unknown

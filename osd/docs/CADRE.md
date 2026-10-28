@@ -38,4 +38,4 @@
 
 ## Cost
 
-- **R16** Reading and resolving one device takes under 1 ms on a desktop machine, and the whole catalogue under 2 s; measured by a bench over the catalogue.
+- **R16** Reading and resolving one device takes under 50 µs per kB of the files it reads, and the whole catalogue under 2 s, on a desktop machine at rest; measured by a bench over the catalogue.
