@@ -69,14 +69,14 @@ fn name(id: &str) -> &str {
     id.split_once('/').unwrap().1
 }
 
-/// The published 0.4 schemas, one validator per kind.
+/// The published schemas of a version, one validator per kind.
 pub struct Schemas {
     validators: Vec<(osd::Kind, jsonschema::Validator)>,
 }
 
 impl Schemas {
-    pub fn load() -> Self {
-        let dir = repo().join("schemas/0.4");
+    pub fn load(version: &str) -> Self {
+        let dir = repo().join("schemas").join(version);
         let read = |kind: &str| -> serde_json::Value {
             let text = std::fs::read_to_string(dir.join(format!("{kind}.schema.json"))).unwrap();
             serde_json::from_str(&text).unwrap()
@@ -107,8 +107,14 @@ impl Schemas {
 
     /// The first error the schema of `kind` finds in `doc`, if any.
     pub fn check(&self, kind: osd::Kind, doc: &serde_json::Value) -> Option<String> {
+        self.errors(kind, doc).into_iter().next().map(|(at, e)| format!("{at}: {e}"))
+    }
+
+    /// Every error the schema of `kind` finds in `doc`: its JSON pointer and
+    /// what it says.
+    pub fn errors(&self, kind: osd::Kind, doc: &serde_json::Value) -> Vec<(String, String)> {
         let (_, v) = self.validators.iter().find(|(k, _)| *k == kind).unwrap();
-        v.iter_errors(doc).next().map(|e| format!("{}: {e}", e.instance_path()))
+        v.iter_errors(doc).map(|e| (e.instance_path().to_string(), e.to_string())).collect()
     }
 }
 

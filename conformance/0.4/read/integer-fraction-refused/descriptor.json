@@ -1,0 +1,9 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "midi_out": {
+    "default_channel": 1.5
+  }
+}

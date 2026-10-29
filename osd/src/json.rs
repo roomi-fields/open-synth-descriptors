@@ -4,7 +4,8 @@
 //! An object of the format is declared once with [`object!`]: its keys, the
 //! Rust field each one fills and the codec that checks its value. A codec
 //! reads a value and writes it back unchanged, so a descriptor read then
-//! written equals its text, key order aside.
+//! written equals its text, key order aside and an integer written without
+//! a fraction (`1.0` comes back `1`).
 
 use crate::{Fault, FaultKind};
 use serde_json::{Map, Number, Value};
@@ -228,7 +229,7 @@ impl<T: TryFrom<i64> + Into<i64> + Copy> Codec for Int<T> {
             (Some(a), None) => format!("an integer of at least {a}"),
             _ => "an integer".to_string(),
         };
-        let n = v.as_i64().ok_or_else(|| at.bad(range()))?;
+        let n = v.as_i64().or_else(|| whole(v.as_f64()?)).ok_or_else(|| at.bad(range()))?;
         if self.min.is_some_and(|m| n < m) || self.max.is_some_and(|m| n > m) {
             return Err(at.bad(range()));
         }
@@ -237,6 +238,13 @@ impl<T: TryFrom<i64> + Into<i64> + Copy> Codec for Int<T> {
     fn write(&self, t: &T) -> Option<Value> {
         Some(Value::from((*t).into()))
     }
+}
+
+/// The integer a number with a zero fraction is (`1.0`, `1e2`), as JSON
+/// Schema reads it; `None` for a fraction or a number beyond `i64`.
+fn whole(x: f64) -> Option<i64> {
+    const LIMIT: f64 = 9_223_372_036_854_775_808.0; // 2^63
+    (x.fract() == 0.0 && (-LIMIT..LIMIT).contains(&x)).then_some(x as i64)
 }
 
 /// A number, kept as written (an integer stays an integer).

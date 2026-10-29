@@ -59,7 +59,7 @@ fn every_file_written_back_equals_the_original() {
 #[test]
 fn every_driver_resolves_into_a_device_valid_against_the_schema() {
     let Some(dir) = catalogue() else { return };
-    let schemas = Schemas::load();
+    let schemas = Schemas::load("0.4");
     let bad = each(&dir.drivers(), &dir, |id, _| {
         let r = match osd::resolve(id, &dir) { Ok(r) => r, Err(f) => return Some(f.to_string()) };
         if r.files.first().map(String::as_str) != Some(id) {
@@ -74,7 +74,7 @@ fn every_driver_resolves_into_a_device_valid_against_the_schema() {
 #[test]
 fn every_file_model_validates_against_the_published_schemas() {
     let Some(dir) = catalogue() else { return };
-    let schemas = Schemas::load();
+    let schemas = Schemas::load("0.4");
     let mut bad = Vec::new();
     for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
         bad.extend(each(&ids, &dir, |_, text| {

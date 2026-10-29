@@ -16,7 +16,7 @@ const EXAMPLES: [(&str, Kind); 5] = [
 
 #[test]
 fn every_example_reads_writes_back_and_validates() {
-    let schemas = common::Schemas::load();
+    let schemas = common::Schemas::load("0.4");
     for (path, kind) in EXAMPLES {
         let text = std::fs::read_to_string(common::repo().join(path)).unwrap();
         let read = osd::read(&text, kind).unwrap_or_else(|f| panic!("{path}: {f}"));

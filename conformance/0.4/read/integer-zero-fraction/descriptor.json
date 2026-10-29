@@ -1,0 +1,19 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "midi_out": {
+    "default_channel": 1.0,
+    "note_offset": 1e1
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/cutoff",
+        "cc": 7.0,
+        "range": [0.0, 1.27e2]
+      }
+    ]
+  }
+}

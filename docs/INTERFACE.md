@@ -20,7 +20,7 @@ A conformance case expects either a result or one of the faults the `osd` interf
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.
-- The examples and the conformance inputs validate against their version's schemas.
+- The examples and the inputs of every conformance case that expects a result validate against their version's schemas; a reading case that expects a fault has exactly one schema error, at the pointer it names.
 - The `osd` reader passes every conformance case of every version it reads.
 
 ## Consumers
