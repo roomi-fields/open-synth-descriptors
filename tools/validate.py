@@ -18,7 +18,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
 SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
-VERSION = os.environ.get("OSD_VERSION") or max((p.name for p in SCHEMAS.iterdir()), key=lambda v: tuple(map(int, v.split("."))))
+VERSION = os.environ.get("OSD_VERSION") or max((p.name for p in SCHEMAS.iterdir() if p.is_dir()), key=lambda v: tuple(map(int, v.split("."))))
 HERE = SCHEMAS / VERSION
 
 
