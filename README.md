@@ -70,8 +70,14 @@ python tools/validate.py sound my-sound.json
 OSD_VERSION=0.1 python tools/validate.py device old-file.json   # an older version
 ```
 
-The schemas are also served at
-`https://synthhub.roomi-fields.com/osd/<version>/<name>.schema.json`.
+Every version's schemas have a permanent address,
+`https://w3id.org/osd/<version>/<name>.schema.json` (for example
+[`https://w3id.org/osd/0.4/device.schema.json`](https://w3id.org/osd/0.4/device.schema.json)),
+kept by the [W3C Permanent Identifier Community Group](https://w3id.org/)
+and redirecting to the schemas served from this repository. From 0.5, it is
+each schema's `$id`; versions 0.1 to 0.4 keep the `$id` they were published
+with, `https://synthhub.roomi-fields.com/osd/<version>/<name>.schema.json`,
+still served.
 
 ## Versions
 
