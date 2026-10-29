@@ -87,7 +87,14 @@ still served.
 ## Versions
 
 A version number names a fixed set of schemas: a published version never
-changes, a later one lives beside it.
+changes, a later one lives beside it. `schemas/SHA256SUMS` records the
+SHA-256 of every published schema file, and `cargo test -p osd` fails,
+naming the file, when one changes, disappears, or joins a published version.
+A new version is recorded when it is published, from the `schemas` folder:
+
+```sh
+sha256sum <version>/*.schema.json >> SHA256SUMS
+```
 
 - **0.4**: the firmware rule of an `identity` may read a reply carrying
   JSON (`decode: json`, the version in `field`), as the Electra One answers.
