@@ -9,12 +9,29 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install jsonschema
       - run: python tools/validate.py device examples/devices
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py sound examples/warm-pad.sound.json
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py firmware examples/tribe-0.3-beta.firmware.json
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py fingerprint examples/minilogue.fingerprint.json
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py fingerprint examples/unknown-device.fingerprint.json
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py device conformance/0.4/resolve/*/files
+        env: { OSD_VERSION: "0.4" }
       - run: python tools/validate.py profile conformance/0.4/resolve/*/files
+        env: { OSD_VERSION: "0.4" }
+      - run: python tools/validate.py device examples/0.5/synth.device.json conformance/0.5/read/device/descriptor.json
+        env: { OSD_VERSION: "0.5" }
+      - run: python tools/validate.py profile examples/0.5/acme.profile.json conformance/0.5/read/profile/descriptor.json
+        env: { OSD_VERSION: "0.5" }
+      - run: python tools/validate.py sound examples/0.5/warm-pad.sound.json conformance/0.5/read/sound/descriptor.json
+        env: { OSD_VERSION: "0.5" }
+      - run: python tools/validate.py firmware examples/0.5/tribe-0.3-beta.firmware.json conformance/0.5/read/firmware/descriptor.json
+        env: { OSD_VERSION: "0.5" }
+      - run: python tools/validate.py fingerprint examples/0.5/minilogue.fingerprint.json conformance/0.5/read/fingerprint/descriptor.json
+        env: { OSD_VERSION: "0.5" }
   reader:
     runs-on: ubuntu-latest
     steps:
