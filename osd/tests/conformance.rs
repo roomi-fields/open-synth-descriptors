@@ -148,3 +148,30 @@ fn every_file_of_a_resolution_case_that_expects_a_result_validates() {
 fn every_resolution_case_of_0_4_passes() {
     every_case(&common::repo().join("conformance/0.4/resolve"), 13, run_resolve);
 }
+
+#[test]
+fn criterion_5_every_reading_case_of_0_5_passes() {
+    every_case(&common::repo().join("conformance/0.5/read"), 6, run_read);
+}
+
+#[test]
+fn criterion_5_the_reading_cases_of_0_5_cover_each_kind_and_a_refused_version() {
+    let mut results = std::collections::BTreeSet::new();
+    let mut unread = 0;
+    for case in std::fs::read_dir(common::repo().join("conformance/0.5/read")).unwrap() {
+        let case = case.unwrap().path();
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+        let text = std::fs::read_to_string(case.join("descriptor.json")).unwrap();
+        assert!(text.contains("\"$schema\""), "{}: a 0.5 case carries its `$schema`", case.display());
+        if spec.get("result").is_some() {
+            results.insert(spec["read"].as_str().unwrap().to_string());
+        }
+        if spec["fault"]["kind"] == "UnreadVersion" {
+            unread += 1;
+        }
+    }
+    let all: std::collections::BTreeSet<String> =
+        ["device", "profile", "sound", "fingerprint", "firmware"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(results, all);
+    assert!(unread >= 1, "no case of an unread version");
+}

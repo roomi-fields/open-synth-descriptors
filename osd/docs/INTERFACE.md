@@ -1,15 +1,16 @@
 # osd — interface
 
-`osd` offers one entry per operation on a descriptor: read, write, resolve, convert. Every operation returns its result or a typed fault; none performs I/O. The exports below are the target of the first epic: `read`, `write`, `resolve` and the types of 0.4 exist, `convert` comes with version 0.5. Once the framework's Rust tooling exists, the list between the generated markers is drawn from the crate's rustdoc comments.
+`osd` offers one entry per operation on a descriptor: read, write, resolve, convert. Every operation returns its result or a typed fault; none performs I/O. The exports below are the target of the first epic: `read`, `write`, `resolve`, `convert` and the types of 0.4 and 0.5 exist. Once the framework's Rust tooling exists, the list between the generated markers is drawn from the crate's rustdoc comments.
 
 ## Overview
 
 | Export | Shape | Returns | Refuses |
 |---|---|---|---|
-| `read` | `fn read(text: &str, kind: Kind) -> Result<Descriptor, Fault>` | the typed descriptor | unknown field, wrong type, missing field, unread version |
+| `read` | `fn read(text: &str, kind: Kind) -> Result<Descriptor, Fault>` | the typed descriptor, in the version its `$schema` names (0.4 when it has none) | unknown field, wrong type, missing field, unread version |
 | `write` | `fn write(d: &Descriptor) -> String` | the descriptor as JSON text: what `read` returned, key for key | — |
 | `resolve` | `fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault>` | a `Resolved`: the device with profiles and shared MIDI applied, the ids of the files it was built from, its capabilities | each file as `read` refuses it, missing link, cycle, depth over 8, a key a `midi_of` file may not hold |
-| `convert` | `fn convert(text: &str, to: Version) -> Result<String, Fault>` | the descriptor written in version `to` | a field the target cannot hold |
+| `read_as` | `fn read_as(text: &str, kind: Kind, version: Version) -> Result<Descriptor, Fault>` | the typed descriptor, read in the version the caller names | as `read`; `Missing` at `/$schema` for a 0.5 descriptor without it; `BadValue` at `/$schema` when it names another version |
+| `convert` | `fn convert(text: &str, kind: Kind) -> Result<String, Fault>` | the 0.5 text of a 0.4 descriptor: `$schema` (w3id) as first key, values unchanged, laid out as `write`; a 0.5 text comes back as it is | as `read` for a text it cannot read; `NotConvertible` for a field 0.5 cannot hold (none yet) |
 | `Files` | `trait Files { fn get(&self, id: &str) -> Option<String>; }` | the text of a descriptor by catalogue id (`korg/minilogue`; the profile `korg/logue` is `korg/_profile.logue`); implemented for `BTreeMap` and `HashMap` of ids to texts | — |
 | `Kind`, `Version`, `Capability`, `FaultKind` | closed enums | — | — |
 | `Resolved` | `device`, `files`, `capabilities` | — | — |

@@ -93,7 +93,7 @@ fn a_version_it_does_not_read_is_refused() {
     assert!(osd::read(&sound("https://synthhub.roomi-fields.com/osd/0.4/sound.schema.json"), Kind::Sound).is_ok());
     refused(&sound("https://synthhub.roomi-fields.com/osd/0.3/sound.schema.json"), Kind::Sound, FaultKind::UnreadVersion, "/$schema");
     refused(&sound("https://example.com/other.json"), Kind::Sound, FaultKind::BadValue, "/$schema");
-    assert_eq!(osd::VERSIONS, &[osd::Version::V0_4]);
+    assert_eq!(osd::VERSIONS, &[osd::Version::V0_4, osd::Version::V0_5]);
 }
 
 #[test]

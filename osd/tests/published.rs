@@ -54,10 +54,22 @@ fn the_published_versions_are_unchanged() {
     let schemas = common::repo().join("schemas");
     let sums = std::fs::read_to_string(schemas.join("SHA256SUMS")).unwrap();
     let recorded = recorded(&sums);
-    for version in ["0.1", "0.2", "0.3", "0.4"] {
+    for version in ["0.1", "0.2", "0.3", "0.4", "0.5"] {
         assert!(recorded.keys().any(|p| p.starts_with(&format!("{version}/"))), "{version} not recorded");
     }
     assert_eq!(faults(&schemas, &sums), Vec::<String>::new());
+}
+
+#[test]
+fn criterion_12_the_checksums_record_the_five_files_of_0_5() {
+    let sums = std::fs::read_to_string(common::repo().join("schemas/SHA256SUMS")).unwrap();
+    let mut files: Vec<String> = recorded(&sums).into_keys().filter(|p| p.starts_with("0.5/")).collect();
+    files.sort();
+    let want: Vec<String> = ["device", "fingerprint", "firmware", "profile", "sound"]
+        .iter()
+        .map(|k| format!("0.5/{k}.schema.json"))
+        .collect();
+    assert_eq!(files, want);
 }
 
 #[test]

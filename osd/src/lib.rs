@@ -45,6 +45,7 @@ pub enum Kind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Version {
     V0_4,
+    V0_5,
 }
 
 impl Version {
@@ -52,12 +53,13 @@ impl Version {
     pub fn name(self) -> &'static str {
         match self {
             Version::V0_4 => "0.4",
+            Version::V0_5 => "0.5",
         }
     }
 }
 
 /// The versions this crate reads.
-pub const VERSIONS: &[Version] = &[Version::V0_4];
+pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5];
 
 /// What a driver requires from its reader beyond the declarative fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -183,26 +185,114 @@ pub fn write(d: &Descriptor) -> String {
 /// that version's schema of the kind.
 pub(crate) struct SchemaUrl(pub &'static str);
 
-const SCHEMA_HOST: &str = "https://synthhub.roomi-fields.com/osd/";
+/// Where the schemas of 0.4 are served.
+const HOST_0_4: &str = "https://synthhub.roomi-fields.com/osd/";
+/// Where the schemas of 0.5 are served (w3id).
+const HOST_W3ID: &str = "https://w3id.org/osd/";
+
+impl Version {
+    fn host(self) -> &'static str {
+        match self {
+            Version::V0_4 => HOST_0_4,
+            Version::V0_5 => HOST_W3ID,
+        }
+    }
+}
 
 impl Codec for SchemaUrl {
     type T = Version;
     fn read(&self, v: &Value, at: &At) -> Result<Version, Fault> {
         let s = v.as_str().unwrap_or_default();
         let tail = format!("/{}.schema.json", self.0);
-        let version = s.strip_prefix(SCHEMA_HOST).and_then(|r| r.strip_suffix(tail.as_str()));
-        match version {
-            Some(name) => VERSIONS.iter().copied().find(|x| x.name() == name).ok_or_else(|| {
-                at.fault(FaultKind::UnreadVersion, format!("version {name} is not read (only {})", names()))
-            }),
+        let found = [HOST_0_4, HOST_W3ID].iter().find_map(|host| {
+            let name = s.strip_prefix(host)?.strip_suffix(tail.as_str())?;
+            Some((*host, name))
+        });
+        match found {
+            Some((host, name)) => VERSIONS.iter().copied().find(|x| x.name() == name && x.host() == host).ok_or_else(
+                || at.fault(FaultKind::UnreadVersion, format!("version {name} is not read (only {})", names())),
+            ),
             None => Err(at.fault(FaultKind::BadValue, format!("the URL of an OSD {} schema", self.0))),
         }
     }
     fn write(&self, t: &Version) -> Option<Value> {
-        Some(Value::String(format!("{SCHEMA_HOST}{}/{}.schema.json", t.name(), self.0)))
+        Some(Value::String(format!("{}{}/{}.schema.json", t.host(), t.name(), self.0)))
+    }
+}
+
+/// The `$schema` of a kind whose 0.4 schema defines no such field: only the
+/// URL of version 0.5 is read; one of 0.4 is an unknown field.
+pub(crate) struct SchemaUrlFrom05(pub &'static str);
+
+impl Codec for SchemaUrlFrom05 {
+    type T = Version;
+    fn read(&self, v: &Value, at: &At) -> Result<Version, Fault> {
+        match SchemaUrl(self.0).read(v, at)? {
+            Version::V0_4 => Err(at.fault(FaultKind::UnknownField, "$schema is not a field of 0.4 here".to_string())),
+            x => Ok(x),
+        }
+    }
+    fn write(&self, t: &Version) -> Option<Value> {
+        SchemaUrl(self.0).write(t)
     }
 }
 
 fn names() -> String {
     VERSIONS.iter().map(|v| v.name()).collect::<Vec<_>>().join(", ")
+}
+
+impl Descriptor {
+    /// The version its `$schema` names, when it carries one.
+    fn schema(&self) -> Option<Version> {
+        match self {
+            Descriptor::Device(x) => x.schema,
+            Descriptor::Profile(x) => x.schema,
+            Descriptor::Sound(x) => x.schema,
+            Descriptor::Fingerprint(x) => x.schema,
+            Descriptor::Firmware(x) => x.schema,
+        }
+    }
+}
+
+/// The descriptor of kind `kind` that `text` holds, read in `version`: a
+/// 0.5 descriptor must carry its `$schema`; one that names another version
+/// is refused.
+pub fn read_as(text: &str, kind: Kind, version: Version) -> Result<Descriptor, Fault> {
+    let d = read(text, kind)?;
+    let at = At::Key(&At::Root, "$schema");
+    match (d.schema(), version) {
+        (Some(s), v) if s == v => Ok(d),
+        (None, Version::V0_4) => Ok(d),
+        (None, v) => Err(at.fault(FaultKind::Missing, format!("a {} descriptor carries `$schema`", v.name()))),
+        (Some(s), v) => Err(at.fault(
+            FaultKind::BadValue,
+            format!("`$schema` names version {}, read as {}", s.name(), v.name()),
+        )),
+    }
+}
+
+/// The 0.5 text of a 0.4 descriptor: its `$schema` (the first key) names
+/// 0.5, every value is kept, the text is laid out as [`write`] does. A text
+/// already 0.5 comes back as it is.
+pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
+    let d = read(text, kind)?;
+    if d.schema() == Some(Version::V0_5) {
+        return Ok(text.to_string());
+    }
+    let name = match kind {
+        Kind::Device => "device",
+        Kind::Profile => "profile",
+        Kind::Sound => "sound",
+        Kind::Fingerprint => "fingerprint",
+        Kind::Firmware => "firmware",
+    };
+    let Ok(Value::Object(written)) = serde_json::from_str::<Value>(&write(&d)) else {
+        unreachable!("write gives a JSON object")
+    };
+    let mut out = serde_json::Map::new();
+    out.insert("$schema".into(), SchemaUrl(name).write(&Version::V0_5).unwrap_or_default());
+    out.extend(written.into_iter().filter(|(k, _)| k != "$schema"));
+    let mut text = serde_json::to_string_pretty(&Value::Object(out)).unwrap_or_default();
+    text.push('\n');
+    Ok(text)
 }

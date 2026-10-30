@@ -6,7 +6,7 @@ use crate::json::{
     at_least, closed, int, list, obj, object, words, Any, At, Bool, Codec, Dict, Nullable, Object, Opt, Pair,
     ADDRESS, INTEGER, STRING,
 };
-use crate::{Fault, FaultKind};
+use crate::{Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 
@@ -22,6 +22,7 @@ object! {
     /// music software speaks MIDI or OSC, from one source and for one
     /// firmware.
     Device {
+        "$schema" schema: Option<Version> = Opt(SchemaUrlFrom05("device")),
         "device" device: DeviceInfo = obj(),
         /// The driver whose MIDI this firmware answers to unchanged
         /// (`maker/file`): this file then only says what differs.
@@ -54,6 +55,7 @@ object! {
     /// A maker profile: what several devices of a maker or of a family
     /// share, taken up by the device blocks that name it.
     Profile {
+        "$schema" schema: Option<Version> = Opt(SchemaUrlFrom05("profile")),
         "identity" identity: Option<Identity> = Opt(obj()),
         "programs" programs: Option<Programs> = Opt(obj()),
     }

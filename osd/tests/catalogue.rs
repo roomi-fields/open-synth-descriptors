@@ -85,6 +85,48 @@ fn every_file_model_validates_against_the_published_schemas() {
     report("models not valid", bad);
 }
 
+#[test]
+fn criterion_5_every_converted_file_reads_in_0_5_validates_and_converts_to_itself() {
+    let Some(dir) = catalogue() else { return };
+    let schemas = Schemas::load("0.5");
+    let mut bad = Vec::new();
+    for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
+        bad.extend(each(&ids, &dir, |_, text| {
+            let out = match osd::convert(text, kind) { Ok(t) => t, Err(f) => return Some(f.to_string()) };
+            if let Err(f) = osd::read_as(&out, kind, osd::Version::V0_5) {
+                return Some(f.to_string());
+            }
+            if osd::convert(&out, kind).as_deref() != Ok(out.as_str()) {
+                return Some("converting the 0.5 text changes it".into());
+            }
+            let (before, after): (Value, Value) = (serde_json::from_str(text).unwrap(), serde_json::from_str(&out).unwrap());
+            let mut after_without = after.clone();
+            after_without.as_object_mut().unwrap().remove("$schema");
+            if after_without != before {
+                return Some(first_difference(&before, &after_without, ""));
+            }
+            schemas.check(kind, &after)
+        }));
+    }
+    report("files not converted into 0.5", bad);
+}
+
+#[test]
+fn criterion_13_a_community_file_is_neither_a_driver_nor_a_profile() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().to_path_buf();
+    let maker = root.join("acme");
+    std::fs::create_dir_all(&maker).unwrap();
+    std::fs::write(maker.join("synth.json"), r#"{"device": {"name": "S", "osc_prefix": "/s"}}"#).unwrap();
+    std::fs::write(maker.join("_profile.json"), r#"{"identity": {"reply_text": "acme"}}"#).unwrap();
+    std::fs::write(maker.join("_community.json"), r#"{"links": []}"#).unwrap();
+    std::fs::write(maker.join("_community.discord.json"), r#"{"links": []}"#).unwrap();
+    let dir = common::Folder(root);
+    let (drivers, profiles) = (dir.drivers(), dir.profiles());
+    assert_eq!(drivers, ["acme/synth"]);
+    assert_eq!(profiles, ["acme/_profile"]);
+}
+
 /// Where two documents first differ, as a JSON pointer.
 fn first_difference(a: &Value, b: &Value, at: &str) -> String {
     match (a, b) {
