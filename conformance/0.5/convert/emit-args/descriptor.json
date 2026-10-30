@@ -1,0 +1,7 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "replies": [
+    {"match_osc": "/m/{a}", "emit_osc": "/r/{id} {value} {x}"},
+    {"match_osc": "/n", "emit_osc": "/plain"}
+  ]
+}

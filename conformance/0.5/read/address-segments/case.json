@@ -1,0 +1,15 @@
+{
+  "_about": "An address with captures is an array of segments, each a string without brace or a capture, concatenated and never split on a slash; one without captures is a string. Two captures side by side are read where an address is emitted.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": ["/cc/", {"capture": "num"}], "forward": {"path": ["/p/", {"capture": "n"}, {"capture": "m"}]}},
+      {"osc": "/plain"}
+    ],
+    "replies": [
+      {"match_osc": ["/m/", {"capture": "a"}, "-", {"capture": "b"}], "emit_osc": ["/r/", {"capture": "a"}]}
+    ]
+  }
+}

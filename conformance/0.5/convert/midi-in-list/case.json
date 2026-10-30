@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.4 midi_in becomes the list of the types it names, in the order of the schema; each template is the canonical one of its type, which the specification fixes.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "midi_in": ["note_on", "cc"]
+  }
+}

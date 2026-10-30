@@ -1,0 +1,18 @@
+{
+  "_about": "A 0.4 address with {name} becomes an array of segments, each a string or a capture; one without brace stays a string. Two captures side by side are allowed where an address is emitted (forward.path, emit_osc).",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": ["/cc/", {"capture": "num"}, "/to/", {"capture": "bus"}], "forward": {"path": ["/p/", {"capture": "n"}, {"capture": "m"}], "args": []}},
+      {"osc": "/plain"}
+    ],
+    "replies": [
+      {"match_osc": ["/m/", {"capture": "a"}, "-", {"capture": "b"}], "emit_osc": ["/r/", {"capture": "a"}]}
+    ],
+    "subscriptions": [
+      {"on": "startup", "forward": {"path": ["/s/", {"capture": "n"}]}}
+    ]
+  }
+}

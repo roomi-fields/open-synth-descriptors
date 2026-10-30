@@ -57,8 +57,20 @@ fn criterion_8_every_value_is_unchanged_and_schema_is_the_first_key_in_w3id() {
         let first = doc.as_object().unwrap().iter().next().unwrap();
         let want = format!("https://w3id.org/osd/0.5/{}.schema.json", name(kind));
         assert_eq!((first.0.as_str(), first.1.as_str()), ("$schema", Some(want.as_str())), "{kind:?}");
-        assert_eq!(without_schema(&out), without_schema(&text), "{kind:?}: values changed");
+        assert_eq!(without_schema(&out), without_schema_midi_in_listed(&text), "{kind:?}: values changed");
     }
+}
+
+/// The document without its `$schema`, its 0.4 `midi_in` object written as
+/// the 0.5 list of its types, in the order of the schema (OSD-b91.2.5).
+fn without_schema_midi_in_listed(text: &str) -> Value {
+    let mut v = without_schema(text);
+    if let Some(Value::Object(m)) = v.get("midi_in").cloned() {
+        let order = ["note_on", "note_off", "cc", "pitchbend", "aftertouch", "poly_aftertouch", "program_change"];
+        let list: Vec<Value> = order.iter().filter(|t| m.contains_key(**t)).map(|t| json!(t)).collect();
+        v["midi_in"] = Value::Array(list);
+    }
+    v
 }
 
 #[test]

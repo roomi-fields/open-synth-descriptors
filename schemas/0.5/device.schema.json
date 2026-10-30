@@ -189,51 +189,21 @@
       "description": "Playing it: notes, pitch bend, aftertouch, program change."
     },
     "midi_in": {
-      "type": "object",
-      "properties": {
-        "note_on": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received note on is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "note_off": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received note off is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "cc": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received cc is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "pitchbend": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received pitchbend is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "aftertouch": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received aftertouch is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "poly_aftertouch": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received poly aftertouch is reported at.",
-          "x-osd-extension": "osc-bridge"
-        },
-        "program_change": {
-          "type": "string",
-          "description": "osc-bridge extension: the address a received program change is reported at.",
-          "x-osd-extension": "osc-bridge"
-        }
+      "type": "array",
+      "items": {
+        "enum": [
+          "note_on",
+          "note_off",
+          "cc",
+          "pitchbend",
+          "aftertouch",
+          "poly_aftertouch",
+          "program_change"
+        ]
       },
-      "patternProperties": {
-        "^_": {
-          "description": "A note for people (provenance, caveats, usage); never read by a program."
-        }
-      },
-      "additionalProperties": false,
-      "description": "What the device sends while played, and how it is reported."
+      "uniqueItems": true,
+      "x-osd-extension": "osc-bridge",
+      "description": "osc-bridge extension: the MIDI messages the device sends while played and that are reported, each at the OSC address the specification fixes, under the device's prefix; what follows the space are the OSC arguments, in this order. note_on: /note/on {note} {velocity} {channel}. note_off: /note/off {note} {velocity} {channel}. cc: /cc/{num} {value} {channel}. pitchbend: /pitchbend {value_u14} {channel}. aftertouch: /aftertouch {value} {channel}. poly_aftertouch: /poly_aftertouch {note} {value} {channel}. program_change: /program_change {program} {channel}. An empty list reports nothing."
     },
     "replies": {
       "type": "array",
@@ -321,6 +291,107 @@
     }
   },
   "$defs": {
+    "capture_segment": {
+      "type": "object",
+      "required": ["capture"],
+      "additionalProperties": false,
+      "properties": {
+        "capture": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+      },
+      "description": "A capture in an address: the part of the address that takes the value of the field of this name."
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^[^{}]*$" },
+          { "$ref": "#/$defs/capture_segment" }
+        ]
+      },
+      "contains": { "$ref": "#/$defs/capture_segment" },
+      "description": "An address with captures: the concatenation of its segments, never split on a slash. At least one capture, at most 16 segments; an address without capture is a string."
+    },
+    "emitted_segments": {
+      "$ref": "#/$defs/segments"
+    },
+    "recognised_segments": {
+      "allOf": [
+        { "$ref": "#/$defs/segments" },
+        { "$comment": "two captures side by side are ambiguous where an address is recognised: none of the 15 pairs of neighbours (the bound is 16 segments) is two objects",
+          "allOf": [
+        { "not": { "prefixItems": [{"type":"object"}, {"type":"object"}], "minItems": 2 } },
+        { "not": { "prefixItems": [true, {"type":"object"}, {"type":"object"}], "minItems": 3 } },
+        { "not": { "prefixItems": [true, true, {"type":"object"}, {"type":"object"}], "minItems": 4 } },
+        { "not": { "prefixItems": [true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 5 } },
+        { "not": { "prefixItems": [true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 6 } },
+        { "not": { "prefixItems": [true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 7 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 8 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 9 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 10 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 11 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 12 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 13 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 14 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 15 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 16 } }
+          ]
+        }
+      ]
+    },
+    "emitted_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{}]*$" },
+        { "$ref": "#/$defs/emitted_segments" }
+      ],
+      "description": "An address emitted: a string without brace, or an array of segments (a string without brace or a capture); captures may sit side by side."
+    },
+    "reported_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{} ]*$" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/emitted_segments" },
+            { "items": { "oneOf": [{ "type": "object" }, { "type": "string", "pattern": "^[^ ]*$" }] } }
+          ]
+        }
+      ]
+    },
+    "recognised_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{}]*$" },
+        { "$ref": "#/$defs/recognised_segments" }
+      ],
+      "description": "An address recognised: a string without brace, or an array of segments with no two captures side by side."
+    },
+    "command_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^/[^{}]*$" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/recognised_segments" },
+            { "prefixItems": [{ "type": "string", "pattern": "^/" }] }
+          ]
+        }
+      ],
+      "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix: a string starting with / and without brace, or segments whose first is a string starting with /."
+    },
+    "osc_value": {
+      "oneOf": [
+        { "type": ["integer", "number", "boolean"] },
+        { "type": "string", "pattern": "^[^{}]*$" },
+        {
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": { "arg": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } },
+          "description": "The value of an argument of the command."
+        },
+        { "$ref": "#/$defs/capture_segment" }
+      ],
+      "description": "An OSC argument: a JSON literal, {\"arg\": name} (an argument of the command) or {\"capture\": name} (a field captured in the message)."
+    },
     "frame_part": {
       "description": "An element of a frame that is not a byte: an object of one key of its nature, with the keys that qualify it.",
       "oneOf": [
@@ -1067,17 +1138,12 @@
       "type": "object",
       "properties": {
         "path": {
-          "type": "string"
+          "$ref": "#/$defs/emitted_address"
         },
         "args": {
           "type": "array",
           "items": {
-            "type": [
-              "integer",
-              "number",
-              "boolean",
-              "string"
-            ]
+            "$ref": "#/$defs/osc_value"
           }
         }
       },
@@ -1090,15 +1156,13 @@
       "required": [
         "path"
       ],
-      "description": "The OSC message sent to a software; {name} takes an argument."
+      "description": "The OSC message sent to a software; {\"arg\": name} takes an argument of the command, {\"capture\": name} a capture."
     },
     "command": {
       "type": "object",
       "properties": {
         "osc": {
-          "type": "string",
-          "pattern": "^/",
-          "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix."
+          "$ref": "#/$defs/command_address"
         },
         "section": {
           "type": "string"
@@ -1235,7 +1299,7 @@
           "description": "A message recognised, element by element: a byte, any, a capture, or an object of its nature."
         },
         "match_osc": {
-          "type": "string"
+          "$ref": "#/$defs/recognised_address"
         },
         "match_args": {
           "type": "array",
@@ -1262,8 +1326,15 @@
           }
         },
         "emit_osc": {
-          "type": "string",
-          "description": "The address it is reported at, with {placeholders} from the message."
+          "$ref": "#/$defs/reported_address",
+          "description": "The address it is reported at: a string without space or brace, or segments whose captures take the message's captured fields."
+        },
+        "emit_args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/osc_value"
+          },
+          "description": "The OSC arguments it is reported with, in order; absent: none."
         },
         "script": {
           "type": "string",

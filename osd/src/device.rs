@@ -4,7 +4,10 @@
 
 use crate::json::{
     at_least, closed, int, list, obj, object, words, Any, At, Bool, Codec, Dict, Nullable, Object, Opt, Pair,
-    ADDRESS, INTEGER, STRING,
+    Word, ADDRESS, INTEGER, STRING,
+};
+use crate::address::{
+    check_address, convert_address, name_ok, named, split_template, Address, AddressCodec, AddressPlace,
 };
 use crate::frame::{
     check_expr, check_frame, convert_expr, convert_token, Expr, FrameToken, Place, EXPR, FRAME_TOKEN, MATCH_TOKEN,
@@ -42,7 +45,7 @@ object! {
         "commands" commands: Option<Vec<Command>> = Opt(list(obj())),
         "triggers" triggers: Option<Triggers> = Opt(obj()),
         "midi_out" midi_out: Option<MidiOut> = Opt(obj()),
-        "midi_in" midi_in: Option<MidiIn> = Opt(obj()),
+        "midi_in" midi_in: Option<MidiIn> = Opt(MidiInCodec),
         "replies" replies: Option<Vec<Reply>> = Opt(list(obj())),
         "subscriptions" subscriptions: Option<Vec<Subscription>> = Opt(list(obj())),
         /// osc-bridge extension: addresses handled by a script only.
@@ -114,10 +117,67 @@ object! {
     }
 }
 
+words! {
+    /// A MIDI message a device sends while played, in the order of the schema.
+    MidiType {
+        NoteOn = "note_on", NoteOff = "note_off", Cc = "cc", Pitchbend = "pitchbend", Aftertouch = "aftertouch",
+        PolyAftertouch = "poly_aftertouch", ProgramChange = "program_change",
+    }
+}
+
+/// The OSC address each MIDI message is reported at, under the device's
+/// prefix, with its OSC arguments after the space in this order: fixed by
+/// the specification.
+pub(crate) const MIDI_TEMPLATES: [(MidiType, &str); 7] = [
+    (MidiType::NoteOn, "/note/on {note} {velocity} {channel}"),
+    (MidiType::NoteOff, "/note/off {note} {velocity} {channel}"),
+    (MidiType::Cc, "/cc/{num} {value} {channel}"),
+    (MidiType::Pitchbend, "/pitchbend {value_u14} {channel}"),
+    (MidiType::Aftertouch, "/aftertouch {value} {channel}"),
+    (MidiType::PolyAftertouch, "/poly_aftertouch {note} {value} {channel}"),
+    (MidiType::ProgramChange, "/program_change {program} {channel}"),
+];
+
+/// What the device sends while played that is reported (an osc-bridge
+/// extension).
+#[derive(Clone, Debug, PartialEq)]
+pub enum MidiIn {
+    /// 0.4: the address each message is reported at.
+    Templates(MidiTemplates),
+    /// 0.5: the types of the messages reported, whose addresses the
+    /// specification fixes ([`MIDI_TEMPLATES`]).
+    Types(Vec<MidiType>),
+}
+
+pub(crate) struct MidiInCodec;
+
+impl Codec for MidiInCodec {
+    type T = MidiIn;
+    fn read(&self, v: &Value, at: &At) -> Result<MidiIn, Fault> {
+        match v {
+            Value::Array(_) => {
+                let types = list(closed::<MidiType>()).read(v, at)?;
+                if let Some(i) = (1..types.len()).find(|i| types[..*i].contains(&types[*i])) {
+                    return Err(at.fault(FaultKind::BadValue, format!("each type once ({} is twice)", types[i].word())));
+                }
+                Ok(MidiIn::Types(types))
+            }
+            Value::Object(_) => obj::<MidiTemplates>().read(v, at).map(MidiIn::Templates),
+            _ => Err(at.fault(FaultKind::BadValue, "a list of message types")),
+        }
+    }
+    fn write(&self, t: &MidiIn) -> Option<Value> {
+        match t {
+            MidiIn::Templates(x) => Some(x.write()),
+            MidiIn::Types(l) => list(closed::<MidiType>()).write(l),
+        }
+    }
+}
+
 object! {
     /// What the device sends while played, and the address (an osc-bridge
-    /// extension) each message is reported at.
-    MidiIn {
+    /// extension) each message is reported at, in 0.4.
+    MidiTemplates {
         "note_on" note_on: Option<String> = Opt(STRING),
         "note_off" note_off: Option<String> = Opt(STRING),
         "cc" cc: Option<String> = Opt(STRING),
@@ -194,6 +254,10 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
         frames.push(("/params/set_frame".into(), Place::Sent, &p.set_frame));
     }
     for (n, c) in d.commands.iter().flatten().enumerate() {
+        check_address(&c.osc, AddressPlace::Command, &format!("/commands/{n}/osc"), v05)?;
+        if let Some(f) = &c.forward {
+            f.check(&format!("/commands/{n}/forward"), v05)?;
+        }
         if let Some(f) = &c.frame {
             frames.push((format!("/commands/{n}/frame"), Place::Sent, f));
         }
@@ -201,7 +265,46 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
             check_expr(&p.expr, &format!("/commands/{n}/pre/{m}/expr"), v05)?;
         }
     }
+    for (n, s) in d.subscriptions.iter().flatten().enumerate() {
+        s.forward.check(&format!("/subscriptions/{n}/forward"), v05)?;
+    }
+    match (&d.midi_in, v05) {
+        (Some(MidiIn::Templates(_)), true) => {
+            return Err(Fault {
+                kind: FaultKind::BadValue,
+                file: None,
+                pointer: "/midi_in".into(),
+                rule: "a list of message types (an object of addresses is 0.4)".into(),
+            })
+        }
+        (Some(MidiIn::Types(_)), false) => {
+            return Err(Fault {
+                kind: FaultKind::BadValue,
+                file: None,
+                pointer: "/midi_in".into(),
+                rule: "an object of addresses (a list of message types is 0.5)".into(),
+            })
+        }
+        _ => {}
+    }
     for (n, r) in d.replies.iter().flatten().enumerate() {
+        let at = format!("/replies/{n}");
+        if let Some(m) = &r.match_osc {
+            check_address(m, AddressPlace::Recognised, &format!("{at}/match_osc"), v05)?;
+        }
+        check_address(&r.emit_osc, AddressPlace::Reported, &format!("{at}/emit_osc"), v05)?;
+        match (&r.emit_args, v05) {
+            (Some(_), false) => {
+                return Err(Fault {
+                    kind: FaultKind::UnknownField,
+                    file: None,
+                    pointer: format!("{at}/emit_args"),
+                    rule: "emit_args is not a field of 0.4 (the arguments follow the first space of emit_osc)".into(),
+                })
+            }
+            (Some(a), true) => check_scalars(a, &format!("{at}/emit_args"), v05)?,
+            _ => {}
+        }
         if let Some(f) = &r.match_frame {
             frames.push((format!("/replies/{n}/match_frame"), Place::Matched, f));
         }
@@ -283,14 +386,85 @@ impl Device {
                 p.expr = convert_expr(&p.expr, &At::Key(&At::Index(&pre, m), "expr"))?;
             }
         }
+        for (n, c) in self.commands.iter_mut().flatten().enumerate() {
+            let at = At::Index(&commands, n);
+            c.osc = convert_address(&c.osc, AddressPlace::Command, &At::Key(&at, "osc"))?;
+            if let Some(f) = c.forward.take() {
+                c.forward = Some(f.into_structures(&At::Key(&at, "forward"))?);
+            }
+        }
+        let subscriptions = At::Key(&root, "subscriptions");
+        for (n, s) in self.subscriptions.iter_mut().flatten().enumerate() {
+            let at = At::Key(&At::Index(&subscriptions, n), "forward");
+            s.forward = s.forward.clone().into_structures(&at)?;
+        }
+        if let Some(MidiIn::Templates(t)) = &self.midi_in {
+            self.midi_in = Some(MidiIn::Types(t.types(&At::Key(&root, "midi_in"))?));
+        }
         let replies = At::Key(&root, "replies");
         for (n, r) in self.replies.iter_mut().flatten().enumerate() {
+            let at = At::Index(&replies, n);
             if let Some(f) = &mut r.match_frame {
-                convert_frame(f, Place::Matched, &At::Key(&At::Index(&replies, n), "match_frame"))?;
+                convert_frame(f, Place::Matched, &At::Key(&at, "match_frame"))?;
             }
+            if let Some(m) = &r.match_osc {
+                r.match_osc = Some(convert_address(m, AddressPlace::Recognised, &At::Key(&at, "match_osc"))?);
+            }
+            convert_reported(r, &At::Key(&at, "emit_osc"))?;
         }
         Ok(self)
     }
+}
+
+impl MidiTemplates {
+    /// The types of the messages it names, in the order of the schema; a
+    /// template other than the canonical one of its type is a fault at the
+    /// type.
+    fn types(&self, at: &At) -> Result<Vec<MidiType>, Fault> {
+        let templates = [
+            (MidiType::NoteOn, &self.note_on),
+            (MidiType::NoteOff, &self.note_off),
+            (MidiType::Cc, &self.cc),
+            (MidiType::Pitchbend, &self.pitchbend),
+            (MidiType::Aftertouch, &self.aftertouch),
+            (MidiType::PolyAftertouch, &self.poly_aftertouch),
+            (MidiType::ProgramChange, &self.program_change),
+        ];
+        let mut out = Vec::new();
+        for (t, template) in templates {
+            let Some(template) = template else { continue };
+            let canonical = MIDI_TEMPLATES.iter().find(|(x, _)| *x == t).map(|(_, c)| *c).unwrap_or_default();
+            if template != canonical {
+                return Err(At::Key(at, t.word()).fault(
+                    FaultKind::NotConvertible,
+                    format!("the template of {} is {template:?}, the specification fixes {canonical:?}", t.word()),
+                ));
+            }
+            out.push(t);
+        }
+        Ok(out)
+    }
+}
+
+/// The 0.5 form of a reply's `emit_osc`: the text up to the first space is
+/// the address, each `{name}` after it a captured field in `emit_args`.
+fn convert_reported(r: &mut Reply, at: &At) -> Result<(), Fault> {
+    let Address::Text(whole) = &r.emit_osc else { return Ok(()) };
+    let not = |why: String| at.fault(FaultKind::NotConvertible, format!("the reply {whole:?}: {why}"));
+    let (address, rest) = whole.split_once(' ').unwrap_or((whole, ""));
+    let address = split_template(address, false).map_err(not)?;
+    let mut args = Vec::new();
+    for a in rest.split_whitespace() {
+        match a.strip_prefix('{').and_then(|x| x.strip_suffix('}')) {
+            Some(n) if name_ok(n) => args.push(Scalar::Capture(n.to_string())),
+            _ => return Err(not(format!("the argument {a:?} is not one {{name}}"))),
+        }
+    }
+    r.emit_osc = address;
+    if !args.is_empty() {
+        r.emit_args = Some(args);
+    }
+    Ok(())
 }
 
 impl Profile {
@@ -522,13 +696,20 @@ object! {
     }
 }
 
-/// A value an OSC message carries: a number (kept as written), a boolean or
-/// a string.
+/// An argument of an OSC message: a number (kept as written), a boolean or
+/// a string; in 0.5 also an argument of the command or a field captured in
+/// the message recognised.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {
     Number(Number),
     Bool(bool),
+    /// In 0.4 a string, `{name}` taking an argument; in 0.5 a literal
+    /// without brace.
     String(String),
+    /// 0.5: `{"arg": "name"}`, the value of an argument of the command.
+    Arg(String),
+    /// 0.5: `{"capture": "name"}`, a field captured in the message.
+    Capture(String),
 }
 
 pub(crate) struct ScalarCodec;
@@ -540,23 +721,77 @@ impl Codec for ScalarCodec {
             Value::Number(n) => Ok(Scalar::Number(n.clone())),
             Value::Bool(b) => Ok(Scalar::Bool(*b)),
             Value::String(s) => Ok(Scalar::String(s.clone())),
-            _ => Err(at.fault(FaultKind::BadValue, "a number, true or false, or a string")),
+            Value::Object(o) => match (named(o, "arg"), named(o, "capture")) {
+                (Some(n), _) => Ok(Scalar::Arg(n)),
+                (_, Some(n)) => Ok(Scalar::Capture(n)),
+                _ => Err(at.fault(FaultKind::BadValue, "{\"arg\": name} or {\"capture\": name}, the name from letters, digits and _")),
+            },
+            _ => Err(at.fault(FaultKind::BadValue, "a number, true or false, a string, or an object of arg or capture")),
         }
     }
     fn write(&self, t: &Scalar) -> Option<Value> {
+        let one = |k: &str, n: &String| Value::Object(serde_json::Map::from_iter([(k.to_string(), Value::String(n.clone()))]));
         Some(match t {
             Scalar::Number(n) => Value::Number(n.clone()),
             Scalar::Bool(b) => Value::Bool(*b),
             Scalar::String(s) => Value::String(s.clone()),
+            Scalar::Arg(n) => one("arg", n),
+            Scalar::Capture(n) => one("capture", n),
         })
     }
 }
 
+/// Whether the arguments, read in version `v05` or not, are of that
+/// version: in 0.5 a string holds no brace, in 0.4 there are no objects.
+fn check_scalars(args: &[Scalar], pointer: &str, v05: bool) -> Result<(), Fault> {
+    for (i, a) in args.iter().enumerate() {
+        let rule = match (a, v05) {
+            (Scalar::String(s), true) if s.contains(['{', '}']) => {
+                "a literal without brace (an argument of the command is {\"arg\": name})"
+            }
+            (Scalar::Arg(_) | Scalar::Capture(_), false) => "a number, true or false, or a string (an object is 0.5)",
+            _ => continue,
+        };
+        return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{pointer}/{i}"), rule: rule.into() });
+    }
+    Ok(())
+}
+
+/// The argument a 0.4 string stands for: `{name}` is `arg`, a string without
+/// brace is a literal, any other brace cannot be converted.
+fn convert_arg(a: &Scalar, at: &At) -> Result<Scalar, Fault> {
+    let Scalar::String(s) = a else { return Ok(a.clone()) };
+    if !s.contains(['{', '}']) {
+        return Ok(a.clone());
+    }
+    match s.strip_prefix('{').and_then(|r| r.strip_suffix('}')) {
+        Some(n) if name_ok(n) => Ok(Scalar::Arg(n.to_string())),
+        _ => Err(at.fault(FaultKind::NotConvertible, format!("the argument {s:?} is neither a literal nor one {{name}}"))),
+    }
+}
+
 object! {
-    /// The OSC message sent to a software; `{name}` takes an argument.
+    /// The OSC message sent to a software; in 0.4 `{name}` takes an
+    /// argument, in 0.5 `{"arg": "name"}`.
     Forward {
-        "path" path: String = STRING,
+        "path" path: Address = AddressCodec(AddressPlace::Emitted),
         "args" args: Option<Vec<Scalar>> = Opt(list(ScalarCodec)),
+    }
+}
+
+impl Forward {
+    fn check(&self, pointer: &str, v05: bool) -> Result<(), Fault> {
+        check_address(&self.path, AddressPlace::Emitted, &format!("{pointer}/path"), v05)?;
+        check_scalars(self.args.as_deref().unwrap_or_default(), &format!("{pointer}/args"), v05)
+    }
+
+    fn into_structures(mut self, at: &At) -> Result<Forward, Fault> {
+        self.path = convert_address(&self.path, AddressPlace::Emitted, &At::Key(at, "path"))?;
+        let args = At::Key(at, "args");
+        for (i, a) in self.args.iter_mut().flatten().enumerate() {
+            *a = convert_arg(a, &At::Index(&args, i))?;
+        }
+        Ok(self)
     }
 }
 
@@ -571,7 +806,7 @@ object! {
 object! {
     /// A named message: a SysEx utility, or an OSC message of a software.
     Command {
-        "osc" osc: String = ADDRESS,
+        "osc" osc: Address = AddressCodec(AddressPlace::Command),
         "section" section: Option<String> = Opt(STRING),
         "notes" notes: Option<String> = Opt(STRING),
         "args" args: Option<Vec<Arg>> = Opt(list(obj())),
@@ -616,10 +851,14 @@ object! {
     /// A message the device answers or sends by itself, recognised.
     Reply {
         "match_frame" match_frame: Option<Vec<FrameToken>> = Opt(list(MATCH_TOKEN)),
-        "match_osc" match_osc: Option<String> = Opt(STRING),
+        "match_osc" match_osc: Option<Address> = Opt(AddressCodec(AddressPlace::Recognised)),
         "match_args" match_args: Option<Vec<MatchArg>> = Opt(list(obj())),
-        /// The address it is reported at, with `{placeholders}` from the message.
-        "emit_osc" emit_osc: String = STRING,
+        /// The address it is reported at; in 0.4 `{placeholders}` from the
+        /// message and the arguments after the first space, in 0.5 segments
+        /// with captures and the arguments in `emit_args`.
+        "emit_osc" emit_osc: Address = AddressCodec(AddressPlace::Reported),
+        /// 0.5: the OSC arguments it is reported with; absent, none.
+        "emit_args" emit_args: Option<Vec<Scalar>> = Opt(list(ScalarCodec)),
         /// osc-bridge extension: a Lua script that reads the message.
         "script" script: Option<String> = Opt(STRING),
     }

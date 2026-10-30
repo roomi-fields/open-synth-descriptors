@@ -1,0 +1,5 @@
+{
+  "_about": "A 0.4 midi_in template other than the canonical one of its type (the specification fixes it) cannot become a type: the conversion is refused at the type.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/midi_in/note_on"}
+}

@@ -1,0 +1,11 @@
+{
+  "_about": "In forward.args a 0.4 {name} is the value of an argument of the command, {\"arg\": name}; a number, a boolean or a string without brace stays as it is.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": "/x", "forward": {"path": "/p", "args": [{"arg": "value"}, 5, 1.5, true, "text"]}}
+    ]
+  }
+}

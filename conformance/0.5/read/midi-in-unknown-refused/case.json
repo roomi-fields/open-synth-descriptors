@@ -1,0 +1,5 @@
+{
+  "_about": "A type of midi_in outside note_on, note_off, cc, pitchbend, aftertouch, poly_aftertouch and program_change is refused, at the type.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/midi_in/1"}
+}

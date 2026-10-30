@@ -254,6 +254,76 @@ fn criterion_4_the_conversion_cases_cover_each_frame_place_each_form_and_the_two
     }
 }
 
+/// A case's `case.json`.
+fn spec(root: &Path, name: &str) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(root.join(name).join("case.json")).unwrap()).unwrap()
+}
+
+#[test]
+fn criterion_12_the_conversion_cases_hold_each_address_and_argument_form_and_the_midi_in_list() {
+    let root = common::repo().join("conformance/0.5/convert");
+    let names = case_names(&root);
+    for want in [
+        "address-segments", "forward-args", "emit-args", "midi-in-list", "midi-in-empty",
+        "fault-brace-unclosed", "fault-brace-empty", "fault-midi-template",
+    ] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+    }
+    let text = |n: &str| serde_json::to_string(&spec(&root, n)["result"]).unwrap();
+    let all: String = ["address-segments", "forward-args", "emit-args"].iter().map(|n| text(n)).collect();
+    assert!(all.contains("{\"capture\":"), "no segment capture in the address cases");
+    assert!(text("forward-args").contains("{\"arg\":"), "forward-args shows no arg object");
+    assert!(text("emit-args").contains("\"emit_args\""), "emit-args shows no emit_args");
+    assert!(text("emit-args").contains("{\"capture\":"), "emit-args shows no capture argument");
+    let literal = spec(&root, "forward-args")["result"].to_string();
+    assert!(literal.contains("\"args\":[") && literal.chars().any(|c| c.is_ascii_digit()), "forward-args shows no literal");
+    assert!(text("midi-in-list").contains("\"midi_in\":["), "midi-in-list shows no list");
+    assert!(text("midi-in-empty").contains("\"midi_in\":[]"), "midi-in-empty shows no empty list");
+    // the four address places each have a case that converts them
+    let places = ["\"osc\":[", "\"path\":[", "\"match_osc\":[", "\"emit_osc\":["];
+    let converted: String = names.iter().filter(|n| !n.starts_with("fault")).map(|n| spec(&root, n)["result"].to_string()).collect();
+    for p in places {
+        assert!(converted.contains(p), "no conversion case shows {p}");
+    }
+    for (name, kind) in [("fault-brace-unclosed", "NotConvertible"), ("fault-brace-empty", "NotConvertible"), ("fault-midi-template", "NotConvertible")] {
+        let s = spec(&root, name);
+        assert_eq!(s["fault"]["kind"], kind, "{name}");
+        assert!(s["fault"]["pointer"].as_str().is_some_and(|p| p.starts_with('/')), "{name}: {s}");
+    }
+    assert!(spec(&root, "fault-midi-template")["fault"]["pointer"].as_str().unwrap().starts_with("/midi_in/"));
+    let d = |n: &str| std::fs::read_to_string(root.join(n).join("descriptor.json")).unwrap();
+    assert!(d("fault-brace-empty").contains("{}"), "fault-brace-empty shows no empty brace");
+    assert!(d("fault-brace-unclosed").matches('{').count() > d("fault-brace-unclosed").matches('}').count(), "no unclosed brace");
+}
+
+#[test]
+fn criterion_12_the_reading_cases_hold_each_form_and_refuse_each_malformed_one() {
+    let root = common::repo().join("conformance/0.5/read");
+    let names = case_names(&root);
+    for want in ["address-segments", "args-forms", "midi-in-list", "midi-in-empty"] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+        assert!(spec(&root, want).get("result").is_some(), "{want}: a form read has a result");
+    }
+    assert!(spec(&root, "midi-in-empty")["result"]["midi_in"] == serde_json::json!([]));
+    assert!(spec(&root, "midi-in-list")["result"]["midi_in"].as_array().is_some_and(|l| l.len() >= 2));
+    let forms = spec(&root, "args-forms")["result"].to_string();
+    assert!(forms.contains("{\"arg\":") && forms.contains("{\"capture\":"), "args-forms: {forms}");
+    for (name, pointer_ends) in [
+        ("address-brace-refused", "osc"),
+        ("address-one-segment-refused", "osc"),
+        ("arg-unknown-object-refused", ""),
+        ("midi-in-unknown-refused", ""),
+    ] {
+        assert!(names.iter().any(|n| n == name), "no case {name} in {names:?}");
+        let s = spec(&root, name);
+        assert!(matches!(s["fault"]["kind"].as_str(), Some("BadValue" | "UnknownField")), "{name}: {s}");
+        assert!(s["fault"]["pointer"].as_str().is_some_and(|p| p.ends_with(pointer_ends)), "{name}: {s}");
+    }
+    let p = |n: &str| spec(&root, n)["fault"]["pointer"].as_str().unwrap().to_string();
+    assert!(p("arg-unknown-object-refused").contains("/args/"), "the fault is at the argument");
+    assert!(p("midi-in-unknown-refused").starts_with("/midi_in/"), "the fault is at the type");
+}
+
 #[test]
 fn criterion_5_and_6_the_reading_cases_of_0_5_hold_each_frame_form_and_refuse_each_malformed_element() {
     let root = common::repo().join("conformance/0.5/read");

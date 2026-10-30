@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "commands": [
+    {"osc": ["/cc/", {"capture": "num"}], "forward": {"path": ["/p/", {"capture": "n"}, {"capture": "m"}]}},
+    {"osc": "/plain"}
+  ],
+  "replies": [
+    {"match_osc": ["/m/", {"capture": "a"}, "-", {"capture": "b"}], "emit_osc": ["/r/", {"capture": "a"}]}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "_about": "A 0.4 emit_osc holds the address, then after its first space one {name} per argument: 0.5 keeps the address in emit_osc and writes each argument as {\"capture\": name} in emit_args; without argument there is no emit_args.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "replies": [
+      {"match_osc": ["/m/", {"capture": "a"}], "emit_osc": ["/r/", {"capture": "id"}], "emit_args": [{"capture": "value"}, {"capture": "x"}]},
+      {"match_osc": "/n", "emit_osc": "/plain"}
+    ]
+  }
+}

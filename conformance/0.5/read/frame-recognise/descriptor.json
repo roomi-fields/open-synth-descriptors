@@ -3,6 +3,6 @@
   "device": {"name": "T", "osc_prefix": "/t"},
   "identity": {"reply": [240, 126, {"device_id": true}, 6, 2, 67, "any", {"capture": "x"}, 247]},
   "replies": [
-    {"match_frame": [240, "any", {"capture": "id"}, {"arg": "value", "encoding": "u14_msb"}, 247], "emit_osc": "/r/{id}"}
+    {"match_frame": [240, "any", {"capture": "id"}, {"arg": "value", "encoding": "u14_msb"}, 247], "emit_osc": ["/r/", {"capture": "id"}]}
   ]
 }

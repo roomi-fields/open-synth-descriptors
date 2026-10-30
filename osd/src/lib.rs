@@ -9,6 +9,7 @@
 //! assert_eq!(d.device.osc_prefix, "/synth");
 //! ```
 
+mod address;
 mod device;
 mod fingerprint;
 mod firmware;
@@ -17,9 +18,11 @@ mod json;
 mod resolve;
 mod sound;
 
+pub use address::{Address, Segment};
 pub use device::{
     Arg, ArgType, Bank, CcEntry, CcParams, ChannelMode, Command, CustomCommand, Device, DeviceIdRange, DeviceInfo,
-    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, MatchArg, MidiIn, MidiOut, NoteOff,
+    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, MatchArg, MidiIn, MidiOut, MidiTemplates, MidiType,
+    NoteOff,
     Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, Scalar, ScriptProfile, Sends, Source,
     Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType,
 };

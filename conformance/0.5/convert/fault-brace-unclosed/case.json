@@ -1,0 +1,5 @@
+{
+  "_about": "An unclosed brace in a 0.4 address cannot be cut into segments: the conversion is refused at the address.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/commands/0/osc"}
+}

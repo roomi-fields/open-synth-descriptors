@@ -1,0 +1,5 @@
+{
+  "_about": "An address with a brace in a string is refused, at the address: a capture is written in an array of segments.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/osc"}
+}

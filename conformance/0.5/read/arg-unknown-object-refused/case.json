@@ -1,0 +1,5 @@
+{
+  "_about": "An argument is a JSON literal, {\"arg\": name} or {\"capture\": name}: any other object is refused, at the argument.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/forward/args/1"}
+}

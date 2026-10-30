@@ -38,6 +38,26 @@ The value is a byte of MIDI data, so every result is bounded to 0..127: `add`, `
 
 `osd::convert` turns each 0.4 string form into its structure. `{checksum}` without an algorithm and `{function}` have none: they are conversion faults (`NotConvertible`) at the address of the element, and no text is returned.
 
+## Addresses, arguments and `midi_in` (0.5)
+
+An address that takes captures is written at four places: `commands[].osc`, `forward.path` (in `commands[]` and `subscriptions[]`), `replies[].match_osc` and `replies[].emit_osc`. It is either a string without brace (an address without capture) or an array of segments, each a string without brace or `{"capture": name}`; `name` follows `[A-Za-z_][A-Za-z0-9_]*`. The address is the concatenation of its segments, never split on a slash. An array holds one to 16 segments and at least one capture (an address without capture is a string); for `commands[].osc` the first segment is a string starting with `/`. Where an address is recognised (`commands[].osc`, `replies[].match_osc`), two captures side by side are refused, as the first would take everything; where it is emitted (`forward.path`, `replies[].emit_osc`) they are read. A string with a brace is refused at the address.
+
+The arguments of `forward.args` and `replies[].emit_args` are each a JSON literal (number, boolean, string without brace), `{"arg": name}` (the value of an argument of the command) or `{"capture": name}` (a field captured in the message recognised); any other object, or an array, is refused at the argument. `emit_osc` is the address alone (a string without space or brace, or segments); `emit_args` lists its arguments, and absent means none.
+
+`midi_in` is the list of the MIDI messages the device sends that are reported, each of `note_on`, `note_off`, `cc`, `pitchbend`, `aftertouch`, `poly_aftertouch`, `program_change`, once at most; `[]` reports nothing. The OSC address of each is fixed by the specification, under the device's prefix; what follows the space are its OSC arguments, in this order:
+
+| Type | Address and arguments |
+|---|---|
+| `note_on` | `/note/on {note} {velocity} {channel}` |
+| `note_off` | `/note/off {note} {velocity} {channel}` |
+| `cc` | `/cc/{num} {value} {channel}` |
+| `pitchbend` | `/pitchbend {value_u14} {channel}` |
+| `aftertouch` | `/aftertouch {value} {channel}` |
+| `poly_aftertouch` | `/poly_aftertouch {note} {value} {channel}` |
+| `program_change` | `/program_change {program} {channel}` |
+
+`osd::convert` cuts each 0.4 address that holds `{name}` into segments and leaves one without brace as it is. In `forward.args` a `{name}` becomes `{"arg": name}`; a 0.4 `emit_osc` is cut at its first space, the address before it and each `{name}` after it a `{"capture": name}` of `emit_args`. A brace unclosed, empty, nested, stray or around anything but a name, an argument that mixes a brace with text, an argument of `emit_osc` that is not one `{name}`, and a `midi_in` template other than the canonical one of its type are conversion faults (`NotConvertible`) at the address of the element, which names the address or the template; no text is returned.
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.
