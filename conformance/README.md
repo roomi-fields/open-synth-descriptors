@@ -18,6 +18,17 @@ A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
 one schema error, at the pointer the fault names.
 
+## Conversion (`<version>/convert/<case>/`)
+
+- `descriptor.json`: the text of the previous version the case converts.
+- `case.json`: `convert`, the kind of descriptor; `_about`; then one of:
+  - `result`: the converted descriptor, equal to the converter's, key order
+    aside; it reads in the version, validates against its schemas, and
+    converts to itself;
+  - `fault`: the refusal, by its `kind` (`NotConvertible`) and the JSON
+    `pointer` of the element of the previous version refused; no text is
+    returned.
+
 ## Resolution (`<version>/resolve/<case>/`)
 
 - `files/<maker>/<name>.json`: the catalogue the case reads, each file by

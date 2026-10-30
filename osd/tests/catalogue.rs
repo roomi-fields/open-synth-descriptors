@@ -91,24 +91,113 @@ fn criterion_5_every_converted_file_reads_in_0_5_validates_and_converts_to_itsel
     let schemas = Schemas::load("0.5");
     let mut bad = Vec::new();
     for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
-        bad.extend(each(&ids, &dir, |_, text| {
-            let out = match osd::convert(text, kind) { Ok(t) => t, Err(f) => return Some(f.to_string()) };
+        bad.extend(each(&ids, &dir, |id, text| {
+            let original: Value = serde_json::from_str(text).unwrap();
+            let out = match osd::convert(text, kind) {
+                Ok(t) => t,
+                // only the three expected faults (criterion 11) are skipped here
+                Err(_) if holds_expected_fault(id, &original) => return None,
+                Err(f) => return Some(f.to_string()),
+            };
             if let Err(f) = osd::read_as(&out, kind, osd::Version::V0_5) {
                 return Some(f.to_string());
             }
             if osd::convert(&out, kind).as_deref() != Ok(out.as_str()) {
                 return Some("converting the 0.5 text changes it".into());
             }
-            let (before, after): (Value, Value) = (serde_json::from_str(text).unwrap(), serde_json::from_str(&out).unwrap());
-            let mut after_without = after.clone();
-            after_without.as_object_mut().unwrap().remove("$schema");
-            if after_without != before {
-                return Some(first_difference(&before, &after_without, ""));
-            }
-            schemas.check(kind, &after)
+            schemas.check(kind, &serde_json::from_str(&out).unwrap())
         }));
     }
     report("files not converted into 0.5", bad);
+}
+
+/// The descriptor of the catalogue whose `{position:lsb}` and `{position:msb}`
+/// the engine does not know (`unknown placeholder kind`); SyntHub fixes its
+/// driver to `u14_lsb`/`u14_msb` in its own ticket, and this entry goes then.
+const LSB_MSB_FILE: &str = "novation/circuit.vendor.fw-extended-perf-v2";
+const LSB_MSB_POINTER: &str = "/commands/8";
+
+/// A string frame element of 0.4 that names no algorithm or no function
+/// (`{checksum}`, `{function}`), or, in the one file named above, an
+/// encoding `lsb` or `msb`: the converter cannot give it a structure.
+/// The closed list of expected faults (criterion 11): a fourth is a failure.
+/// Each is removed by a SyntHub ticket:
+/// - `{checksum}` without an algorithm: SH-cgi.7;
+/// - `{function}`: SH-cgi.7;
+/// - `{position:lsb}`/`{position:msb}` in the Circuit descriptor: SH-cgi.10.
+fn is_expected_fault(id: &str, s: &str) -> bool {
+    s == "{checksum}"
+        || s.starts_with("{function")
+        || (id == LSB_MSB_FILE && (s.ends_with(":lsb}") || s.ends_with(":msb}")))
+}
+
+fn holds_expected_fault(id: &str, v: &Value) -> bool {
+    match v {
+        Value::String(s) => is_expected_fault(id, s),
+        Value::Array(a) => a.iter().any(|x| holds_expected_fault(id, x)),
+        Value::Object(o) => o.values().any(|x| holds_expected_fault(id, x)),
+        _ => false,
+    }
+}
+
+#[test]
+fn criterion_3_8_10_and_11_only_the_three_expected_faults_refuse_all_others_convert() {
+    let Some(dir) = catalogue() else { return };
+    let (mut faults, mut converted, mut lsb_msb) = (0, 0, 0);
+    let mut bad = Vec::new();
+    for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
+        bad.extend(each(&ids, &dir, |id, text| {
+            let original: Value = serde_json::from_str(text).unwrap();
+            let result = osd::convert(text, kind);
+            // any other failure is red: every other form of the catalogue converts.
+            if holds_expected_fault(id, &original) {
+                faults += 1;
+                let f = match result {
+                    Err(f) => f,
+                    Ok(_) => return Some("converted, but holds an expected fault".into()),
+                };
+                if f.kind != osd::FaultKind::NotConvertible {
+                    return Some(format!("fault of kind {:?}: {f}", f.kind));
+                }
+                return match original.pointer(&f.pointer) {
+                    Some(Value::String(s)) if is_expected_fault(id, s) => {
+                        if id == LSB_MSB_FILE {
+                            lsb_msb += 1;
+                            if !f.pointer.starts_with(LSB_MSB_POINTER) {
+                                return Some(format!("fault at {}, not under {LSB_MSB_POINTER}", f.pointer));
+                            }
+                        }
+                        None
+                    }
+                    other => Some(format!("fault at {}, which holds {other:?}", f.pointer)),
+                };
+            }
+            converted += 1;
+            result.err().map(|f| format!("unexpected fault (a fourth goes up to the supervisor): {f}"))
+        }));
+    }
+    report("files not converted as expected", bad);
+    assert_eq!(lsb_msb, 1, "{LSB_MSB_FILE} must be refused at {LSB_MSB_POINTER}");
+    assert!(faults > 0 && converted > 1000, "{faults} faults, {converted} converted");
+}
+
+#[test]
+fn criterion_7_a_converted_catalogue_file_holds_no_string_frame_element_and_reads_back_unchanged() {
+    let Some(dir) = catalogue() else { return };
+    let mut bad = Vec::new();
+    for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
+        bad.extend(each(&ids, &dir, |id, text| {
+            let original: Value = serde_json::from_str(text).unwrap();
+            let out = match osd::convert(text, kind) {
+                Ok(t) => t,
+                Err(_) if holds_expected_fault(id, &original) => return None,
+                Err(f) => return Some(f.to_string()),
+            };
+            let read = match osd::read_as(&out, kind, osd::Version::V0_5) { Ok(d) => d, Err(f) => return Some(f.to_string()) };
+            (osd::write(&read) != out).then(|| "written back differently".to_string())
+        }));
+    }
+    report("converted files not read back", bad);
 }
 
 #[test]

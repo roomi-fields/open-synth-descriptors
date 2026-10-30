@@ -321,6 +321,65 @@
     }
   },
   "$defs": {
+    "frame_part": {
+      "description": "An element of a frame that is not a byte: an object of one key of its nature, with the keys that qualify it.",
+      "oneOf": [
+        {
+          "title": "arg",
+          "description": "An argument of the command, with its encoding, or an offset added to a 7-bit argument (the sum wraps on 7 bits).",
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": {
+            "arg": { "type": "string" },
+            "encoding": { "enum": ["u14_msb", "u14_lsb", "s32", "ascii", "bytes"] }
+          }
+        },
+        {
+          "title": "arg with an added offset",
+          "type": "object",
+          "required": ["arg", "add"],
+          "additionalProperties": false,
+          "properties": {
+            "arg": { "type": "string" },
+            "add": { "type": "integer", "minimum": 0, "maximum": 127 }
+          }
+        },
+        {
+          "title": "device_id",
+          "description": "The device id, by the rule of identity.device_id with its default value.",
+          "type": "object",
+          "required": ["device_id"],
+          "additionalProperties": false,
+          "properties": {
+            "device_id": { "const": true }
+          }
+        },
+        {
+          "title": "identity",
+          "description": "The bytes of the model's family or member: all of them, or the one at index.",
+          "type": "object",
+          "required": ["identity"],
+          "additionalProperties": false,
+          "properties": {
+            "identity": { "enum": ["family", "member"] },
+            "index": { "type": "integer", "minimum": 0, "maximum": 255 }
+          }
+        },
+        {
+          "title": "checksum",
+          "description": "The checksum of the bytes written from offset from (F0 is 0), on length bytes when given: twos7 is Roland's two's complement, sum7 Waldorf's sum, xor7 Fractal's xor, each on 7 bits.",
+          "type": "object",
+          "required": ["checksum", "from"],
+          "additionalProperties": false,
+          "properties": {
+            "checksum": { "enum": ["twos7", "sum7", "xor7"] },
+            "from": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "length": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        }
+      ]
+    },
     "frame_token": {
       "oneOf": [
         {
@@ -329,11 +388,88 @@
           "maximum": 255
         },
         {
-          "type": "string",
-          "pattern": "^\\{.+\\}$"
+          "$ref": "#/$defs/frame_part"
         }
       ],
-      "description": "A byte, or a {placeholder} filled when sending: an argument ({value}, {value:u14_lsb}), the device id ({dev}), a checksum ({checksum:roland})."
+      "description": "An element of a message sent: a byte, or an object of one key of its nature (arg, device_id, identity, checksum)."
+    },
+    "recognised_frame_token": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "const": "any"
+        },
+        {
+          "type": "object",
+          "title": "capture",
+          "description": "Where a recognised message is read: the value is kept under this name.",
+          "required": ["capture"],
+          "additionalProperties": false,
+          "properties": {
+            "capture": { "type": "string" }
+          }
+        },
+        {
+          "$ref": "#/$defs/frame_part"
+        }
+      ],
+      "description": "An element of a message recognised: a byte, the word any (any byte), a capture, or an object of one key of its nature (arg, device_id, identity, checksum)."
+    },
+    "expr": {
+      "description": "A value computed from the arguments, a byte of MIDI data from 0 to 127 as the engine bounds it: add, sub and mul give their result bounded to 0..127; gt, lt, eq and ne give 0 or 1; if gives its second operand when the first is not 0, else its third.",
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 127 },
+        {
+          "title": "arg",
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": { "arg": { "type": "string" } }
+        },
+        { "$ref": "#/$defs/expr_op" }
+      ]
+    },
+    "expr_op": {
+      "oneOf": [
+        { "$ref": "#/$defs/expr_binary_add" },
+        { "$ref": "#/$defs/expr_binary_sub" },
+        { "$ref": "#/$defs/expr_binary_mul" },
+        { "$ref": "#/$defs/expr_binary_gt" },
+        { "$ref": "#/$defs/expr_binary_lt" },
+        { "$ref": "#/$defs/expr_binary_eq" },
+        { "$ref": "#/$defs/expr_binary_ne" },
+        {
+          "title": "if",
+          "type": "object",
+          "required": ["if"],
+          "additionalProperties": false,
+          "properties": {
+            "if": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "$ref": "#/$defs/expr" }
+            }
+          }
+        }
+      ]
+    },
+    "expr_binary_add": { "type": "object", "required": ["add"], "additionalProperties": false, "properties": { "add": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_sub": { "type": "object", "required": ["sub"], "additionalProperties": false, "properties": { "sub": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_mul": { "type": "object", "required": ["mul"], "additionalProperties": false, "properties": { "mul": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_gt": { "type": "object", "required": ["gt"], "additionalProperties": false, "properties": { "gt": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_lt": { "type": "object", "required": ["lt"], "additionalProperties": false, "properties": { "lt": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_eq": { "type": "object", "required": ["eq"], "additionalProperties": false, "properties": { "eq": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_ne": { "type": "object", "required": ["ne"], "additionalProperties": false, "properties": { "ne": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_pair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/expr" }
     },
     "device": {
       "type": "object",
@@ -442,7 +578,7 @@
           "items": {
             "$ref": "#/$defs/frame_token"
           },
-          "description": "The identify request, when not the Universal Identity Request (F0 7E 7F 06 01 F7); placeholders take the device's own values ({family})."
+          "description": "The identify request, when not the Universal Identity Request (F0 7E 7F 06 01 F7); its elements may take the device's own values (an identity object)."
         },
         "unpack": {
           "enum": [
@@ -452,18 +588,9 @@
         "reply": {
           "type": "array",
           "items": {
-            "oneOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255
-              },
-              {
-                "type": "string"
-              }
-            ]
+            "$ref": "#/$defs/recognised_frame_token"
           },
-          "description": "The start of the reply, byte by byte; strings are placeholders."
+          "description": "The start of the reply, element by element: a byte, any, a capture, or an object of its nature."
         },
         "reply_text": {
           "type": "string"
@@ -994,7 +1121,7 @@
                 "type": "string"
               },
               "expr": {
-                "type": "string"
+                "$ref": "#/$defs/expr"
               }
             },
             "patternProperties": {
@@ -1103,9 +1230,9 @@
         "match_frame": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/frame_token"
+            "$ref": "#/$defs/recognised_frame_token"
           },
-          "description": "A message, byte by byte."
+          "description": "A message recognised, element by element: a byte, any, a capture, or an object of its nature."
         },
         "match_osc": {
           "type": "string"

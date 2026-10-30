@@ -1,0 +1,7 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "commands": [
+    {"osc": "/x", "frame": [240, "{dev}", "{channel:u7+0x30}", "{value}", "{wide:u14_msb}", "{low:u14_lsb}", "{big:s32}", "{text:ascii}", "{raw:bytes}", "{checksum:twos@1}", 247]},
+    {"osc": "/y", "frame": [240, "{n:u7+32}", "{checksum:sum@1+4}", "{checksum:xor@0x01}", 247]}
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "_about": "An identity index below 0 is refused, at the element.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/frame/1"}
+}

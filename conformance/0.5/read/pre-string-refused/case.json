@@ -1,0 +1,5 @@
+{
+  "_about": "A pre expression written as a string is refused in 0.5: it is a tree.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/pre/0/expr"}
+}

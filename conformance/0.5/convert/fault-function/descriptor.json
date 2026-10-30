@@ -1,0 +1,9 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "params": {
+    "get_frame": [240, "{function}", 247],
+    "set_frame": [240, 247],
+    "value_type": "u7",
+    "entries": []
+  }
+}

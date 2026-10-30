@@ -1,0 +1,19 @@
+{
+  "_about": "Each expression string becomes a tree of add, sub, mul, gt, lt, eq, ne and if; the result of an operation is bounded to 0..127 by the reader of the format, so no literal leaves it.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": "/x", "pre": [
+        {"bind": "a", "expr": {"add": [{"arg": "v"}, 1]}},
+        {"bind": "b", "expr": {"sub": [{"arg": "v"}, {"arg": "w"}]}},
+        {"bind": "c", "expr": {"mul": [{"add": [{"arg": "v"}, {"arg": "w"}]}, 2]}},
+        {"bind": "d", "expr": {"if": [{"gt": [{"arg": "v"}, 63]}, 127, 0]}},
+        {"bind": "e", "expr": {"lt": [{"arg": "v"}, 3]}},
+        {"bind": "f", "expr": {"eq": [{"arg": "v"}, {"arg": "w"}]}},
+        {"bind": "g", "expr": {"if": [{"ne": [{"arg": "v"}, 0]}, {"sub": [{"arg": "v"}, 1]}, 0]}}
+      ]}
+    ]
+  }
+}

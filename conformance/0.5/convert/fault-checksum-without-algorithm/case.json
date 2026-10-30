@@ -1,0 +1,5 @@
+{
+  "_about": "A checksum that names no algorithm has no structure: the conversion is refused at the element, and no text is returned.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/commands/1/frame/2"}
+}

@@ -1,0 +1,11 @@
+{
+  "_about": "In a message recognised, {any} becomes the word any and any other bare name a capture; a typed name stays an argument.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "replies": [
+      {"match_frame": [240, {"device_id": true}, "any", {"capture": "id"}, {"arg": "value", "encoding": "u14_msb"}, "any", 247], "emit_osc": "/r/{id}"}
+    ]
+  }
+}

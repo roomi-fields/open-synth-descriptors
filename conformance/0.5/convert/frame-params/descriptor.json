@@ -1,0 +1,9 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "params": {
+    "get_frame": [240, "{dev}", "{p}", "{checksum:twos@1}", 247],
+    "set_frame": [240, "{dev}", "{p}", "{value:u14_msb}", "{checksum:twos@1}", 247],
+    "value_type": "u14",
+    "entries": []
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "identity": {
+    "request": [240, 126, "{dev}", 6, 1, "{family}", "{member}", "{family:2}", "{member:0}", 247],
+    "reply": [240, 126, "{dev}", 6, 2, 67, "{any}", "{x}", 247]
+  }
+}

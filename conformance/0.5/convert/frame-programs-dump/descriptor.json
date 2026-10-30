@@ -1,0 +1,6 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "programs": {
+    "dump": {"kind": "request", "request": [240, "{dev}", 16, "{checksum:twos@1}", 247]}
+  }
+}

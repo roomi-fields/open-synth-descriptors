@@ -25,7 +25,7 @@ fn texts_04() -> Vec<(Kind, String)> {
         (Kind::Device, r#"{"device": {"osc_prefix": "/z", "name": "Z"}, "_note": "n"}"#.into()),
         (
             Kind::Profile,
-            r#"{"identity": {"request": [240, 126, 127, 6, 1, 247], "reply": [240, 126, "{dev}", 6, 2, 67], "reply_text": "acme"}}"#.into(),
+            r#"{"identity": {"request": [240, 126, 127, 6, 1, 247], "reply": [240, 126, 0, 6, 2, 67], "reply_text": "acme"}}"#.into(),
         ),
         (Kind::Sound, file("examples/warm-pad.sound.json")),
         (Kind::Fingerprint, file("examples/minilogue.fingerprint.json")),

@@ -1,0 +1,5 @@
+{
+  "_about": "A frame object of an unknown key is refused, at the element.",
+  "read": "device",
+  "fault": {"kind": "UnknownField", "pointer": "/commands/0/frame/1"}
+}

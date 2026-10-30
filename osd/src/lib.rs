@@ -12,16 +12,18 @@
 mod device;
 mod fingerprint;
 mod firmware;
+mod frame;
 mod json;
 mod resolve;
 mod sound;
 
 pub use device::{
     Arg, ArgType, Bank, CcEntry, CcParams, ChannelMode, Command, CustomCommand, Device, DeviceIdRange, DeviceInfo,
-    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, FrameToken, Identity, MatchArg, MidiIn, MidiOut, NoteOff,
-    Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, ReplyToken, Scalar, ScriptProfile, Sends, Source,
+    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, MatchArg, MidiIn, MidiOut, NoteOff,
+    Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, Scalar, ScriptProfile, Sends, Source,
     Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType,
 };
+pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
 pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports, Via};
 pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
 pub use json::Remarks;
@@ -279,6 +281,11 @@ pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
     if d.schema() == Some(Version::V0_5) {
         return Ok(text.to_string());
     }
+    let d = match d {
+        Descriptor::Device(x) => Descriptor::Device(Box::new(x.into_structures()?)),
+        Descriptor::Profile(x) => Descriptor::Profile(Box::new(x.into_structures()?)),
+        other => other,
+    };
     let name = match kind {
         Kind::Device => "device",
         Kind::Profile => "profile",

@@ -1,0 +1,11 @@
+{
+  "_about": "A frame element is a byte or an object of one key of its nature: arg (with encoding or add), device_id, identity (with an index), checksum (twos7, sum7 or xor7, with from and an optional length).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": "/x", "frame": [240, {"device_id": true}, {"arg": "channel", "add": 48}, {"arg": "value"}, {"arg": "wide", "encoding": "u14_msb"}, {"arg": "low", "encoding": "u14_lsb"}, {"arg": "big", "encoding": "s32"}, {"arg": "text", "encoding": "ascii"}, {"arg": "raw", "encoding": "bytes"}, {"identity": "family"}, {"identity": "member", "index": 1}, {"checksum": "twos7", "from": 1}, {"checksum": "sum7", "from": 1, "length": 4}, {"checksum": "xor7", "from": 2}, 247]}
+    ]
+  }
+}

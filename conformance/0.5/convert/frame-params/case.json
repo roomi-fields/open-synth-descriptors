@@ -1,0 +1,14 @@
+{
+  "_about": "The get and set frames of the parameters convert like any message sent.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "params": {
+      "get_frame": [240, {"device_id": true}, {"arg": "p"}, {"checksum": "twos7", "from": 1}, 247],
+      "set_frame": [240, {"device_id": true}, {"arg": "p"}, {"arg": "value", "encoding": "u14_msb"}, {"checksum": "twos7", "from": 1}, 247],
+      "value_type": "u14",
+      "entries": []
+    }
+  }
+}

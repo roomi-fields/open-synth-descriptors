@@ -1,0 +1,5 @@
+{
+  "_about": "A {function} placeholder has no structure: the conversion is refused at the element.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/params/get_frame/1"}
+}

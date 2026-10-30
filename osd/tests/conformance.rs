@@ -175,3 +175,98 @@ fn criterion_5_the_reading_cases_of_0_5_cover_each_kind_and_a_refused_version() 
     assert_eq!(results, all);
     assert!(unread >= 1, "no case of an unread version");
 }
+
+/// What a conversion case asked for that `convert` did not return, if
+/// anything. A result is the 0.5 document, equal to the converted text's,
+/// key order aside; it reads as 0.5, validates against the 0.5 schema and
+/// converts to itself. A fault is the refusal, by its `kind` and the JSON
+/// `pointer` of the 0.4 element refused.
+fn run_convert(dir: &Path) -> Option<String> {
+    let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(dir.join("descriptor.json")).unwrap();
+    let kind = kind(case["convert"].as_str().unwrap());
+    match (osd::convert(&text, kind), case.get("result"), case.get("fault")) {
+        (Ok(out), Some(want), None) => {
+            let doc: Value = serde_json::from_str(&out).unwrap();
+            if doc != *want {
+                return Some(format!("converted into {doc}"));
+            }
+            if let Err(f) = osd::read_as(&out, kind, osd::Version::V0_5) {
+                return Some(format!("the result does not read: {f}"));
+            }
+            if let Some(e) = common::Schemas::load("0.5").check(kind, &doc) {
+                return Some(format!("the result does not validate: {e}"));
+            }
+            (osd::convert(&out, kind).as_deref() != Ok(out.as_str())).then(|| "converting the result changes it".into())
+        }
+        (Err(f), None, Some(want)) => {
+            let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});
+            (got != *want).then(|| format!("refused with {got} ({f})"))
+        }
+        (Ok(_), None, Some(want)) => Some(format!("converted, but should be refused with {want}")),
+        (Err(f), Some(_), None) => Some(format!("refused: {f}")),
+        _ => Some("case.json has neither result nor fault, or both".into()),
+    }
+}
+
+/// The names of the cases of a folder.
+fn case_names(root: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(root).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn criterion_4_every_conversion_case_of_0_5_passes() {
+    every_case(&common::repo().join("conformance/0.5/convert"), 11, run_convert);
+}
+
+#[test]
+fn criterion_4_the_conversion_cases_cover_each_frame_place_each_form_and_the_two_faults() {
+    let root = common::repo().join("conformance/0.5/convert");
+    let names = case_names(&root);
+    for want in [
+        "frame-commands", "frame-params", "frame-replies", "frame-identity", "frame-programs-before",
+        "frame-programs-dump", "frame-profile", "pre-tree", "fault-checksum-without-algorithm", "fault-function",
+    ] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+    }
+    // criterion 12: `lsb` and `msb` are a refused encoding, with the address of the fault
+    let name = "fault-encoding-lsb-msb";
+    assert!(names.iter().any(|n| n == name), "no case {name} in {names:?}");
+    let spec: Value = serde_json::from_str(&std::fs::read_to_string(root.join(name).join("case.json")).unwrap()).unwrap();
+    assert_eq!(spec["fault"]["kind"], "NotConvertible", "{name}");
+    assert!(spec["fault"]["pointer"].as_str().is_some_and(|p| p.starts_with("/commands/")), "{name}: {spec}");
+    let text = std::fs::read_to_string(root.join(name).join("descriptor.json")).unwrap();
+    assert!(text.contains(":lsb}") && text.contains(":msb}"), "{name}: shows neither lsb nor msb");
+    let all: String = names
+        .iter()
+        .filter(|n| !n.starts_with("fault"))
+        .map(|n| std::fs::read_to_string(root.join(n).join("case.json")).unwrap())
+        .collect();
+    for form in [
+        "\"arg\"", "\"encoding\": \"u14_msb\"", "\"encoding\": \"u14_lsb\"", "\"encoding\": \"s32\"", "\"encoding\": \"ascii\"",
+        "\"encoding\": \"bytes\"", "\"add\": 4", "\"capture\"", "\"device_id\"", "\"identity\": \"family\"", "\"identity\": \"member\"",
+        "\"index\"", "\"checksum\": \"twos7\"", "\"from\"", "\"any\"", "\"sub\"", "\"mul\"", "\"gt\"", "\"lt\"",
+        "\"eq\"", "\"ne\"", "\"if\"",
+    ] {
+        assert!(all.contains(form), "no conversion case shows {form}");
+    }
+}
+
+#[test]
+fn criterion_5_and_6_the_reading_cases_of_0_5_hold_each_frame_form_and_refuse_each_malformed_element() {
+    let root = common::repo().join("conformance/0.5/read");
+    let names = case_names(&root);
+    for want in [
+        "frame-string-refused", "frame-two-keys-refused", "frame-unknown-key-refused", "frame-encoding-refused",
+        "frame-algorithm-refused", "frame-index-refused", "pre-string-refused",
+    ] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(root.join(want).join("case.json")).unwrap()).unwrap();
+        assert!(spec.get("fault").is_some(), "{want}: a refusal is a fault");
+    }
+    for want in ["frame-forms", "frame-recognise", "pre-tree"] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+    }
+}

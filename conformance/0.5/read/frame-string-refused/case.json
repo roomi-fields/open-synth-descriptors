@@ -1,0 +1,5 @@
+{
+  "_about": "A frame element written as a 0.4 {placeholder} string is refused in 0.5.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/frame/1"}
+}

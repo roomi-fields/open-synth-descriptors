@@ -10,11 +10,11 @@
 | `write` | `fn write(d: &Descriptor) -> String` | the descriptor as JSON text: what `read` returned, key for key | — |
 | `resolve` | `fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault>` | a `Resolved`: the device with profiles and shared MIDI applied, the ids of the files it was built from, its capabilities | each file as `read` refuses it, missing link, cycle, depth over 8, a key a `midi_of` file may not hold |
 | `read_as` | `fn read_as(text: &str, kind: Kind, version: Version) -> Result<Descriptor, Fault>` | the typed descriptor, read in the version the caller names | as `read`; `Missing` at `/$schema` for a 0.5 descriptor without it; `BadValue` at `/$schema` when it names another version |
-| `convert` | `fn convert(text: &str, kind: Kind) -> Result<String, Fault>` | the 0.5 text of a 0.4 descriptor: `$schema` (w3id) as first key, values unchanged, laid out as `write`; a 0.5 text comes back as it is | as `read` for a text it cannot read; `NotConvertible` for a field 0.5 cannot hold (none yet) |
+| `convert` | `fn convert(text: &str, kind: Kind) -> Result<String, Fault>` | the 0.5 text of a 0.4 descriptor: `$schema` (w3id) as first key, every 0.4 `{placeholder}` frame element and `pre` expression string turned into its structure, other values unchanged, laid out as `write`; a 0.5 text comes back as it is | as `read` for a text it cannot read; `NotConvertible`, at the JSON pointer of the 0.4 element, for `{checksum}` without an algorithm, `{function}` or a form with no structure; no text is returned then |
 | `Files` | `trait Files { fn get(&self, id: &str) -> Option<String>; }` | the text of a descriptor by catalogue id (`korg/minilogue`; the profile `korg/logue` is `korg/_profile.logue`); implemented for `BTreeMap` and `HashMap` of ids to texts | — |
-| `Kind`, `Version`, `Capability`, `FaultKind` | closed enums | — | — |
+| `Kind`, `Version`, `Capability`, `FaultKind`, `Encoding`, `IdentityPart`, `Algorithm`, `BinOp` | closed enums (the last four are the words of a frame element and of a `pre` operation) | — | — |
 | `Resolved` | `device`, `files`, `capabilities` | — | — |
-| `Descriptor`, `Device`, `Profile`, `Sound`, `Fingerprint`, `Firmware` | typed values of the format | — | — |
+| `Descriptor`, `Device`, `Profile`, `Sound`, `Fingerprint`, `Firmware`, `FrameToken`, `FramePart`, `Expr` | typed values of the format; `FrameToken` is a byte, a 0.4 string or a `FramePart` (the one-key structures and `any` of 0.5); `Expr` is a `pre` expression, a 0.4 string or a tree | — | — |
 | `Fault` | typed fault: its `kind` (`FaultKind`), the `file` (the catalogue id, when met resolving; none for `read`), the JSON `pointer`, the `rule` | — | — |
 | `Remarks` | the keys starting with `_` an object holds beside those its schema names, kept as they are | — | — |
 | `VERSIONS` | the versions the crate reads | — | — |

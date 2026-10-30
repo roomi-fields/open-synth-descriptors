@@ -27,7 +27,7 @@ fn bare(kind: Kind) -> Value {
     };
     match kind {
         Kind::Device => json!({"device": {"name": "Test", "osc_prefix": "/test"}}),
-        Kind::Profile => json!({"identity": {"request": [240, 126, 127, 6, 1, 247], "reply": [240, 126, "{dev}", 6, 2, 67], "reply_text": "acme"}}),
+        Kind::Profile => json!({"identity": {"request": [240, 126, 127, 6, 1, 247], "reply": [240, 126, 127, 6, 2, 67], "reply_text": "acme"}}),
         Kind::Sound => from_file("examples/warm-pad.sound.json"),
         Kind::Fingerprint => from_file("examples/minilogue.fingerprint.json"),
         Kind::Firmware => from_file("examples/tribe-0.3-beta.firmware.json"),

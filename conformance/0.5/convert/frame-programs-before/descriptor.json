@@ -1,0 +1,6 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "programs": {
+    "before": [[240, "{dev}", "{bank:u7+0x20}", 247], [176, 0, "{msb}"]]
+  }
+}

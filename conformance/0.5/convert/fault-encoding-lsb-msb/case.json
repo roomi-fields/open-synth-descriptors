@@ -1,0 +1,5 @@
+{
+  "_about": "The encodings lsb and msb are not encodings of the engine (u14_lsb and u14_msb are): the conversion is refused at the element, like any unknown encoding.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/commands/0/frame/1"}
+}

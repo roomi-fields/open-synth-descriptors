@@ -6,6 +6,10 @@ use crate::json::{
     at_least, closed, int, list, obj, object, words, Any, At, Bool, Codec, Dict, Nullable, Object, Opt, Pair,
     ADDRESS, INTEGER, STRING,
 };
+use crate::frame::{
+    check_expr, check_frame, convert_expr, convert_token, Expr, FrameToken, Place, EXPR, FRAME_TOKEN, MATCH_TOKEN,
+    REPLY_TOKEN,
+};
 use crate::{Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
@@ -49,6 +53,7 @@ object! {
         /// What the source covers, counted.
         "_coverage" coverage: Option<BTreeMap<String, Value>> = Opt(Dict(Any)),
     }
+    check check_device
 }
 
 object! {
@@ -59,6 +64,7 @@ object! {
         "identity" identity: Option<Identity> = Opt(obj()),
         "programs" programs: Option<Programs> = Opt(obj()),
     }
+    check check_profile
 }
 
 object! {
@@ -151,65 +157,154 @@ object! {
     }
 }
 
-/// One byte of a message, or a placeholder filled when sending: an argument
-/// (`{value}`, `{value:u14_lsb}`), the device id (`{dev}`), a checksum
-/// (`{checksum:roland}`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FrameToken {
-    Byte(u8),
-    Placeholder(String),
+// ---- the frames and expressions of a descriptor, by version ----------------
+
+/// Every frame of an identity, with the JSON pointer of its place.
+fn identity_frames<'a>(i: &'a Identity, at: &str, out: &mut Vec<(String, Place, &'a [FrameToken])>) {
+    if let Some(r) = &i.request {
+        out.push((format!("{at}/request"), Place::Sent, r));
+    }
+    if let Some(r) = &i.reply {
+        out.push((format!("{at}/reply"), Place::Reply, r));
+    }
 }
 
-/// A placeholder: `^\{.+\}$`, braces around at least one character that is
-/// not a line break.
-fn placeholder(s: &str) -> bool {
-    let inner = s.strip_prefix('{').and_then(|s| s.strip_suffix('}'));
-    inner.is_some_and(|i| !i.is_empty() && !i.contains(['\n', '\r', '\u{2028}', '\u{2029}']))
+fn programs_frames<'a>(p: &'a Programs, at: &str, out: &mut Vec<(String, Place, &'a [FrameToken])>) {
+    for (n, f) in p.before.iter().flatten().enumerate() {
+        out.push((format!("{at}/before/{n}"), Place::Sent, f));
+    }
+    if let Some(r) = p.dump.as_ref().and_then(|d| d.request.as_ref()) {
+        out.push((format!("{at}/dump/request"), Place::Sent, r));
+    }
 }
 
-pub(crate) struct FrameTokenCodec;
-pub(crate) const FRAME_TOKEN: FrameTokenCodec = FrameTokenCodec;
-
-impl Codec for FrameTokenCodec {
-    type T = FrameToken;
-    fn read(&self, v: &Value, at: &At) -> Result<FrameToken, Fault> {
-        match v {
-            Value::String(s) if placeholder(s) => Ok(FrameToken::Placeholder(s.clone())),
-            Value::Number(_) => BYTE.read(v, at).map(FrameToken::Byte),
-            _ => Err(at.fault(FaultKind::BadValue, "a byte (0 to 255) or a {placeholder}")),
+/// Whether the frames and expressions of a descriptor are the forms of its
+/// version: strings in 0.4 (no `$schema`), structures in 0.5.
+fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
+    let v05 = d.schema == Some(Version::V0_5);
+    let mut frames = Vec::new();
+    if let Some(i) = &d.identity {
+        identity_frames(i, "/identity", &mut frames);
+    }
+    if let Some(p) = &d.programs {
+        programs_frames(p, "/programs", &mut frames);
+    }
+    if let Some(p) = &d.params {
+        frames.push(("/params/get_frame".into(), Place::Sent, &p.get_frame));
+        frames.push(("/params/set_frame".into(), Place::Sent, &p.set_frame));
+    }
+    for (n, c) in d.commands.iter().flatten().enumerate() {
+        if let Some(f) = &c.frame {
+            frames.push((format!("/commands/{n}/frame"), Place::Sent, f));
+        }
+        for (m, p) in c.pre.iter().flatten().enumerate() {
+            check_expr(&p.expr, &format!("/commands/{n}/pre/{m}/expr"), v05)?;
         }
     }
-    fn write(&self, t: &FrameToken) -> Option<Value> {
-        Some(match t {
-            FrameToken::Byte(b) => Value::from(*b),
-            FrameToken::Placeholder(s) => Value::String(s.clone()),
-        })
-    }
-}
-
-/// One byte of an expected identity reply, or a placeholder.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ReplyToken {
-    Byte(u8),
-    Placeholder(String),
-}
-
-pub(crate) struct ReplyTokenCodec;
-
-impl Codec for ReplyTokenCodec {
-    type T = ReplyToken;
-    fn read(&self, v: &Value, at: &At) -> Result<ReplyToken, Fault> {
-        match v {
-            Value::String(s) => Ok(ReplyToken::Placeholder(s.clone())),
-            Value::Number(_) => BYTE.read(v, at).map(ReplyToken::Byte),
-            _ => Err(at.fault(FaultKind::BadValue, "a byte (0 to 255) or a placeholder")),
+    for (n, r) in d.replies.iter().flatten().enumerate() {
+        if let Some(f) = &r.match_frame {
+            frames.push((format!("/replies/{n}/match_frame"), Place::Matched, f));
         }
     }
-    fn write(&self, t: &ReplyToken) -> Option<Value> {
-        Some(match t {
-            ReplyToken::Byte(b) => Value::from(*b),
-            ReplyToken::Placeholder(s) => Value::String(s.clone()),
-        })
+    for (pointer, place, tokens) in frames {
+        check_frame(tokens, place, &pointer, v05)?;
+    }
+    Ok(())
+}
+
+fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
+    let v05 = p.schema == Some(Version::V0_5);
+    let mut frames = Vec::new();
+    if let Some(i) = &p.identity {
+        identity_frames(i, "/identity", &mut frames);
+    }
+    if let Some(x) = &p.programs {
+        programs_frames(x, "/programs", &mut frames);
+    }
+    for (pointer, place, tokens) in frames {
+        check_frame(tokens, place, &pointer, v05)?;
+    }
+    Ok(())
+}
+
+fn convert_frame(tokens: &mut [FrameToken], place: Place, at: &At) -> Result<(), Fault> {
+    for (i, t) in tokens.iter_mut().enumerate() {
+        *t = convert_token(t, place, &At::Index(at, i))?;
+    }
+    Ok(())
+}
+
+fn convert_identity(i: &mut Identity, at: &At) -> Result<(), Fault> {
+    if let Some(r) = &mut i.request {
+        convert_frame(r, Place::Sent, &At::Key(at, "request"))?;
+    }
+    if let Some(r) = &mut i.reply {
+        convert_frame(r, Place::Reply, &At::Key(at, "reply"))?;
+    }
+    Ok(())
+}
+
+fn convert_programs(p: &mut Programs, at: &At) -> Result<(), Fault> {
+    let before = At::Key(at, "before");
+    for (n, f) in p.before.iter_mut().flatten().enumerate() {
+        convert_frame(f, Place::Sent, &At::Index(&before, n))?;
+    }
+    if let Some(r) = p.dump.as_mut().and_then(|d| d.request.as_mut()) {
+        convert_frame(r, Place::Sent, &At::Key(&At::Key(at, "dump"), "request"))?;
+    }
+    Ok(())
+}
+
+impl Device {
+    /// The device with every 0.4 frame element and `pre` expression turned
+    /// into its 0.5 structure; the first that has none is a fault at its
+    /// address.
+    pub(crate) fn into_structures(mut self) -> Result<Device, Fault> {
+        let root = At::Root;
+        if let Some(i) = &mut self.identity {
+            convert_identity(i, &At::Key(&root, "identity"))?;
+        }
+        if let Some(p) = &mut self.programs {
+            convert_programs(p, &At::Key(&root, "programs"))?;
+        }
+        if let Some(p) = &mut self.params {
+            let at = At::Key(&root, "params");
+            convert_frame(&mut p.get_frame, Place::Sent, &At::Key(&at, "get_frame"))?;
+            convert_frame(&mut p.set_frame, Place::Sent, &At::Key(&at, "set_frame"))?;
+        }
+        let commands = At::Key(&root, "commands");
+        for (n, c) in self.commands.iter_mut().flatten().enumerate() {
+            let at = At::Index(&commands, n);
+            if let Some(f) = &mut c.frame {
+                convert_frame(f, Place::Sent, &At::Key(&at, "frame"))?;
+            }
+            let pre = At::Key(&at, "pre");
+            for (m, p) in c.pre.iter_mut().flatten().enumerate() {
+                p.expr = convert_expr(&p.expr, &At::Key(&At::Index(&pre, m), "expr"))?;
+            }
+        }
+        let replies = At::Key(&root, "replies");
+        for (n, r) in self.replies.iter_mut().flatten().enumerate() {
+            if let Some(f) = &mut r.match_frame {
+                convert_frame(f, Place::Matched, &At::Key(&At::Index(&replies, n), "match_frame"))?;
+            }
+        }
+        Ok(self)
+    }
+}
+
+impl Profile {
+    /// The profile with every 0.4 frame element turned into its 0.5
+    /// structure.
+    pub(crate) fn into_structures(mut self) -> Result<Profile, Fault> {
+        let root = At::Root;
+        if let Some(i) = &mut self.identity {
+            convert_identity(i, &At::Key(&root, "identity"))?;
+        }
+        if let Some(p) = &mut self.programs {
+            convert_programs(p, &At::Key(&root, "programs"))?;
+        }
+        Ok(self)
     }
 }
 
@@ -270,8 +365,8 @@ object! {
         /// The identify request, when not the Universal Identity Request.
         "request" request: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
         "unpack" unpack: Option<Unpack> = Opt(closed()),
-        /// The start of the reply, byte by byte; strings are placeholders.
-        "reply" reply: Option<Vec<ReplyToken>> = Opt(list(ReplyTokenCodec)),
+        /// The start of the reply, recognised element by element.
+        "reply" reply: Option<Vec<FrameToken>> = Opt(list(REPLY_TOKEN)),
         "reply_text" reply_text: Option<String> = Opt(STRING),
         "family" family: Option<Vec<u8>> = Opt(list(BYTE)),
         "member" member: Option<Vec<u8>> = Opt(list(BYTE)),
@@ -469,7 +564,7 @@ object! {
     /// A value computed from the arguments before the message is built.
     Pre {
         "bind" bind: String = STRING,
-        "expr" expr: String = STRING,
+        "expr" expr: Expr = EXPR,
     }
 }
 
@@ -520,7 +615,7 @@ object! {
 object! {
     /// A message the device answers or sends by itself, recognised.
     Reply {
-        "match_frame" match_frame: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        "match_frame" match_frame: Option<Vec<FrameToken>> = Opt(list(MATCH_TOKEN)),
         "match_osc" match_osc: Option<String> = Opt(STRING),
         "match_args" match_args: Option<Vec<MatchArg>> = Opt(list(obj())),
         /// The address it is reported at, with `{placeholders}` from the message.
@@ -615,16 +710,5 @@ object! {
         /// Sends MIDI clock (F8) even when stopped.
         "clock" clock: Option<bool> = Opt(Bool),
         "note_off" note_off: Option<NoteOff> = Opt(closed()),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::placeholder;
-
-    #[test]
-    fn a_placeholder_is_braces_around_one_character_or_more() {
-        assert!(placeholder("{value}") && placeholder("{}}") && placeholder("{x}"));
-        assert!(!placeholder("{}") && !placeholder("value") && !placeholder("{a\nb}") && !placeholder("{value"));
     }
 }

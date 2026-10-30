@@ -1,0 +1,10 @@
+{
+  "identity": {
+    "request": [240, 126, 127, 6, 1, 247],
+    "reply": [240, 126, "{dev}", 6, 2, 67, "{any}"]
+  },
+  "programs": {
+    "before": [[240, "{dev}", "{bank:u7+0x40}", 247]],
+    "dump": {"kind": "request", "request": [240, "{dev}", 16, 247]}
+  }
+}
