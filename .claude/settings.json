@@ -11,5 +11,20 @@
         "matcher": ""
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "\"$CLAUDE_PROJECT_DIR/node_modules/.bin/grillhouse\" ligne-etat"
+  },
+  "extraKnownMarketplaces": {
+    "roomi-fields": {
+      "source": {
+        "source": "github",
+        "repo": "roomi-fields/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "grillhouse@roomi-fields": true
   }
 }

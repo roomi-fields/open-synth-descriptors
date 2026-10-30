@@ -33,6 +33,6 @@ A question no step of the circuit settles goes up to the supervisor, with its ev
 - `SYNTHHUB_DEVICES=<catalogue folder> cargo bench -p osd` measures reading and resolving against R16.
 - `SYNTHHUB_DEVICES=<catalogue folder> cargo test --manifest-path tools/osc-bridge-parity/Cargo.toml` compares the resolution with osc-bridge's, from an osc-bridge checkout beside this repository.
 - `python tools/validate.py <kind> FILE_OR_DIR…` checks descriptors against the schemas until the reader replaces it.
-- The framework does not know Rust yet: `npm run verifier`, `grillhouse maj` and the night pass wait for its Rust tooling.
+- `npm test -- <paths>` and `npm run verifier` run the tests and the guards through the framework (nextest, clippy, cargo-deny); the dependencies' licences allowed are in `deny.toml`.
 - Ticket prefix: `OSD-`.
 - Push policy: each commit goes to main and is pushed; ask before rewriting history, deleting a branch, publishing a release or a version of the format, or acting outside the repository.
