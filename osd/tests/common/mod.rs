@@ -3,6 +3,8 @@
 
 #![allow(dead_code)]
 
+pub mod probe;
+
 use std::path::{Path, PathBuf};
 
 /// The repository's root, where the schemas, the examples and the
