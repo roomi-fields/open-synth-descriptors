@@ -1,0 +1,9 @@
+{
+  "_about": "A declared list that differs from the one the fields present require is refused at the list; the schema cannot count fields, so it accepts the descriptor.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/capabilities"
+  }
+}

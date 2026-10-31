@@ -1,0 +1,33 @@
+{
+  "_about": "programs.after is a list of messages sent after the recall, like before; it holds no Lua.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "programs": {
+      "program_change": false,
+      "before": [
+        [
+          240,
+          1,
+          247
+        ]
+      ],
+      "after": [
+        [
+          240,
+          2,
+          247
+        ],
+        [
+          176,
+          7,
+          100
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "decode lua without the lua capability declared is refused at the list, by the schema and by the reader.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/capabilities"
+  }
+}

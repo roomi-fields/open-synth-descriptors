@@ -1,0 +1,25 @@
+{
+  "_about": "identity.to named_ports sends the request only to the ports named in identity.ports; it holds no Lua, so no capability.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "identity": {
+      "request": [
+        240,
+        125,
+        70,
+        76,
+        1,
+        247
+      ],
+      "to": "named_ports",
+      "ports": [
+        "FM-1"
+      ]
+    }
+  }
+}

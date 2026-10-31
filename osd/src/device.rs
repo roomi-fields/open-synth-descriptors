@@ -14,7 +14,7 @@ use crate::frame::{
     REPLY_TOKEN,
 };
 use crate::vocabulary;
-use crate::{Fault, FaultKind, SchemaUrlFrom05, Version};
+use crate::{Capability, Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 
@@ -32,6 +32,9 @@ object! {
     Device {
         "$schema" schema: Option<Version> = Opt(SchemaUrlFrom05("device")),
         "device" device: DeviceInfo = obj(),
+        /// What a reader needs beyond the declarative fields (0.5): the list
+        /// the reader derives from the fields present, nothing else.
+        "capabilities" capabilities: Option<Vec<Capability>> = Opt(list(closed())),
         /// The driver whose MIDI this firmware answers to unchanged
         /// (`maker/file`): this file then only says what differs.
         "midi_of" midi_of: Option<String> = Opt(STRING),
@@ -234,19 +237,77 @@ fn programs_frames<'a>(p: &'a Programs, at: &str, out: &mut Vec<(String, Place, 
     for (n, f) in p.before.iter().flatten().enumerate() {
         out.push((format!("{at}/before/{n}"), Place::Sent, f));
     }
+    for (n, f) in p.after.iter().flatten().enumerate() {
+        out.push((format!("{at}/after/{n}"), Place::Sent, f));
+    }
     if let Some(r) = p.dump.as_ref().and_then(|d| d.request.as_ref()) {
         out.push((format!("{at}/dump/request"), Place::Sent, r));
     }
 }
 
-/// `script` is a field of 0.5 only.
-fn check_firmware_script(i: Option<&Identity>, v05: bool) -> Result<(), Fault> {
-    match i.and_then(|i| i.firmware.as_ref()).and_then(|f| f.as_ref()) {
-        Some(f) if !v05 && f.script.is_some() => Err(Fault {
+/// The fields that enter with 0.5: in 0.4 each is an unknown field.
+fn check_05_fields(i: Option<&Identity>, p: Option<&Programs>, v05: bool) -> Result<(), Fault> {
+    if v05 {
+        return Ok(());
+    }
+    let present: [(&str, bool); 7] = [
+        ("/identity/firmware/script", i.and_then(|i| i.firmware.as_ref()).and_then(|f| f.as_ref()).is_some_and(|f| f.script.is_some())),
+        ("/identity/to", i.is_some_and(|i| i.to.is_some())),
+        ("/identity/script", i.is_some_and(|i| i.script.is_some())),
+        ("/programs/after", p.is_some_and(|p| p.after.is_some())),
+        ("/programs/recall_script", p.is_some_and(|p| p.recall_script.is_some())),
+        ("/programs/dump/script", p.is_some_and(|p| p.dump.as_ref().is_some_and(|d| d.script.is_some()))),
+        ("", false),
+    ];
+    match present.iter().find(|(_, here)| *here) {
+        Some((pointer, _)) => Err(Fault {
             kind: FaultKind::UnknownField,
             file: None,
-            pointer: "/identity/firmware/script".into(),
-            rule: "script is not a field of 0.4".into(),
+            pointer: (*pointer).into(),
+            rule: format!("{} is not a field of 0.4", pointer.rsplit('/').next().unwrap_or_default()),
+        }),
+        None => Ok(()),
+    }
+}
+
+impl Device {
+    /// The capabilities the fields present require: Lua when the device
+    /// carries any field that holds Lua (the osc-bridge extension fields of
+    /// 0.4 and four of 0.5: `identity.script`, `identity.firmware.script`,
+    /// `programs.recall_script`, `programs.dump.script`). `identity.to` and
+    /// `programs.after` hold none.
+    pub fn derived_capabilities(&self) -> Vec<Capability> {
+        let d = self;
+        let cc = d.cc_params.iter().flat_map(|t| &t.entries).any(|e| e.transform.is_some() || e.transform_reverse.is_some());
+        let params = d.params.iter().flat_map(|t| &t.entries).any(|e| e.transform.is_some() || e.transform_reverse.is_some());
+        let commands = d.commands.iter().flatten().any(|c| c.script.is_some());
+        let replies = d.replies.iter().flatten().any(|r| r.script.is_some());
+        let custom = d.custom_commands.as_ref().is_some_and(|c| !c.is_empty());
+        let identity = d.identity.as_ref().is_some_and(|i| {
+            i.script.is_some() || i.firmware.iter().flatten().any(|f| f.script.is_some() || f.decode == "lua")
+        });
+        let programs = d.programs.as_ref().is_some_and(|p| p.recall_script.is_some() || p.dump.as_ref().is_some_and(|x| x.script.is_some()));
+        if cc || params || commands || replies || custom || identity || programs { vec![Capability::Lua] } else { Vec::new() }
+    }
+}
+
+/// A declared `capabilities` equals the derived list.
+fn check_capabilities(d: &Device) -> Result<(), Fault> {
+    match &d.capabilities {
+        Some(declared) if *declared != d.derived_capabilities() => Err(Fault {
+            kind: FaultKind::BadValue,
+            file: None,
+            pointer: "/capabilities".into(),
+            rule: format!(
+                "the list the fields present require is [{}]",
+                d.derived_capabilities().iter().map(|c| c.word()).collect::<Vec<_>>().join(", ")
+            ),
+        }),
+        None if d.schema == Some(Version::V0_5) && !d.derived_capabilities().is_empty() => Err(Fault {
+            kind: FaultKind::BadValue,
+            file: None,
+            pointer: "/capabilities".into(),
+            rule: "the fields present require lua: declare it".into(),
         }),
         _ => Ok(()),
     }
@@ -303,9 +364,13 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = d.schema == Some(Version::V0_5);
-    check_firmware_script(d.identity.as_ref(), v05)?;
+    check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
+    if !v05 && d.capabilities.is_some() {
+        return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
+    }
     if v05 {
         check_vocabularies(d)?;
+        check_capabilities(d)?;
     }
     let mut frames = Vec::new();
     if let Some(i) = &d.identity {
@@ -382,7 +447,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
 
 fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
     let v05 = p.schema == Some(Version::V0_5);
-    check_firmware_script(p.identity.as_ref(), v05)?;
+    check_05_fields(p.identity.as_ref(), p.programs.as_ref(), v05)?;
     if v05 {
         if let Some(i) = &p.identity {
             check_identity_vocabularies(i)?;
@@ -437,6 +502,10 @@ fn convert_programs(p: &mut Programs, at: &At) -> Result<(), Fault> {
     let before = At::Key(at, "before");
     for (n, f) in p.before.iter_mut().flatten().enumerate() {
         convert_frame(f, Place::Sent, &At::Index(&before, n))?;
+    }
+    let after = At::Key(at, "after");
+    for (n, f) in p.after.iter_mut().flatten().enumerate() {
+        convert_frame(f, Place::Sent, &At::Index(&after, n))?;
     }
     if let Some(r) = p.dump.as_mut().and_then(|d| d.request.as_mut()) {
         convert_frame(r, Place::Sent, &At::Key(&At::Key(at, "dump"), "request"))?;
@@ -522,6 +591,8 @@ impl Device {
             }
             convert_reported(r, &At::Key(&at, "emit_osc"))?;
         }
+        let derived = self.derived_capabilities();
+        self.capabilities = (!derived.is_empty()).then_some(derived);
         Ok(self)
     }
 }
@@ -635,6 +706,11 @@ object! {
 }
 
 words! {
+    /// The ports an identify request goes to.
+    IdentityTo { EveryPort = "every_port", NamedPorts = "named_ports", }
+}
+
+words! {
     /// How an identity reply's bytes are unpacked.
     Unpack { Lsb8To7 = "lsb_8to7", }
 }
@@ -648,6 +724,10 @@ object! {
         "profile" profile: Option<String> = Opt(STRING),
         /// The identify request, when not the Universal Identity Request.
         "request" request: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        /// Where the request goes (0.5).
+        "to" to: Option<IdentityTo> = Opt(closed()),
+        /// A Lua script that says whether a reply is the device's (0.5).
+        "script" script: Option<String> = Opt(STRING),
         "unpack" unpack: Option<Unpack> = Opt(closed()),
         /// The start of the reply, recognised element by element.
         "reply" reply: Option<Vec<FrameToken>> = Opt(list(REPLY_TOKEN)),
@@ -719,6 +799,10 @@ object! {
         "banks" banks: Option<Vec<Bank>> = Opt(list(obj())),
         /// Messages sent before a recall.
         "before" before: Option<Vec<Vec<FrameToken>>> = Opt(list(list(FRAME_TOKEN))),
+        /// Messages sent after a recall (0.5).
+        "after" after: Option<Vec<Vec<FrameToken>>> = Opt(list(list(FRAME_TOKEN))),
+        /// A Lua script that writes the recall itself (0.5).
+        "recall_script" recall_script: Option<String> = Opt(STRING),
         "delay_ms" delay_ms: Option<i64> = Opt(at_least(0)),
         "dump" dump: Option<Dump> = Opt(obj()),
         "notes" notes: Option<String> = Opt(STRING),
@@ -735,6 +819,8 @@ object! {
     Dump {
         "kind" kind: DumpKind = closed(),
         "request" request: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        /// A Lua script that writes the request (0.5).
+        "script" script: Option<String> = Opt(STRING),
     }
 }
 

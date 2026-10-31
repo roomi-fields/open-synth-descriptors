@@ -96,7 +96,10 @@ fn schema_errors(dir: &Path, schemas: &common::Schemas) -> Option<String> {
     let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
     let doc: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("descriptor.json")).unwrap()).unwrap();
     let errors = schemas.errors(kind(case["read"].as_str().unwrap()), &doc);
-    let want: Vec<&str> = case.get("fault").map(|f| f["pointer"].as_str().unwrap()).into_iter().collect();
+    // A refusal the reader owes to a rule no schema states (a declared list
+    // that differs from the derived one) has a descriptor the schema accepts.
+    let schema_accepts = case.get("schema_accepts").and_then(Value::as_bool) == Some(true);
+    let want: Vec<&str> = case.get("fault").filter(|_| !schema_accepts).map(|f| f["pointer"].as_str().unwrap()).into_iter().collect();
     let got: Vec<&str> = errors.iter().map(|(at, _)| at.as_str()).collect();
     (got != want).then(|| format!("schema errors {errors:?}, expected at {want:?}"))
 }

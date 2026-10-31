@@ -83,7 +83,7 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
             Device::read(&doc, &At::Root).map_err(|f| f.in_file(id))?
         }
     };
-    let capabilities = capabilities(&device);
+    let capabilities = device.derived_capabilities();
     Ok(Resolved { device, files: read, capabilities })
 }
 
@@ -232,15 +232,4 @@ fn complete(maker: &str, key: &str, block: Value, from: &str, files: &dyn Files,
     }
     obj.insert("profile".into(), Value::String(pid));
     Ok(out)
-}
-
-/// The capabilities a device requires: Lua, when it carries any of the
-/// osc-bridge extension fields that hold Lua.
-fn capabilities(d: &Device) -> Vec<Capability> {
-    let cc = d.cc_params.iter().flat_map(|t| &t.entries).any(|e| e.transform.is_some() || e.transform_reverse.is_some());
-    let params = d.params.iter().flat_map(|t| &t.entries).any(|e| e.transform.is_some() || e.transform_reverse.is_some());
-    let commands = d.commands.iter().flatten().any(|c| c.script.is_some());
-    let replies = d.replies.iter().flatten().any(|r| r.script.is_some());
-    let custom = d.custom_commands.as_ref().is_some_and(|c| !c.is_empty());
-    if cc || params || commands || replies || custom { vec![Capability::Lua] } else { Vec::new() }
 }

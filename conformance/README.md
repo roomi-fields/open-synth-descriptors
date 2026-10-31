@@ -16,7 +16,10 @@ reader in any language runs them; `osd` runs them with `cargo test -p osd`.
 
 A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
-one schema error, at the pointer the fault names.
+one schema error, at the pointer the fault names. A case with
+`"schema_accepts": true` is the exception: its fault is one the schema cannot
+express (a declared list that differs from the derived one), so the
+descriptor validates against the schema and only the reader refuses it.
 
 ## Conversion (`<version>/convert/<case>/`)
 

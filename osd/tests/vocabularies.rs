@@ -74,6 +74,9 @@ impl Place {
             ),
             Place::SourceType => ("_sources", json!([{"type": value}])),
         };
+        if v05 && matches!(self, Place::Decode) && part["firmware"]["decode"] == json!("lua") {
+            doc.insert("capabilities".into(), json!(["lua"]));
+        }
         doc.insert(key.into(), part);
         Value::Object(doc)
     }

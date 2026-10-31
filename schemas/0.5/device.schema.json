@@ -14,12 +14,42 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "firmware": {
+                "type": "object",
+                "properties": { "decode": { "const": "lua" } },
+                "required": ["decode"]
+              }
+            },
+            "required": ["firmware"]
+          }
+        },
+        "required": ["identity"]
+      },
+      "then": {
+        "properties": { "capabilities": { "contains": { "const": "lua" } } },
+        "required": ["capabilities"]
+      }
+    }
+  ],
   "properties": {
     "$schema": {
       "const": "https://w3id.org/osd/0.5/device.schema.json"
     },
     "device": {
       "$ref": "#/$defs/device"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "enum": ["lua"]
+      },
+      "description": "What a reader needs beyond the declarative fields. A closed list, today lua (a Lua expression or script). The reader derives the list from the fields present and refuses a declared list that differs; decode lua requires lua."
     },
     "midi_of": {
       "type": "string",
@@ -90,6 +120,14 @@
           },
           "description": "Messages sent before a recall."
         },
+        "after": {
+          "$ref": "#/properties/programs/properties/before",
+          "description": "Messages sent after a recall (before it for before); with program_change false, before and after recall alone."
+        },
+        "recall_script": {
+          "type": "string",
+          "description": "A Lua script that writes the recall itself, in place of before, the bank select, the program change and after: it reads ctx (channel, dev, family, member, bank, bank_name, msb, lsb, program, index, number) and returns the messages, a list of lists of bytes. Requires the lua capability."
+        },
         "delay_ms": {
           "type": "integer",
           "minimum": 0
@@ -111,6 +149,10 @@
                 "$ref": "#/$defs/frame_token"
               },
               "description": "A message, byte by byte."
+            },
+            "script": {
+              "type": "string",
+              "description": "A Lua script that writes the request that reads a sound back: it reads ctx like recall_script and returns one list of bytes. Requires the lua capability."
             }
           },
           "patternProperties": {
@@ -748,6 +790,14 @@
             "$ref": "#/$defs/frame_token"
           },
           "description": "The identify request, when not the Universal Identity Request (F0 7E 7F 06 01 F7); its elements may take the device's own values (an identity object)."
+        },
+        "to": {
+          "enum": ["every_port", "named_ports"],
+          "description": "Where the request goes: every_port (default), or named_ports, only the ports whose name matches ports (for a message other devices might misread)."
+        },
+        "script": {
+          "type": "string",
+          "description": "A Lua script that says whether a reply is this device's, for what reply cannot say: it reads reply (the bytes, from 1) and returns true or false; with reply, both must hold. Requires the lua capability."
         },
         "unpack": {
           "enum": [

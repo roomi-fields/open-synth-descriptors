@@ -1,0 +1,24 @@
+{
+  "_about": "A 0.4 driver with a Lua field converts with capabilities lua, the list the reader derives.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "capabilities": [
+      "lua"
+    ],
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "cc": 1,
+          "transform": "x * 2"
+        }
+      ]
+    }
+  }
+}

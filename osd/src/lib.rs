@@ -22,7 +22,7 @@ mod vocabulary;
 pub use address::{Address, Segment};
 pub use device::{
     Arg, ArgType, Bank, CcEntry, CcParams, ChannelMode, Command, CustomCommand, Device, DeviceIdRange, DeviceInfo,
-    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, MatchArg, MidiIn, MidiOut, MidiTemplates, MidiType,
+    DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, IdentityTo, MatchArg, MidiIn, MidiOut, MidiTemplates, MidiType,
     NoteOff,
     Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, Scalar, ScriptProfile, Sends, Source,
     Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType,
@@ -71,8 +71,13 @@ pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5];
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Capability {
     /// Lua expressions and scripts (the osc-bridge extension fields of 0.4:
-    /// `transform`, `transform_reverse`, `script`, `custom_commands`).
+    /// `transform`, `transform_reverse`, `script`, `custom_commands`, and four
+    /// of 0.5).
     Lua,
+}
+
+impl json::Word for Capability {
+    const WORDS: &'static [(&'static str, Self)] = &[("lua", Capability::Lua)];
 }
 
 /// A descriptor of any kind, typed.

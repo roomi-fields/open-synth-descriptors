@@ -1,0 +1,38 @@
+{
+  "_about": "Each Lua field of 0.5 (identity.script, identity.firmware.script, programs.recall_script, programs.dump.script) is read with the lua capability declared.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "capabilities": [
+      "lua"
+    ],
+    "identity": {
+      "reply": [
+        240,
+        126,
+        "any",
+        6,
+        2
+      ],
+      "script": "return reply[5] == 2",
+      "firmware": {
+        "decode": "lua",
+        "at": [
+          5
+        ],
+        "script": "return string.format('%d.%02d', reply[1] >> 4, reply[1] & 15)"
+      }
+    },
+    "programs": {
+      "recall_script": "return {{0xC0, ctx.program}}",
+      "dump": {
+        "kind": "request",
+        "script": "return {240, 1, ctx.program, 247}"
+      }
+    }
+  }
+}
