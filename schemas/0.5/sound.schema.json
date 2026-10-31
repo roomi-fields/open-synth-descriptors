@@ -177,13 +177,15 @@
     },
     "license": {
       "type": "string",
-      "description": "An SPDX licence id (CC-BY-4.0, CC0-1.0, MIT…), public-domain, or none when the author declared none.",
+      "pattern": "^(public-domain|NOASSERTION|NONE|(?![Nn][Oo][Nn][Ee]$|[Nn][Oo][Aa][Ss][Ss][Ee][Rr][Tt][Ii][Oo][Nn]$|[Pp][Uu][Bb][Ll][Ii][Cc]-[Dd][Oo][Mm][Aa][Ii][Nn]$)[A-Z][A-Za-z0-9.+-]*)$",
+      "description": "An SPDX licence id (CC-BY-4.0, CC0-1.0, MIT…), public-domain, NOASSERTION (SPDX: the source states no licence; nothing is asserted) or NONE (SPDX: the source declares that it grants no licence). SPDX's two special values are written in capitals; other spellings are refused.",
       "examples": [
         "CC0-1.0",
         "CC-BY-4.0",
         "CC-BY-SA-4.0",
         "public-domain",
-        "none"
+        "NOASSERTION",
+        "NONE"
       ]
     },
     "license_terms": {

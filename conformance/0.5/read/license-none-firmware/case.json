@@ -1,0 +1,11 @@
+{
+  "_about": "SPDX's NONE is a firmware licence: the source declares that it grants no licence.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/firmware.schema.json",
+    "name": "TRIBE",
+    "version": "0.3-beta",
+    "device": { "descriptor": "m-vave/fm-1", "vendor": "M-VAVE", "model": "FM-1" },
+    "license": "NONE"
+  }
+}

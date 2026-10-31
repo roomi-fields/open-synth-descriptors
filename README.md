@@ -190,9 +190,16 @@ Makers with no published terms stay out of the table.
 becomes `contributed`; `hardware-verified-partial` becomes `hardware-verified`
 (the source's `notes` say what was tested); any other word is `NotConvertible`.
 
-`_sources[].license` is an SPDX id, `public-domain` or `none`; the reader
-checks the id's shape (a capital first, then letters, digits, `.`, `+`, `-`),
-not the SPDX registry. In 0.4, any other text is `NotConvertible`.
+A `license` (a source's, a sound's, a firmware's) is an SPDX id, `public-domain`,
+`NOASSERTION` or `NONE`; the reader checks the id's shape (a capital first, then
+letters, digits, `.`, `+`, `-`), not the SPDX registry. `NOASSERTION` and `NONE`
+are SPDX's two special values, taken with their SPDX meaning (SPDX
+specification, https://spdx.github.io/spdx-spec/): `NOASSERTION` means the source states no licence; nothing is asserted;
+`NONE` means the source declares that it grants no licence. The
+values are written in SPDX's canonical case; other spellings are refused
+(`none`, `None`, `Noassertion`, `Public-Domain`), a departure from SPDX, which
+compares its ids without regard to case: one value has one spelling. 0.4 to 0.5: `none` becomes
+`NONE`; another admitted value is kept; any other text is `NotConvertible`.
 
 ## Versions
 

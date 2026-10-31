@@ -34,7 +34,7 @@ object! {
         "repository" repository: Option<String> = Opt(STRING),
         "homepage" homepage: Option<String> = Opt(STRING),
         "release" release: Option<Release> = Opt(obj()),
-        /// An SPDX licence id, `public-domain`, or `none`.
+        /// An SPDX licence id, `public-domain`, `NOASSERTION` or `NONE`.
         "license" license: Option<String> = Opt(STRING),
         "based_on" based_on: Option<BasedOn> = Opt(obj()),
         "midi" midi: Option<FirmwareMidi> = Opt(obj()),
@@ -44,6 +44,15 @@ object! {
         "description" description: Option<String> = Opt(STRING),
         "communities" communities: Option<Vec<Community>> = Opt(list(obj())),
     }
+    check licence_of_its_version
+}
+
+/// A 0.5 firmware holds a closed licence value; a 0.4 one any text.
+fn licence_of_its_version(f: &Firmware, _: &crate::json::At) -> Result<(), crate::Fault> {
+    if f.schema == Some(Version::V0_5) {
+        crate::vocabulary::check_license(f.license.as_deref(), "/license")?;
+    }
+    Ok(())
 }
 
 object! {

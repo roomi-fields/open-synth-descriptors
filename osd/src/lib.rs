@@ -293,6 +293,18 @@ pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
     let d = match d {
         Descriptor::Device(x) => Descriptor::Device(Box::new(x.into_structures()?)),
         Descriptor::Profile(x) => Descriptor::Profile(Box::new(x.into_structures()?)),
+        Descriptor::Sound(mut x) => {
+            if let Some(l) = &x.license {
+                x.license = Some(vocabulary::convert_license(l, "/license")?);
+            }
+            Descriptor::Sound(x)
+        }
+        Descriptor::Firmware(mut x) => {
+            if let Some(l) = &x.license {
+                x.license = Some(vocabulary::convert_license(l, "/license")?);
+            }
+            Descriptor::Firmware(x)
+        }
         other => other,
     };
     let name = match kind {

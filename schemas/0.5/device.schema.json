@@ -1542,8 +1542,8 @@
         },
         "license": {
           "type": "string",
-          "pattern": "^(public-domain|none|(?!None$|Public-Domain$)[A-Z][A-Za-z0-9.+-]*)$",
-          "description": "An SPDX licence id (by its shape), public-domain, or none."
+          "pattern": "^(public-domain|NOASSERTION|NONE|(?![Nn][Oo][Nn][Ee]$|[Nn][Oo][Aa][Ss][Ss][Ee][Rr][Tt][Ii][Oo][Nn]$|[Pp][Uu][Bb][Ll][Ii][Cc]-[Dd][Oo][Mm][Aa][Ii][Nn]$)[A-Z][A-Za-z0-9.+-]*)$",
+          "description": "An SPDX licence id (by its shape), public-domain, NOASSERTION (SPDX: the source states no licence; nothing is asserted) or NONE (SPDX: the source declares that it grants no licence). SPDX's two special values are written in capitals; other spellings are refused."
         },
         "commit": {
           "type": "string"

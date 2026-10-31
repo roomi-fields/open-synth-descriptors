@@ -546,7 +546,7 @@ impl Device {
             let at = At::Index(&sources, n);
             s.kind = vocabulary::convert_source_type(&s.kind, &At::Key(&at, "type").pointer())?;
             if let Some(l) = &s.license {
-                vocabulary::convert_license(l, &At::Key(&at, "license").pointer())?;
+                s.license = Some(vocabulary::convert_license(l, &At::Key(&at, "license").pointer())?);
             }
         }
         if let Some(p) = &mut self.params {

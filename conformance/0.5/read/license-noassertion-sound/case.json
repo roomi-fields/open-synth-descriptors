@@ -1,0 +1,14 @@
+{
+  "_about": "SPDX's NOASSERTION is a sound licence: the source states no licence; nothing is asserted.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
+    "content": {
+      "settings": { "/amp/attack": [90] }
+    },
+    "license": "NOASSERTION"
+  }
+}

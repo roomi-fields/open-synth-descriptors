@@ -3,7 +3,7 @@
 //! `banks[].selects`, `_sources[].type`); a value outside a list is valid only
 //! as an extension `x-<registrant>-<term>` (`^x-[a-z0-9]+-[a-z0-9-]+$`), except
 //! `decode`, which has none. `_sources[].license` is an SPDX id,
-//! `public-domain` or `none`. `osd::convert` maps the makers' words of 0.4 to
+//! `public-domain`, `NOASSERTION` or `NONE`.`osd::convert` maps the makers' words of 0.4 to
 //! the terms and refuses any other word as `NotConvertible`, at the pointer of
 //! the value. The README writes the tables once.
 
@@ -402,26 +402,154 @@ fn with_license(license: Value, v05: bool) -> Value {
 }
 
 #[test]
-fn criterion_4_a_source_license_is_an_spdx_id_public_domain_or_none() {
-    for id in ["MIT", "Apache-2.0", "CC-BY-4.0", "CC0-1.0", "GPL-3.0-or-later", "BSD-3-Clause", "public-domain", "none"] {
+fn criterion_1_a_source_license_is_an_spdx_id_public_domain_noassertion_or_none() {
+    for id in ["MIT", "Apache-2.0", "CC-BY-4.0", "CC0-1.0", "GPL-3.0-or-later", "BSD-3-Clause", "public-domain", "NOASSERTION", "NONE"] {
         accepted(&with_license(json!(id), true));
     }
 }
 
 #[test]
-fn criterion_4_a_source_license_that_is_no_spdx_id_is_a_bad_value() {
-    for id in ["MIT License", "cc by 4", "free", "", "Public-Domain", "None", "CC BY"] {
+fn criterion_1_a_source_license_that_is_no_spdx_id_is_a_bad_value() {
+    // SPDX's special values are written in its canonical case: other spellings are refused
+    for id in ["MIT License", "cc by 4", "free", "", "Public-Domain", "None", "none", "Noassertion", "noassertion", "NoAssertion", "CC BY"] {
         refused_at(&with_license(json!(id), true), "/_sources/0/license");
     }
 }
 
+/// A 0.5 sound or firmware descriptor with a `license`, else minimal.
+fn with_license_of(kind: Kind, license: Value) -> Value {
+    match kind {
+        Kind::Sound => json!({
+            "$schema": "https://w3id.org/osd/0.5/sound.schema.json", "name": "Warm pad", "kind": "sound",
+            "device": {"descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue"},
+            "content": {"settings": {"/amp/attack": [90]}}, "license": license
+        }),
+        _ => json!({
+            "$schema": "https://w3id.org/osd/0.5/firmware.schema.json", "name": "TRIBE", "version": "0.3-beta",
+            "device": {"descriptor": "m-vave/fm-1", "vendor": "M-VAVE", "model": "FM-1"}, "license": license
+        }),
+    }
+}
+
 #[test]
-fn criterion_5_a_0_4_license_that_is_no_spdx_id_is_not_convertible_at_its_value() {
-    for id in ["MIT", "CC-BY-4.0", "public-domain", "none"] {
+fn criterion_5_a_sound_and_a_firmware_license_is_an_spdx_id_public_domain_noassertion_or_none() {
+    let schemas = common::Schemas::load("0.5");
+    for kind in [Kind::Sound, Kind::Firmware] {
+        for id in ["CC0-1.0", "MIT", "public-domain", "NOASSERTION", "NONE"] {
+            let doc = with_license_of(kind, json!(id));
+            let read = osd::read(&doc.to_string(), kind).unwrap_or_else(|f| panic!("{kind:?} {id}: {f}"));
+            assert_eq!(serde_json::from_str::<Value>(&osd::write(&read)).unwrap(), doc);
+            assert_eq!(schemas.check(kind, &doc), None, "{kind:?} {id}");
+        }
+    }
+}
+
+#[test]
+fn criterion_5_a_sound_and_a_firmware_license_none_in_lowercase_is_a_bad_value_at_the_field() {
+    let schemas = common::Schemas::load("0.5");
+    for kind in [Kind::Sound, Kind::Firmware] {
+        for id in ["none", "None", "Noassertion", "Public-Domain", "free", "MIT License"] {
+            let doc = with_license_of(kind, json!(id));
+            let f = osd::read(&doc.to_string(), kind).expect_err(&format!("{kind:?} {id} read"));
+            assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/license"), "{kind:?} {id}: {f}");
+            let errors = schemas.errors(kind, &doc);
+            assert!(errors.iter().any(|(p, _)| p.starts_with("/license")), "{kind:?} {id}: schema {errors:?}");
+        }
+    }
+}
+
+#[test]
+fn criterion_6_the_converter_maps_the_0_4_license_none_to_none_in_spdx_case() {
+    let out = convert(&with_license(json!("none"), false)).unwrap();
+    assert_eq!(out["_sources"][0]["license"], json!("NONE"));
+    assert_eq!(common::Schemas::load("0.5").check(Kind::Device, &out), None);
+}
+
+/// The 0.4 form of a sound or firmware: the 0.5 one without `$schema`.
+fn v04_with_license_of(kind: Kind, license: Value) -> Value {
+    let mut doc = with_license_of(kind, license);
+    doc.as_object_mut().unwrap().remove("$schema");
+    doc
+}
+
+#[test]
+fn criterion_3_a_0_4_sound_and_firmware_license_none_reads_and_converts_to_none_in_spdx_case() {
+    for kind in [Kind::Sound, Kind::Firmware] {
+        let doc = v04_with_license_of(kind, json!("none"));
+        osd::read(&doc.to_string(), kind).unwrap_or_else(|f| panic!("{kind:?} read: {f}"));
+        let text = osd::convert(&doc.to_string(), kind).unwrap_or_else(|f| panic!("{kind:?} convert: {f}"));
+        let out: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(out["license"], json!("NONE"), "{kind:?}");
+        osd::read(&text, kind).unwrap_or_else(|f| panic!("{kind:?} converted reads: {f}"));
+        assert_eq!(common::Schemas::load("0.5").check(kind, &out), None, "{kind:?}");
+    }
+}
+
+#[test]
+fn criterion_3_a_0_4_sound_and_firmware_license_other_admitted_values_stay_unchanged() {
+    for kind in [Kind::Sound, Kind::Firmware] {
+        for id in ["MIT", "CC-BY-4.0", "public-domain", "NOASSERTION", "NONE"] {
+            let doc = v04_with_license_of(kind, json!(id));
+            let out: Value = serde_json::from_str(&osd::convert(&doc.to_string(), kind).unwrap()).unwrap();
+            assert_eq!(out["license"], json!(id), "{kind:?} {id}");
+        }
+    }
+}
+
+#[test]
+fn criterion_3_a_0_4_sound_and_firmware_license_that_is_no_spdx_id_is_not_convertible_at_the_field() {
+    for kind in [Kind::Sound, Kind::Firmware] {
+        for id in ["CC BY 4.0", "free", "None", "Public-Domain", "Noassertion"] {
+            let doc = v04_with_license_of(kind, json!(id));
+            let f = osd::convert(&doc.to_string(), kind).expect_err(&format!("{kind:?} {id}"));
+            assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::NotConvertible, "/license"), "{kind:?} {id}: {f}");
+        }
+    }
+}
+
+#[test]
+fn criterion_6_the_converter_leaves_the_other_admitted_0_4_licenses_unchanged() {
+    for id in ["MIT", "CC-BY-4.0", "public-domain", "NOASSERTION", "NONE"] {
         let out = convert(&with_license(json!(id), false)).unwrap();
         assert_eq!(out["_sources"][0]["license"], json!(id));
     }
-    for id in ["MIT License", "free", "cc by 4"] {
+}
+
+#[test]
+fn criterion_7_no_0_5_example_nor_conformance_case_carries_none_as_a_license() {
+    fn walk(dir: &std::path::Path, found: &mut Vec<String>) {
+        for e in std::fs::read_dir(dir).unwrap() {
+            let p = e.unwrap().path();
+            if p.is_dir() {
+                walk(&p, found);
+            } else if p.extension().is_some_and(|x| x == "json") {
+                let text = std::fs::read_to_string(&p).unwrap();
+                let Ok(doc) = serde_json::from_str::<Value>(&text) else { continue };
+                let mut stack = vec![&doc];
+                while let Some(v) = stack.pop() {
+                    match v {
+                        Value::Object(m) => {
+                            if m.get("license") == Some(&json!("none")) && !p.to_string_lossy().contains("refused") {
+                                found.push(p.display().to_string());
+                            }
+                            stack.extend(m.values());
+                        }
+                        Value::Array(a) => stack.extend(a),
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    let mut found = vec![];
+    walk(&common::repo().join("examples/0.5"), &mut found);
+    walk(&common::repo().join("conformance/0.5/read"), &mut found);
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn criterion_3_a_0_4_license_that_is_no_spdx_id_is_not_convertible_at_its_value() {
+    for id in ["MIT License", "free", "cc by 4", "None", "Noassertion"] {
         let f = convert(&with_license(json!(id), false)).expect_err(id);
         assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::NotConvertible, "/_sources/0/license"), "{f}");
     }
@@ -489,6 +617,21 @@ fn not_convertible_doc(doc: &Value, at: &str) {
 
 fn readme() -> String {
     std::fs::read_to_string(common::repo().join("README.md")).unwrap()
+}
+
+#[test]
+fn criterion_2_and_9_the_readme_defines_noassertion_and_none_cites_spdx_and_states_the_canonical_case() {
+    let text = readme();
+    for needle in [
+        "`NOASSERTION`",
+        "`NONE`",
+        "the source states no licence; nothing is asserted",
+        "the source declares that it grants no licence",
+        "SPDX",
+        "values are written in SPDX's canonical case; other spellings are refused",
+    ] {
+        assert!(text.contains(needle), "README.md does not write {needle}");
+    }
 }
 
 #[test]

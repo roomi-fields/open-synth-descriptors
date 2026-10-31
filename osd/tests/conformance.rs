@@ -257,6 +257,44 @@ fn criterion_4_the_conversion_cases_cover_each_frame_place_each_form_and_the_two
     }
 }
 
+#[test]
+fn criterion_4_and_8_the_cases_read_noassertion_and_none_and_refuse_none_in_lowercase_for_each_kind() {
+    let root = common::repo().join("conformance/0.5/read");
+    let names = case_names(&root);
+    for kind in ["device", "sound", "firmware"] {
+        for (word, text) in [("noassertion", "NOASSERTION"), ("none", "NONE")] {
+            let name = format!("license-{word}-{kind}");
+            assert!(names.contains(&name), "no case {name} in {names:?}");
+            let s = spec(&root, &name);
+            assert_eq!(s["read"], kind, "{name}");
+            assert_eq!(run_read(&root.join(&name)), None, "{name}");
+            let doc = std::fs::read_to_string(root.join(&name).join("descriptor.json")).unwrap();
+            assert!(doc.contains(&format!("\"license\": \"{text}\"")), "{name}: {doc}");
+            assert!(s.get("result").is_some(), "{name} is read");
+        }
+        let name = format!("license-none-word-{kind}-refused");
+        assert!(names.contains(&name), "no case {name} in {names:?}");
+        let s = spec(&root, &name);
+        assert_eq!(s["read"], kind, "{name}");
+        let pointer = if kind == "device" { "/_sources/0/license" } else { "/license" };
+        assert_eq!(s["fault"], serde_json::json!({"kind": "BadValue", "pointer": pointer}), "{name}");
+        let doc = std::fs::read_to_string(root.join(&name).join("descriptor.json")).unwrap();
+        assert!(doc.contains("\"license\": \"none\""), "{name}: {doc}");
+    }
+}
+
+#[test]
+fn criterion_4_and_8_a_conversion_case_maps_the_0_4_license_none_to_none() {
+    let root = common::repo().join("conformance/0.5/convert");
+    let name = "license-none";
+    assert!(case_names(&root).iter().any(|n| n == name), "no case {name}");
+    assert_eq!(run_convert(&root.join(name)), None);
+    let s = spec(&root, name);
+    assert_eq!(s["result"]["_sources"][0]["license"], "NONE");
+    let doc = std::fs::read_to_string(root.join(name).join("descriptor.json")).unwrap();
+    assert!(doc.contains("\"license\": \"none\""), "{doc}");
+}
+
 /// A case's `case.json`.
 fn spec(root: &Path, name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(root.join(name).join("case.json")).unwrap()).unwrap()

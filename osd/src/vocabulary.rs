@@ -73,18 +73,20 @@ pub(crate) fn is_extension(s: &str) -> bool {
 }
 
 /// An SPDX licence id by its shape (capital first, then letters, digits, `.`,
-/// `+`, `-`), `public-domain` or `none`; the registry itself is not read.
+/// `+`, `-`), `public-domain`, or SPDX's `NOASSERTION` and `NONE`; the registry
+/// itself is not read. Other spellings of the special values are refused.
 pub(crate) fn is_license(s: &str) -> bool {
-    if s == "public-domain" || s == "none" {
+    if s == "public-domain" || s == "NOASSERTION" || s == "NONE" {
         return true;
     }
-    if s == "Public-Domain" || s == "None" {
+    if s.eq_ignore_ascii_case("public-domain") || s.eq_ignore_ascii_case("none") || s.eq_ignore_ascii_case("noassertion") {
         return false;
     }
     let mut chars = s.chars();
     chars.next().is_some_and(|c| c.is_ascii_uppercase())
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '+' | '-'))
 }
+
 
 fn fault(kind: FaultKind, pointer: &str, rule: impl Into<String>) -> Fault {
     Fault { kind, file: None, pointer: pointer.to_string(), rule: rule.into() }
@@ -125,13 +127,20 @@ pub(crate) fn check_selects(value: &str, pointer: &str) -> Result<(), Fault> {
     list_or_extension(value, &KINDS, pointer)
 }
 
+pub(crate) fn check_license(license: Option<&str>, pointer: &str) -> Result<(), Fault> {
+    match license {
+        Some(l) if !is_license(l) => Err(fault(FaultKind::BadValue, pointer, LICENSE_RULE)),
+        _ => Ok(()),
+    }
+}
+
 pub(crate) fn check_source(kind: &str, license: Option<&str>, pointer: &str) -> Result<(), Fault> {
     list_or_extension(kind, &SOURCE_TYPES, &format!("{pointer}/type"))?;
     match license {
         Some(l) if !is_license(l) => Err(fault(
             FaultKind::BadValue,
             &format!("{pointer}/license"),
-            "an SPDX licence id, public-domain or none",
+            LICENSE_RULE,
         )),
         _ => Ok(()),
     }
@@ -187,11 +196,17 @@ pub(crate) fn convert_source_type(value: &str, pointer: &str) -> Result<String, 
     Err(not_convertible(pointer, "a source type of the README's list or table"))
 }
 
-/// A 0.4 licence that 0.5 holds, or a fault.
-pub(crate) fn convert_license(value: &str, pointer: &str) -> Result<(), Fault> {
-    if is_license(value) {
-        Ok(())
+/// The 0.5 licence of a 0.4 one: `none` becomes `NONE`, another admitted value
+/// is itself, anything else is a fault.
+pub(crate) fn convert_license(value: &str, pointer: &str) -> Result<String, Fault> {
+    if value == "none" {
+        Ok("NONE".to_string())
+    } else if is_license(value) {
+        Ok(value.to_string())
     } else {
-        Err(not_convertible(pointer, "an SPDX licence id, public-domain or none"))
+        Err(not_convertible(pointer, LICENSE_RULE))
     }
 }
+
+/// What a licence is, in words.
+pub(crate) const LICENSE_RULE: &str = "an SPDX licence id, public-domain, NOASSERTION or NONE";

@@ -1,0 +1,5 @@
+{
+  "_about": "The word none is no 0.5 licence (SPDX's value is NONE): refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/_sources/0/license"}
+}
