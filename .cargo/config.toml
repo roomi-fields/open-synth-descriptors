@@ -1,4 +1,0 @@
-# Until Grillhouse 0.27.0 (grillhouse-qmk): sccache cannot start inside an agent envelope;
-# a plain pass-through wrapper keeps the frame from adding it.
-[build]
-rustc-wrapper = "env"
