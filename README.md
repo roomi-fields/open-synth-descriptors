@@ -11,7 +11,7 @@ describe some of itself. OSD covers the rest: the thousands of devices that
 never will, the maker-specific SysEx that holds most of a synth, and the
 sounds and firmwares people share.
 
-**Status: 0.4, draft.** It describes the format the
+**Status: 0.5, draft.** It describes the format the
 [SynthHub](https://synthhub.roomi-fields.com/) catalogue is written in:
 every device of it is a valid OSD device descriptor, checked by its tests.
 
@@ -19,11 +19,11 @@ every device of it is a valid OSD device descriptor, checked by its tests.
 
 | Descriptor | What it says | Schema |
 |---|---|---|
-| Device | Identity and how to recognise it (identify reply, port names, USB identity, what it sends by itself); controls (CC, 14-bit CC, NRPN, RPN, SysEx parameters); named messages and checksums; programs and banks; drum and sample notes; what it sends back; where each piece of data comes from and how far it was checked | [`device.schema.json`](schemas/0.4/device.schema.json) |
-| Maker profile | What a maker's or a family's devices share (identify request, program scheme), extended by each device | [`profile.schema.json`](schemas/0.4/profile.schema.json) |
-| Sound | A shared sound, kit, pattern, project, bank or MIDI clip: its data (a `.syx`, a `.mid`, or settings by control address), device and firmware, author, licence, origin, what it derives from, how to play it | [`sound.schema.json`](schemas/0.4/sound.schema.json) |
-| Fingerprint | What a detection observed of a device plugged in (port names, replies, USB identity, the controls its knobs sent) and the model the person confirmed: recognises devices that do not identify themselves, and teaches the next detection | [`fingerprint.schema.json`](schemas/0.4/fingerprint.schema.json) |
-| Firmware | A firmware, mod or script: device, author, repository, licence, what it changes to the MIDI, how to install and revert it, where its users meet. It points to the author's release, never carries it | [`firmware.schema.json`](schemas/0.4/firmware.schema.json) |
+| Device | Identity and how to recognise it (identify reply, port names, USB identity, what it sends by itself); controls (CC, 14-bit CC, NRPN, RPN, SysEx parameters); named messages and checksums; programs and banks; drum and sample notes; what it sends back; where each piece of data comes from and how far it was checked | [`device.schema.json`](schemas/0.5/device.schema.json) |
+| Maker profile | What a maker's or a family's devices share (identify request, program scheme), extended by each device | [`profile.schema.json`](schemas/0.5/profile.schema.json) |
+| Sound | A shared sound, kit, pattern, project, bank or MIDI clip: its data (a `.syx`, a `.mid`, or settings by control address), device and firmware, author, licence, origin, what it derives from, how to play it | [`sound.schema.json`](schemas/0.5/sound.schema.json) |
+| Fingerprint | What a detection observed of a device plugged in (port names, replies, USB identity, the controls its knobs sent) and the model the person confirmed: recognises devices that do not identify themselves, and teaches the next detection | [`fingerprint.schema.json`](schemas/0.5/fingerprint.schema.json) |
+| Firmware | A firmware, mod or script: device, author, repository, licence, what it changes to the MIDI, how to install and revert it, where its users meet. It points to the author's release, never carries it | [`firmware.schema.json`](schemas/0.5/firmware.schema.json) |
 
 Examples: [a device](examples/devices/test_synth.json),
 [a sound](examples/warm-pad.sound.json),
@@ -36,7 +36,7 @@ Examples: [a device](examples/devices/test_synth.json),
 | Need | In the MIDI standards | In OSD |
 |---|---|---|
 | A device describing itself | MIDI 2.0 Property Exchange, for devices that implement it | Device descriptor, for any device, written from its manual, its maker's tools or tests |
-| Maker-specific SysEx: parameters, dumps, checksums | Not described | `params`, `commands`, frame placeholders |
+| Maker-specific SysEx: parameters, dumps, checksums | Not described | `params`, `commands`, frame elements |
 | Patch, note and control names | MIDNAM | Device descriptor; exported to MIDNAM |
 | OSC addresses of a device | OSCQuery | Device descriptor; exported to OSCQuery |
 | A sound's author, licence, origin, device | Nothing | Sound descriptor |
@@ -213,6 +213,29 @@ A new version is recorded when it is published, from the `schemas` folder:
 sha256sum <version>/*.schema.json >> SHA256SUMS
 ```
 
+- **0.5**: draft. Every 0.4 descriptor converts with `osd::convert`
+  (`convert(text, kind)`; a 0.5 text comes back as it is); an element it
+  cannot turn into a structure is `NotConvertible`, at its JSON pointer, and
+  no text is returned. Field by field:
+  - `$schema`: the first key, an address under `https://w3id.org/osd/0.5/`
+    (permanent), in place of the SynthHub one; required in 0.5.
+  - Frame elements: each `{placeholder}` string of a frame (`{value:u14_lsb}`,
+    `{checksum}`, …) becomes a structure; `{checksum}` without an algorithm and
+    `{function}` are `NotConvertible`.
+  - `pre`: an expression string becomes a tree of operations.
+  - Addresses: a string with `{name}` becomes a list of segments, text or
+    capture; a brace that is not one name is `NotConvertible`.
+  - `forward.args` and the arguments of `emit_osc`: a `{name}` placeholder
+    becomes an `arg` or `capture` object.
+  - `midi_in`: the object of templates becomes the list of its types; a
+    template other than the canonical one is `NotConvertible`.
+  - Closed vocabularies: `decode`, `expects`, `selects`, `_sources[].type` and
+    `_sources[].license` take their terms from closed lists, mapped by the
+    tables above; a word outside the tables is `NotConvertible`.
+  - `capabilities`: written by `convert` from the fields present (`lua` when a
+    field holds Lua), absent when empty; a 0.5 value that differs is refused.
+  - Schemas: `$id` is the w3id address; the five files of `schemas/0.5/` are
+    recorded in `schemas/SHA256SUMS`.
 - **0.4**: the firmware rule of an `identity` may read a reply carrying
   JSON (`decode: json`, the version in `field`), as the Electra One answers.
 - **0.3**: a fingerprint may name a device no descriptor describes yet
