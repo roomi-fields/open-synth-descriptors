@@ -36,7 +36,105 @@
       "$ref": "#/$defs/identity"
     },
     "programs": {
-      "$ref": "#/$defs/programs"
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "selects": {
+          "anyOf": [
+            {
+              "enum": [
+                "sound",
+                "kit",
+                "sequence",
+                "project",
+                "bank",
+                "clip",
+                "performance",
+                "scene",
+                "setlist"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What a program change selects: the sound kind's list, or an extension x-<registrant>-<term> (read as a plain recall)."
+        },
+        "program_change": {
+          "type": "boolean"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Settings on the device needed first, as its manual names them."
+        },
+        "banks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bank"
+          }
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/frame_token"
+            },
+            "description": "A message, byte by byte."
+          },
+          "description": "Messages sent before a recall."
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dump": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "none",
+                "request",
+                "edit_buffer",
+                "manual"
+              ]
+            },
+            "request": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/frame_token"
+              },
+              "description": "A message, byte by byte."
+            }
+          },
+          "patternProperties": {
+            "^_": {
+              "description": "A note for people (provenance, caveats, usage); never read by a program."
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "description": "How the current sound is taken from it."
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Its programs and banks: how to select one, how they are numbered, how a sound is taken from it."
     },
     "sysex": {
       "type": "object",
@@ -703,16 +801,21 @@
           "additionalProperties": false
         },
         "firmware": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "type": "object",
-              "properties": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
                 "decode": {
-                  "type": "string",
-                  "description": "How the bytes read as a version: raw_bytes, yamaha_tenths, korg_minor_major, ascii, json…"
+                  "enum": [
+                    "raw_bytes",
+                    "json",
+                    "korg_minor_major",
+                    "yamaha_tenths",
+                    "ascii",
+                    "lua"
+                  ],
+                  "description": "How the bytes read as a version. A closed list, with no extension: raw_bytes, json (needs field), korg_minor_major, yamaha_tenths, ascii, lua (needs script)."
                 },
                 "at": {
                   "type": "array",
@@ -723,8 +826,48 @@
                 "field": {
                   "type": "string",
                   "description": "With decode json: the reply from the offset in at to F7 is a JSON object, and the version is this key's text."
+                },
+                "script": {
+                  "type": "string",
+                  "description": "With decode lua: the script that reads the version from the reply."
                 }
               },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "decode": {
+                        "const": "json"
+                      }
+                    },
+                    "required": [
+                      "decode"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "field"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "decode": {
+                        "const": "lua"
+                      }
+                    },
+                    "required": [
+                      "decode"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "script"
+                    ]
+                  }
+                }
+              ],
               "patternProperties": {
                 "^_": {
                   "description": "A note for people (provenance, caveats, usage); never read by a program."
@@ -734,9 +877,7 @@
               "required": [
                 "decode",
                 "at"
-              ]
-            }
-          ],
+              ],
           "description": "Where the reply carries the firmware version, and how to read it."
         },
         "ports": {
@@ -804,7 +945,26 @@
           "description": "MIDI channel, 0-15 (channel 1 is 0)."
         },
         "selects": {
-          "type": "string"
+          "anyOf": [
+            {
+              "enum": [
+                "sound",
+                "kit",
+                "sequence",
+                "project",
+                "bank",
+                "clip",
+                "performance",
+                "scene",
+                "setlist"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What a bank selects: the sound kind's list, or an extension x-<registrant>-<term> (read as a plain recall)."
         }
       },
       "patternProperties": {
@@ -817,89 +977,6 @@
         "name",
         "size"
       ]
-    },
-    "programs": {
-      "type": "object",
-      "properties": {
-        "profile": {
-          "type": "string"
-        },
-        "selects": {
-          "type": "string",
-          "description": "What a program change selects (sound, pattern, kit…)."
-        },
-        "program_change": {
-          "type": "boolean"
-        },
-        "requires": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Settings on the device needed first, as its manual names them."
-        },
-        "banks": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/bank"
-          }
-        },
-        "before": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/$defs/frame_token"
-            },
-            "description": "A message, byte by byte."
-          },
-          "description": "Messages sent before a recall."
-        },
-        "delay_ms": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "dump": {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "enum": [
-                "none",
-                "request",
-                "edit_buffer",
-                "manual"
-              ]
-            },
-            "request": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/frame_token"
-              },
-              "description": "A message, byte by byte."
-            }
-          },
-          "patternProperties": {
-            "^_": {
-              "description": "A note for people (provenance, caveats, usage); never read by a program."
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "kind"
-          ],
-          "description": "How the current sound is taken from it."
-        },
-        "notes": {
-          "type": "string"
-        }
-      },
-      "patternProperties": {
-        "^_": {
-          "description": "A note for people (provenance, caveats, usage); never read by a program."
-        }
-      },
-      "additionalProperties": false,
-      "description": "Its programs and banks: how to select one, how they are numbered, how a sound is taken from it."
     },
     "cc_entry": {
       "type": "object",
@@ -973,16 +1050,23 @@
           "type": "string"
         },
         "expects": {
-          "type": "string",
-          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete. Informative; other words are allowed.",
-          "examples": [
-            "continuous",
-            "switch",
-            "momentary",
-            "trigger",
-            "clock",
-            "discrete"
-          ]
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "switch",
+                "momentary",
+                "trigger",
+                "clock",
+                "discrete"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete, or an extension x-<registrant>-<term> (read as continuous)."
         },
         "transform": {
           "type": "string",
@@ -1049,16 +1133,23 @@
           "type": "string"
         },
         "expects": {
-          "type": "string",
-          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete. Informative; other words are allowed.",
-          "examples": [
-            "continuous",
-            "switch",
-            "momentary",
-            "trigger",
-            "clock",
-            "discrete"
-          ]
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "switch",
+                "momentary",
+                "trigger",
+                "clock",
+                "discrete"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete, or an extension x-<registrant>-<term> (read as continuous)."
         },
         "values": {
           "type": "object",
@@ -1360,8 +1451,31 @@
       "additionalProperties": true,
       "properties": {
         "type": {
-          "type": "string",
-          "description": "What kind of source: vendor-doc (the maker's documentation), hardware-verified (tested on the device), community-re, electra-preset, pencilresearch, knobkraft, vendor-osc-api, third-party-osc…"
+          "anyOf": [
+            {
+              "enum": [
+                "hardware-verified",
+                "hardware-observed",
+                "software-verified",
+                "vendor-doc",
+                "vendor-osc-api",
+                "vendor-self-described",
+                "third-party-osc",
+                "community-re",
+                "electra-preset",
+                "pencilresearch",
+                "knobkraft",
+                "midnam",
+                "contributed",
+                "test-fixture"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What kind of source: one of the 14 terms of the README, or an extension x-<registrant>-<term> (read as the lowest reliability)."
         },
         "url": {
           "type": "string"
@@ -1378,7 +1492,8 @@
         },
         "license": {
           "type": "string",
-          "description": "SPDX id when it has one."
+          "pattern": "^(public-domain|none|(?!None$|Public-Domain$)[A-Z][A-Za-z0-9.+-]*)$",
+          "description": "An SPDX licence id (by its shape), public-domain, or none."
         },
         "commit": {
           "type": "string"

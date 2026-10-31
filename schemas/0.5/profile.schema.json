@@ -21,7 +21,7 @@
       "$ref": "device.schema.json#/$defs/identity"
     },
     "programs": {
-      "$ref": "device.schema.json#/$defs/programs"
+      "$ref": "device.schema.json#/properties/programs"
     }
   }
 }

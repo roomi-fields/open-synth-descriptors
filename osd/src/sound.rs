@@ -10,6 +10,7 @@ words! {
     /// What a sound descriptor holds.
     SoundKind {
         Sound = "sound", Kit = "kit", Sequence = "sequence", Project = "project", Bank = "bank", Clip = "clip",
+        Performance = "performance", Scene = "scene", Setlist = "setlist",
     }
 }
 
@@ -54,6 +55,10 @@ object! {
 }
 
 fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
+    let newer = matches!(s.kind, SoundKind::Performance | SoundKind::Scene | SoundKind::Setlist);
+    if newer && s.schema != Some(Version::V0_5) {
+        return Err(At::Key(at, "kind").fault(FaultKind::BadValue, "this kind is not a sound kind of 0.4"));
+    }
     if s.kind != SoundKind::Clip && s.device.is_none() {
         return Err(At::Key(at, "device").fault(FaultKind::Missing, "device is required unless the kind is clip"));
     }

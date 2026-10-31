@@ -31,7 +31,10 @@
         "sequence",
         "project",
         "bank",
-        "clip"
+        "clip",
+        "performance",
+        "scene",
+        "setlist"
       ]
     },
     "device": {

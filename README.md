@@ -84,6 +84,116 @@ each schema's `$id`; versions 0.1 to 0.4 keep the `$id` they were published
 with, `https://synthhub.roomi-fields.com/osd/<version>/<name>.schema.json`,
 still served.
 
+## Closed vocabularies (0.5)
+
+Five values of a 0.5 descriptor take their word from a closed list, each a set
+of defined terms. A value outside a list is refused (`BadValue`), except as a
+declared extension (below). `osd::convert` maps the makers' words of 0.4 to
+the terms; a word outside the tables is `NotConvertible`, at the pointer of the
+value. The converter neither guesses nor normalises the case. This section is
+the one place where the lists and the tables are written.
+
+### Extension
+
+A value outside a list (not `decode`, which has no extension) is valid as
+`x-<registrant>-<term>`, matching `^x-[a-z0-9]+-[a-z0-9-]+$`, on the model of
+MIDI-CI's `X-` manufacturer resources (M2-103 ResourceList), with a registrant
+added. A reader accepts an unknown extension and treats it as the default of
+its field: `selects`, a plain recall; `expects`, `continuous`;
+`_sources[].type`, the lowest reliability. [`schemas/extensions.md`](schemas/extensions.md)
+lists extensions, each with a one-sentence definition and a stable URL; being
+listed is required to become a core term in a later version, and the converter
+then maps it. This departs from RFC 6648, which retired the `X-` prefix for
+protocol parameters: a closed list that a registry grows by version, with no
+central authority to ask, needs a prefix that tells a reader at once that a
+word is not core, and the registrant says whose it is.
+
+### `identity.firmware.decode`
+
+Closed, no extension. `json` needs `field`; `lua` needs `script`.
+
+| Term | Meaning |
+|---|---|
+| `raw_bytes` | the bytes at `at`, as they are |
+| `json` | the reply from `at` to F7 is a JSON object; the version is the text of `field` |
+| `korg_minor_major` | two bytes, minor then major |
+| `yamaha_tenths` | one byte, in tenths |
+| `ascii` | the bytes at `at` are the version's characters |
+| `lua` | the script in `script` reads the version from the reply |
+
+0.4 to 0.5: a term is kept; any other word is `NotConvertible`.
+
+### `expects`
+
+| Term | Meaning |
+|---|---|
+| `continuous` | a value over a range (the default) |
+| `switch` | two states, held |
+| `momentary` | on while held |
+| `trigger` | an event with no value |
+| `clock` | a clock or tempo input |
+| `discrete` | one of a few named values |
+
+0.4 to 0.5: a term is kept; any other word is `NotConvertible`.
+
+### `selects` and the sound `kind`
+
+`programs.selects`, `banks[].selects` and the `kind` of a sound share one list.
+
+| Term | Meaning |
+|---|---|
+| `sound` | a single playable sound |
+| `kit` | a set of sounds mapped across the keys, typically percussion |
+| `sequence` | stored note or event data |
+| `project` | a whole working state with its sounds and sequences |
+| `bank` | a group of the above selectable as a unit |
+| `clip` | a launchable looped fragment |
+| `performance` | several sounds assigned to parts or channels, playable together |
+| `scene` | a stored snapshot of the device's state, recalled as a whole |
+| `setlist` | an ordered list of slots, each pointing to another recallable item |
+
+0.4 to 0.5, by the maker's word:
+
+| Maker's word | Term |
+|---|---|
+| `preset`, `patch`, `program`, `voice`, `tone`, `instrument` | `sound` |
+| `pattern`, `song` | `sequence` |
+| `drum kit`, `rhythm set`, `drum voice` | `kit` |
+| `studio set`, `combination`, `multi`, `setup`, `mixing voice`, `performance` | `performance` |
+| `snapshot` | `scene` |
+| `playlist slot`, `set list slot`, `live set` | `setlist` |
+| `sampler element`, `track`, `canvas`, `session`, `synth slot`, `drum slot` | the extension `x-osd-<word>`, spaces as hyphens (`x-osd-sampler-element`, `x-osd-track`, `x-osd-canvas`, `x-osd-session`, `x-osd-synth-slot`, `x-osd-drum-slot`) |
+
+A term is kept; any other word (`tone preset`, `Preset`) is `NotConvertible`.
+Makers with no published terms stay out of the table.
+
+### `_sources[].type`
+
+| Term | Meaning |
+|---|---|
+| `hardware-verified` | tested on the device itself |
+| `hardware-observed` | read from what the device sent, not tested by sending |
+| `software-verified` | tested against the running software |
+| `vendor-doc` | the maker's documentation |
+| `vendor-osc-api` | the maker's published OSC API |
+| `vendor-self-described` | the device or software describes itself |
+| `third-party-osc` | an OSC description by someone other than the maker |
+| `community-re` | reverse engineering by the community |
+| `electra-preset` | an Electra One preset |
+| `pencilresearch` | the pencilresearch MIDI controller maps |
+| `knobkraft` | the KnobKraft orm adaptations |
+| `midnam` | a MIDNAM file |
+| `contributed` | contributed by a person or an agent, unchecked |
+| `test-fixture` | made for a test |
+
+0.4 to 0.5: a term is kept; `vendor` becomes `vendor-doc`; `agent-contributed`
+becomes `contributed`; `hardware-verified-partial` becomes `hardware-verified`
+(the source's `notes` say what was tested); any other word is `NotConvertible`.
+
+`_sources[].license` is an SPDX id, `public-domain` or `none`; the reader
+checks the id's shape (a capital first, then letters, digits, `.`, `+`, `-`),
+not the SPDX registry. In 0.4, any other text is `NotConvertible`.
+
 ## Versions
 
 A version number names a fixed set of schemas: a published version never

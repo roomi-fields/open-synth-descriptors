@@ -1,0 +1,5 @@
+{
+  "_about": "The decode list is closed and has no extension: an extension form is refused, at the value.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/identity/firmware/decode"}
+}

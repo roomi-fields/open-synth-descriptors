@@ -1,0 +1,11 @@
+{
+  "_about": "The makers' words merge into the terms of the closed lists: patch is sound, the catalogue word track is the extension x-osd-track, hardware-verified-partial is hardware-verified; a term is kept.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "programs": {"selects": "sound", "banks": [{"name": "A", "size": 8, "selects": "x-osd-track"}]},
+    "cc_params": {"channel": 0, "entries": [{"osc": "/a", "cc": 1, "expects": "switch"}]},
+    "_sources": [{"type": "hardware-verified", "license": "MIT"}]
+  }
+}

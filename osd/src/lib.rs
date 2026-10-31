@@ -17,6 +17,7 @@ mod frame;
 mod json;
 mod resolve;
 mod sound;
+mod vocabulary;
 
 pub use address::{Address, Segment};
 pub use device::{

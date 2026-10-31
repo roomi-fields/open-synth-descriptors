@@ -1,0 +1,8 @@
+{
+  "_about": "A 0.4 sound kind holds six words; scene, performance and setlist are words of 0.5, refused at the kind.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/kind"
+  }
+}

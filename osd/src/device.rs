@@ -13,6 +13,7 @@ use crate::frame::{
     check_expr, check_frame, convert_expr, convert_token, Expr, FrameToken, Place, EXPR, FRAME_TOKEN, MATCH_TOKEN,
     REPLY_TOKEN,
 };
+use crate::vocabulary;
 use crate::{Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
@@ -238,10 +239,74 @@ fn programs_frames<'a>(p: &'a Programs, at: &str, out: &mut Vec<(String, Place, 
     }
 }
 
+/// `script` is a field of 0.5 only.
+fn check_firmware_script(i: Option<&Identity>, v05: bool) -> Result<(), Fault> {
+    match i.and_then(|i| i.firmware.as_ref()).and_then(|f| f.as_ref()) {
+        Some(f) if !v05 && f.script.is_some() => Err(Fault {
+            kind: FaultKind::UnknownField,
+            file: None,
+            pointer: "/identity/firmware/script".into(),
+            rule: "script is not a field of 0.4".into(),
+        }),
+        _ => Ok(()),
+    }
+}
+
+fn check_identity_vocabularies(i: &Identity) -> Result<(), Fault> {
+    if let Some(Some(f)) = &i.firmware {
+        vocabulary::check_decode(&f.decode, f.field.is_some(), f.script.is_some(), "/identity/firmware")?;
+    }
+    Ok(())
+}
+
+fn check_programs_vocabularies(p: &Programs) -> Result<(), Fault> {
+    if let Some(s) = &p.selects {
+        vocabulary::check_selects(s, "/programs/selects")?;
+    }
+    for (n, b) in p.banks.iter().flatten().enumerate() {
+        if let Some(s) = &b.selects {
+            vocabulary::check_selects(s, &format!("/programs/banks/{n}/selects"))?;
+        }
+    }
+    Ok(())
+}
+
+/// The closed vocabularies of a 0.5 device.
+fn check_vocabularies(d: &Device) -> Result<(), Fault> {
+    if let Some(i) = &d.identity {
+        check_identity_vocabularies(i)?;
+    }
+    if let Some(p) = &d.programs {
+        check_programs_vocabularies(p)?;
+    }
+    if let Some(c) = &d.cc_params {
+        for (n, e) in c.entries.iter().enumerate() {
+            if let Some(x) = &e.expects {
+                vocabulary::check_expects(x, &format!("/cc_params/entries/{n}/expects"))?;
+            }
+        }
+    }
+    if let Some(p) = &d.params {
+        for (n, e) in p.entries.iter().enumerate() {
+            if let Some(x) = &e.expects {
+                vocabulary::check_expects(x, &format!("/params/entries/{n}/expects"))?;
+            }
+        }
+    }
+    for (n, s) in d.sources.iter().flatten().enumerate() {
+        vocabulary::check_source(&s.kind, s.license.as_deref(), &format!("/_sources/{n}"))?;
+    }
+    Ok(())
+}
+
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = d.schema == Some(Version::V0_5);
+    check_firmware_script(d.identity.as_ref(), v05)?;
+    if v05 {
+        check_vocabularies(d)?;
+    }
     let mut frames = Vec::new();
     if let Some(i) = &d.identity {
         identity_frames(i, "/identity", &mut frames);
@@ -317,6 +382,15 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
 
 fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
     let v05 = p.schema == Some(Version::V0_5);
+    check_firmware_script(p.identity.as_ref(), v05)?;
+    if v05 {
+        if let Some(i) = &p.identity {
+            check_identity_vocabularies(i)?;
+        }
+        if let Some(x) = &p.programs {
+            check_programs_vocabularies(x)?;
+        }
+    }
     let mut frames = Vec::new();
     if let Some(i) = &p.identity {
         identity_frames(i, "/identity", &mut frames);
@@ -338,6 +412,9 @@ fn convert_frame(tokens: &mut [FrameToken], place: Place, at: &At) -> Result<(),
 }
 
 fn convert_identity(i: &mut Identity, at: &At) -> Result<(), Fault> {
+    if let Some(Some(f)) = &i.firmware {
+        vocabulary::convert_decode(&f.decode, f.field.is_some(), f.script.is_some(), &At::Key(at, "firmware").pointer())?;
+    }
     if let Some(r) = &mut i.request {
         convert_frame(r, Place::Sent, &At::Key(at, "request"))?;
     }
@@ -348,6 +425,15 @@ fn convert_identity(i: &mut Identity, at: &At) -> Result<(), Fault> {
 }
 
 fn convert_programs(p: &mut Programs, at: &At) -> Result<(), Fault> {
+    if let Some(s) = &mut p.selects {
+        *s = vocabulary::convert_selects(s, &At::Key(at, "selects").pointer())?;
+    }
+    let banks = At::Key(at, "banks");
+    for (n, b) in p.banks.iter_mut().flatten().enumerate() {
+        if let Some(s) = &mut b.selects {
+            *s = vocabulary::convert_selects(s, &At::Key(&At::Index(&banks, n), "selects").pointer())?;
+        }
+    }
     let before = At::Key(at, "before");
     for (n, f) in p.before.iter_mut().flatten().enumerate() {
         convert_frame(f, Place::Sent, &At::Index(&before, n))?;
@@ -369,6 +455,30 @@ impl Device {
         }
         if let Some(p) = &mut self.programs {
             convert_programs(p, &At::Key(&root, "programs"))?;
+        }
+        if let Some(c) = &mut self.cc_params {
+            let at = At::Key(&At::Key(&root, "cc_params"), "entries");
+            for (n, e) in c.entries.iter_mut().enumerate() {
+                if let Some(x) = &mut e.expects {
+                    *x = vocabulary::convert_expects(x, &At::Key(&At::Index(&at, n), "expects").pointer())?;
+                }
+            }
+        }
+        if let Some(p) = &mut self.params {
+            let at = At::Key(&At::Key(&root, "params"), "entries");
+            for (n, e) in p.entries.iter_mut().enumerate() {
+                if let Some(x) = &mut e.expects {
+                    *x = vocabulary::convert_expects(x, &At::Key(&At::Index(&at, n), "expects").pointer())?;
+                }
+            }
+        }
+        let sources = At::Key(&root, "_sources");
+        for (n, s) in self.sources.iter_mut().flatten().enumerate() {
+            let at = At::Index(&sources, n);
+            s.kind = vocabulary::convert_source_type(&s.kind, &At::Key(&at, "type").pointer())?;
+            if let Some(l) = &s.license {
+                vocabulary::convert_license(l, &At::Key(&at, "license").pointer())?;
+            }
         }
         if let Some(p) = &mut self.params {
             let at = At::Key(&root, "params");
@@ -568,12 +678,15 @@ object! {
 object! {
     /// Where an identity reply carries the firmware version, and how to read it.
     FirmwareRule {
-        /// How the bytes read as a version: `raw_bytes`, `yamaha_tenths`,
-        /// `korg_minor_major`, `ascii`, `json`…
+        /// How the bytes read as a version: `raw_bytes`, `json`,
+        /// `korg_minor_major`, `yamaha_tenths`, `ascii` or `lua` (0.5 holds
+        /// no other word).
         "decode" decode: String = STRING,
         "at" at: Vec<i64> = list(INTEGER),
         /// With decode `json`: the key whose text is the version.
         "field" field: Option<String> = Opt(STRING),
+        /// With decode `lua`: the script that reads the version (0.5).
+        "script" script: Option<String> = Opt(STRING),
     }
 }
 
