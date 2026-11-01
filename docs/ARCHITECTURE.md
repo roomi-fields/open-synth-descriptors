@@ -43,7 +43,7 @@ flowchart TB
   examples[examples] --> schemas
 ```
 
-| Part | Responsibility | Owns | Langage |
+| Part | Responsibility | Owns | Language |
 |---|---|---|---|
 | `schemas/<version>/` | the shape of each descriptor kind: device, profile, sound, fingerprint, firmware | the published JSON schemas | |
 | conformance cases (`conformance/<version>/`) | the meaning: what a reader returns for each case, resolution included | input files and expected results | |
