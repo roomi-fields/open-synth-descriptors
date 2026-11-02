@@ -8,3 +8,4 @@ tools/osc-bridge-parity/Cargo.lock
 .beads-credential-key
 .beads/proxieddb/
 .codegraph/
+.claude/worktrees/
