@@ -1,0 +1,9 @@
+{
+  "name": "osd",
+  "private": true,
+  "scripts": {
+    "build": "cd .. && grillhouse construire osd",
+    "test:unit": "cd .. && grillhouse tests-du-paquet osd",
+    "typecheck": "cd .. && grillhouse typer osd"
+  }
+}

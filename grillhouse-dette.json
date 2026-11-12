@@ -1,0 +1,74 @@
+{
+  "executables-de-tests": {
+    "osd/tests/addresses.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/capabilities.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/catalogue.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/conformance.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/convert.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/examples.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/faults.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/frames.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/integers.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/probe.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/published.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/readme.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/version.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    },
+    "osd/tests/vocabularies.rs": {
+      "executable-de-trop": {
+        "count": 1
+      }
+    }
+  }
+}
