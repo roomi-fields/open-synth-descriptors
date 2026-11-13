@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "globalPassThroughEnv": [
+    "GRILLHOUSE_RESULTATS",
+    "GRILLHOUSE_CHANGEMENTS",
+    "GRILLHOUSE_AVANCEMENT",
+    "TMPDIR"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test:unit": {
+      "dependsOn": ["build", "^build"],
+      "env": ["GRILLHOUSE_TESTS"],
+      "outputs": []
+    },
+    "//#grillhouse:gardes": {
+      "dependsOn": [],
+      "outputs": []
+    },
+    "//#gardes": {
+      "dependsOn": [],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["build", "^build"],
+      "outputs": []
+    }
+  }
+}
