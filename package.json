@@ -24,7 +24,12 @@
       ".github/workflows/check.yml": [
         "osd"
       ]
-    }
+    },
+    "groupe": [
+      "../osc-bridge",
+      "../open-synth-descriptors",
+      "../synthhub"
+    ]
   },
   "workspaces": [
     "osd"
