@@ -154,9 +154,10 @@ pair!(criterion_1_probe_0_4_fingerprint, Version::V0_4, Kind::Fingerprint);
 pair!(criterion_1_probe_0_4_firmware, Version::V0_4, Kind::Firmware);
 // Quarantine: the reader refuses a repeated `lua` in `capabilities` (osd/docs/INTERFACE.md,
 // `derived_capabilities`), the published 0.5 schema has no `uniqueItems` there; only the schema
-// can be corrected (0.5 is not published, the fix goes into 0.5 itself). The format ticket is
-// opened under OSD-b91.2 by the supervisor, blocking OSD-b91.2.9; its id replaces the one below.
-#[ignore = "OSD-b91.2 format ticket (uniqueItems of /capabilities in schemas/0.5/device.schema.json), blocks OSD-b91.2.9"]
+// can be corrected, and 0.5 is frozen (OSD-b91.2, D7): its schema and its checksum stay as inscribed.
+// The `uniqueItems` fix of `/capabilities` goes into 0.6 (OSD-b91.4); this test is lifted when
+// the 0.6 device probe replaces it.
+#[ignore = "0.5 is frozen (OSD-b91.2, D7); uniqueItems of /capabilities is fixed in 0.6, OSD-b91.4"]
 #[test]
 fn criterion_10_probe_0_5_device_quarantined_for_capabilities_uniqueness() {
     probe_pair(Version::V0_5, Kind::Device);
