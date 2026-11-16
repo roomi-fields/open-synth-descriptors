@@ -152,16 +152,7 @@ pair!(criterion_1_probe_0_4_profile, Version::V0_4, Kind::Profile);
 pair!(criterion_1_probe_0_4_sound, Version::V0_4, Kind::Sound);
 pair!(criterion_1_probe_0_4_fingerprint, Version::V0_4, Kind::Fingerprint);
 pair!(criterion_1_probe_0_4_firmware, Version::V0_4, Kind::Firmware);
-// Quarantine: the reader refuses a repeated `lua` in `capabilities` (osd/docs/INTERFACE.md,
-// `derived_capabilities`), the published 0.5 schema has no `uniqueItems` there; only the schema
-// can be corrected, and 0.5 is frozen (OSD-b91.2, D7): its schema and its checksum stay as inscribed.
-// The `uniqueItems` fix of `/capabilities` goes into 0.6 (OSD-b91.4); this test is lifted when
-// the 0.6 device probe replaces it.
-#[ignore = "0.5 is frozen (OSD-b91.2, D7); uniqueItems of /capabilities is fixed in 0.6, OSD-b91.4"]
-#[test]
-fn criterion_10_probe_0_5_device_quarantined_for_capabilities_uniqueness() {
-    probe_pair(Version::V0_5, Kind::Device);
-}
+pair!(criterion_1_probe_0_5_device, Version::V0_5, Kind::Device);
 pair!(criterion_1_probe_0_5_profile, Version::V0_5, Kind::Profile);
 pair!(criterion_1_probe_0_5_sound, Version::V0_5, Kind::Sound);
 pair!(criterion_1_probe_0_5_fingerprint, Version::V0_5, Kind::Fingerprint);

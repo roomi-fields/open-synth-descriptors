@@ -34,7 +34,7 @@ pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
 pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 
-use json::{At, Codec, Object};
+use json::{At, Codec, Object, Word};
 use serde_json::Value;
 
 /// A kind of descriptor.
@@ -169,7 +169,19 @@ pub fn read(text: &str, kind: Kind) -> Result<Descriptor, Fault> {
 pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     let at = At::Root;
     Ok(match kind {
-        Kind::Device => Descriptor::Device(Box::new(Device::read(v, &at)?)),
+        Kind::Device => {
+            let mut d = Device::read(v, &at)?;
+            // `capabilities` reads as a set: a repeated entry is dropped, the
+            // order of first occurrence kept.
+            if let Some(c) = &mut d.capabilities {
+                let mut seen = Vec::new();
+                c.retain(|x| !seen.contains(x) && {
+                    seen.push(*x);
+                    true
+                });
+            }
+            Descriptor::Device(Box::new(d))
+        }
         Kind::Profile => Descriptor::Profile(Box::new(Profile::read(v, &at)?)),
         Kind::Sound => Descriptor::Sound(Box::new(Sound::read(v, &at)?)),
         Kind::Fingerprint => Descriptor::Fingerprint(Box::new(Fingerprint::read(v, &at)?)),
@@ -302,10 +314,25 @@ pub fn read_as(text: &str, kind: Kind, version: Version) -> Result<Descriptor, F
 
 /// The 0.5 text of a 0.4 descriptor: its `$schema` (the first key) names
 /// 0.5, every value is kept, the text is laid out as [`write`] does. A text
-/// already 0.5 comes back as it is.
+/// already 0.5 comes back as it is, except that a repeated `capabilities`
+/// entry is written once.
 pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
     let d = read(text, kind)?;
     if d.schema() == Some(Version::V0_5) {
+        // A 0.5 text is already in its form; only a repeated `capabilities`
+        // entry is dropped, so the list is a set.
+        if let Descriptor::Device(x) = &d {
+            let mut v: Value = serde_json::from_str(text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()))?;
+            let kept = x.capabilities.as_ref().map(Vec::len);
+            let given = v.get("capabilities").and_then(Value::as_array).map(Vec::len);
+            if kept != given {
+                let list = x.capabilities.iter().flatten().map(|c| Value::String(c.word().into())).collect();
+                v["capabilities"] = Value::Array(list);
+                let mut out = serde_json::to_string_pretty(&v).unwrap_or_default();
+                out.push('\n');
+                return Ok(out);
+            }
+        }
         return Ok(text.to_string());
     }
     let d = match d {

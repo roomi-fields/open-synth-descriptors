@@ -291,10 +291,11 @@ impl Device {
     }
 }
 
-/// A declared `capabilities` equals the derived list.
+/// A declared `capabilities`, read as a set, equals the derived list.
 fn check_capabilities(d: &Device) -> Result<(), Fault> {
+    let derived = d.derived_capabilities();
     match &d.capabilities {
-        Some(declared) if *declared != d.derived_capabilities() => Err(Fault {
+        Some(declared) if !(declared.iter().all(|c| derived.contains(c)) && derived.iter().all(|c| declared.contains(c))) => Err(Fault {
             kind: FaultKind::BadValue,
             file: None,
             pointer: "/capabilities".into(),

@@ -102,9 +102,35 @@ fn criterion_10_an_empty_list_with_no_lua_field_and_no_list_are_accepted() {
 }
 
 #[test]
-fn criterion_10_a_list_that_repeats_a_capability_differs_from_the_derived_one() {
+fn a_repeated_capability_is_read_as_a_set_and_each_entry_is_kept_once() {
+    for (field, doc) in lua_devices() {
+        let repeated = declaring(&doc, json!(["lua", "lua"]));
+        let osd::Descriptor::Device(d) = read(&repeated).unwrap_or_else(|f| panic!("{field}: {f}")) else { unreachable!() };
+        assert_eq!(d.capabilities, Some(vec![Capability::Lua]), "{field}");
+        assert_eq!(common::Schemas::load("0.5").check(Kind::Device, &repeated), None, "{field}");
+        assert_eq!(convert(&repeated)["capabilities"], json!(["lua"]), "{field}");
+    }
+}
+
+#[test]
+fn a_repeated_capability_resolves_to_the_entry_once() {
+    struct One(String);
+    impl osd::Files for One {
+        fn get(&self, id: &str) -> Option<String> {
+            (id == "acme/t").then(|| self.0.clone())
+        }
+    }
     let (_, doc) = &lua_devices()[2];
-    refused_at(&declaring(doc, json!(["lua", "lua"])), "/capabilities");
+    let r = osd::resolve("acme/t", &One(declaring(doc, json!(["lua", "lua"])).to_string())).unwrap();
+    assert_eq!(r.capabilities, vec![Capability::Lua]);
+}
+
+#[test]
+fn a_repeated_capability_without_a_lua_field_and_an_empty_list_with_a_lua_field_are_refused() {
+    refused_at(&declaring(&device(json!({})), json!(["lua", "lua"])), "/capabilities");
+    let (_, doc) = &lua_devices()[2];
+    refused_at(&declaring(doc, json!([])), "/capabilities");
+    refused_at(doc, "/capabilities");
 }
 
 #[test]
