@@ -153,6 +153,35 @@ fn every_resolution_case_of_0_4_passes() {
 }
 
 #[test]
+fn every_resolution_case_of_0_5_passes() {
+    every_case(&common::repo().join("conformance/0.5/resolve"), 3, run_resolve);
+}
+
+#[test]
+fn the_resolution_cases_of_0_5_carry_schema_and_cover_a_result_a_target_key_and_a_bad_schema() {
+    let (mut result, mut target_key, mut bad_schema) = (0, 0, 0);
+    for case in std::fs::read_dir(common::repo().join("conformance/0.5/resolve")).unwrap() {
+        let case = case.unwrap().path();
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+        for (id, text) in files(&case.join("files")) {
+            assert!(text.contains("\"$schema\""), "{}: {id} carries its `$schema`", case.display());
+        }
+        if spec["result"]["$schema"] == "https://w3id.org/osd/0.5/device.schema.json" {
+            result += 1;
+        }
+        if spec["fault"]["pointer"] == "/sysex" {
+            target_key += 1;
+        }
+        if spec["fault"]["pointer"] == "/$schema" {
+            bad_schema += 1;
+        }
+    }
+    assert!(result >= 1, "a result that keeps the target's $schema");
+    assert!(target_key >= 1, "a refused target key");
+    assert!(bad_schema >= 1, "a refused $schema");
+}
+
+#[test]
 fn criterion_5_every_reading_case_of_0_5_passes() {
     every_case(&common::repo().join("conformance/0.5/read"), 6, run_read);
 }

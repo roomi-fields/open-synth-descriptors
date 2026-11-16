@@ -198,3 +198,49 @@ fn criterion_2_every_0_5_schema_requires_schema_and_fixes_its_value() {
         assert_eq!(schema["properties"]["$schema"]["const"], schema["$id"], "{kind}");
     }
 }
+
+/// A catalogue of two 0.4 drivers, the second sharing the MIDI of the first
+/// (`midi_of`), each converted to 0.5 by `osd::convert`.
+fn converted_midi_of_catalogue(extra: &str) -> std::collections::BTreeMap<String, String> {
+    let target = r#"{"device": {"name": "Synth", "osc_prefix": "/synth"}, "sysex": {"header": [240, 67]},
+        "commands": [{"osc": "/a", "frame": [240, 1, 247]}]}"#;
+    let own = format!(
+        r#"{{"device": {{"name": "Synth", "osc_prefix": "/synth", "revision": "2"}}, "midi_of": "acme/a",
+        "commands": [{{"osc": "/b", "frame": [240, 2, 247]}}]{extra}}}"#
+    );
+    [("acme/a", target.to_string()), ("acme/b", own)]
+        .into_iter()
+        .map(|(id, text)| (id.to_string(), convert(&text, Kind::Device)))
+        .collect()
+}
+
+#[test]
+fn a_midi_of_file_written_by_convert_resolves_and_keeps_the_target_schema() {
+    let files = converted_midi_of_catalogue("");
+    assert!(files["acme/b"].contains("\"$schema\""), "the converted midi_of file declares its version");
+    let r = osd::resolve("acme/b", &files).unwrap_or_else(|f| panic!("refused: {f}"));
+    let text = osd::write(&osd::Descriptor::Device(Box::new(r.device)));
+    let doc: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(doc["$schema"], "https://w3id.org/osd/0.5/device.schema.json");
+    assert!(osd::read_as(&text, Kind::Device, osd::Version::V0_5).is_ok(), "the resolved document reads as 0.5");
+    assert_eq!(doc["sysex"]["header"], json!([240, 67]), "the target's block is taken");
+    assert_eq!(doc["commands"].as_array().unwrap().len(), 2, "the file's route is added");
+}
+
+#[test]
+fn a_converted_midi_of_file_still_refuses_a_key_that_belongs_to_the_target() {
+    let files = converted_midi_of_catalogue(r#", "sysex": {"header": [240]}"#);
+    let f = osd::resolve("acme/b", &files).unwrap_err();
+    assert_eq!(f.kind, FaultKind::UnknownField);
+    assert_eq!(f.pointer, "/sysex");
+}
+
+#[test]
+fn a_midi_of_file_whose_schema_is_not_a_0_5_schema_url_is_refused_at_schema() {
+    let mut files = converted_midi_of_catalogue("");
+    let bad = files["acme/b"].replace("https://w3id.org/osd/0.5/device.schema.json", "https://example.com/not-osd.schema.json");
+    files.insert("acme/b".into(), bad);
+    let f = osd::resolve("acme/b", &files).unwrap_err();
+    assert_eq!(f.pointer, "/$schema");
+    assert_eq!(f.file.as_deref(), Some("acme/b"));
+}

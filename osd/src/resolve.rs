@@ -115,7 +115,7 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     if maker_of(id) != Some(parts[0]) {
         return Err(link(FaultKind::BadValue, "names another maker's driver"));
     }
-    let allowed = |k: &str| k.starts_with('_') || ["device", "midi_of"].contains(&k)
+    let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k)
         || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
     if let Some(own) = doc.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
         return Err(fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)")));
@@ -161,7 +161,9 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     obj.retain(|k, _| !k.starts_with('_'));
     let mut device = obj.remove("device").unwrap_or_else(|| Value::Object(Default::default()));
     for (k, v) in doc.as_object().into_iter().flatten() {
-        if k == "device" {
+        if k == "$schema" {
+            // The version is the target's; the file's own was read as 0.5 when fetched.
+        } else if k == "device" {
             for key in IDENTITY {
                 match v.get(key) {
                     Some(x) => { device[key] = x.clone(); }
