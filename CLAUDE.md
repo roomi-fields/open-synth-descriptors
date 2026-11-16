@@ -10,6 +10,10 @@ The framework's rules: @node_modules/@roomi-fields/grillhouse/charte.md
 
 The metaframe (`node_modules/@roomi-fields/grillhouse/METACADRE.md`), then the project's frame (`docs/ARCHITECTURE.md`, the specification's `docs/CADRE.md` and `docs/INTERFACE.md`, the reader's `osd/docs/CADRE.md` and `osd/docs/INTERFACE.md`), then the specification (the schemas of the newest version and its conformance cases), then the code. A published version never changes; a change of the format is a new version, decided in the architecture first. So the intent decides, and the schemas and the reader follow it.
 
+## What a ticket serves
+
+The project's meaning: to share, from semantics down to syntax, the ability to create sounds on devices and to make them interact, in the simplest possible way. Each ticket says in one sentence what it brings to that meaning, or what it makes possible so that this sharing holds. Between two tickets, the one that brings more to it goes first. A ticket that cannot say it is not set aside: it goes up to the owner, who decides. So every ticket knows why it exists, and the queue follows the meaning.
+
 ## How we arbitrate
 
 In this order:
