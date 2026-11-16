@@ -7,7 +7,7 @@
 //! refuse a 0.4 string, a two-key object, an unknown key and a value outside
 //! the written lists, at the element's address.
 
-mod common;
+use crate::common;
 
 use osd::{FaultKind, Kind};
 use serde_json::{json, Value};

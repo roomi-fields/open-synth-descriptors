@@ -2,7 +2,7 @@
 //! one, by the caller (`read_as`) when it has none, never guessed. A
 //! 0.5 descriptor carries `$schema`, and `read` refuses one without.
 
-mod common;
+use crate::common;
 
 use osd::{FaultKind, Kind, Version};
 use serde_json::{json, Value};

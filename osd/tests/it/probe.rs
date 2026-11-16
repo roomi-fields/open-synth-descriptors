@@ -5,10 +5,9 @@
 //! test per version and kind, so a disagreement only the schema can fix is
 //! quarantined for that pair alone.
 
-mod common;
-
-use common::probe::{bounds, probe, version_of, Doc, Judge, Outcome, GENRES};
-use common::{catalogue, Schemas};
+use crate::common;
+use crate::common::probe::{bounds, probe, version_of, Doc, Judge, Outcome, GENRES};
+use crate::common::{catalogue, Schemas};
 use osd::{Kind, Version};
 use serde_json::Value;
 use std::path::Path;

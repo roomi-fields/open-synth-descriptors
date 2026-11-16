@@ -1,6 +1,6 @@
 //! The README announces the current version and links its schemas (OSD-b91.2.9).
 
-mod common;
+use crate::common;
 
 fn readme() -> String {
     std::fs::read_to_string(common::repo().join("README.md")).unwrap()

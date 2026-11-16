@@ -11,7 +11,7 @@
 //! unknown argument object and an unknown `midi_in` type, at the address of
 //! the fault.
 
-mod common;
+use crate::common;
 
 use osd::{FaultKind, Kind};
 use serde_json::{json, Value};

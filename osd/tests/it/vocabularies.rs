@@ -7,7 +7,7 @@
 //! the terms and refuses any other word as `NotConvertible`, at the pointer of
 //! the value. The README writes the tables once.
 
-mod common;
+use crate::common;
 
 use osd::{FaultKind, Kind};
 use serde_json::{json, Value};

@@ -1,7 +1,7 @@
 //! The conformance cases of the repository (`conformance/<version>/`), each
 //! run as the specification states it.
 
-mod common;
+use crate::common;
 
 use serde_json::Value;
 use std::collections::BTreeMap;

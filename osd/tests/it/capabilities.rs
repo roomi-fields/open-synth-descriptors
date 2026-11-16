@@ -7,7 +7,7 @@
 //! `identity.to` (`every_port`, `named_ports`) and `programs.after` (a list of
 //! messages) hold no Lua. `osd::convert` writes the derived list.
 
-mod common;
+use crate::common;
 
 use osd::{Capability, FaultKind, Kind};
 use serde_json::{json, Value};

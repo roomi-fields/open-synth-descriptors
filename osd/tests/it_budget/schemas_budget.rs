@@ -2,9 +2,7 @@
 //! in under 10 s (OSD-b91.2.9, criterion 3). A time budget: it is played by
 //! name, and a failure under load is to be replayed.
 
-mod common;
-
-use common::{catalogue, Schemas};
+use crate::common::{catalogue, Schemas};
 use osd::Kind;
 use std::time::{Duration, Instant};
 

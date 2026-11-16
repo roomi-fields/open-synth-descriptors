@@ -2,7 +2,7 @@
 //! first key), changes no value, writes as `write` does, and is a no-op on
 //! what is already 0.5.
 
-mod common;
+use crate::common;
 
 use osd::{FaultKind, Kind};
 use serde_json::{json, Value};

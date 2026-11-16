@@ -1,7 +1,7 @@
 //! The repository's examples, one per kind: read strictly, written back
 //! unchanged, and valid against the published schemas once written.
 
-mod common;
+use crate::common;
 
 use osd::Kind;
 use serde_json::Value;

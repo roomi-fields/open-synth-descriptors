@@ -1,5 +1,19 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod addresses;
+mod capabilities;
+mod catalogue;
+mod conformance;
+mod convert;
 mod convert_midi_in_notes;
+mod examples;
+mod faults;
+mod frames;
+mod integers;
+mod probe;
+mod published;
+mod readme;
 mod resolve_capabilities;
+mod version;
+mod vocabularies;

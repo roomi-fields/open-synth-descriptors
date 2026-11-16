@@ -3,9 +3,8 @@
 //! published schemas. The catalogue is the folder `SYNTHHUB_DEVICES` names;
 //! without it these tests do nothing.
 
-mod common;
-
-use common::{catalogue, report, Schemas};
+use crate::common;
+use crate::common::{catalogue, report, Schemas};
 use osd::Kind;
 use serde_json::Value;
 

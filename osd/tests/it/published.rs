@@ -1,7 +1,7 @@
 //! A published version never changes: every schema file of a version recorded
 //! in `schemas/SHA256SUMS` keeps its checksum, and no file joins the version.
 
-mod common;
+use crate::common;
 
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
