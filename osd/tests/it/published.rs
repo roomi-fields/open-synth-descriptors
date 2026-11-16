@@ -74,7 +74,8 @@ fn criterion_12_the_checksums_record_the_five_files_of_0_5() {
 
 #[test]
 fn a_changed_missing_or_added_file_is_named() {
-    let dir = std::env::temp_dir().join(format!("osd-published-{}", std::process::id()));
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().to_path_buf();
     std::fs::create_dir_all(dir.join("9.9")).unwrap();
     for name in ["a.schema.json", "b.schema.json", "c.schema.json"] {
         std::fs::write(dir.join("9.9").join(name), name).unwrap();
@@ -89,6 +90,5 @@ fn a_changed_missing_or_added_file_is_named() {
     std::fs::remove_file(dir.join("9.9/b.schema.json")).unwrap();
     std::fs::write(dir.join("9.9/d.schema.json"), "d").unwrap();
     let found = faults(&dir, &sums);
-    std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(found, ["9.9/a.schema.json: changed", "9.9/b.schema.json: missing", "9.9/d.schema.json: added"]);
 }

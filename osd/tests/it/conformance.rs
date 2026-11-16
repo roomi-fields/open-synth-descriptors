@@ -210,7 +210,7 @@ fn the_resolution_cases_of_0_5_carry_schema_and_cover_a_result_a_target_key_and_
 
 #[test]
 fn criterion_5_every_reading_case_of_0_5_passes() {
-    every_case(&common::repo().join("conformance/0.5/read"), 6, run_read);
+    every_case(&common::repo().join("conformance/0.5/read"), 44, run_read);
 }
 
 #[test]
@@ -277,7 +277,7 @@ fn case_names(root: &Path) -> Vec<String> {
 
 #[test]
 fn criterion_4_every_conversion_case_of_0_5_passes() {
-    every_case(&common::repo().join("conformance/0.5/convert"), 11, run_convert);
+    every_case(&common::repo().join("conformance/0.5/convert"), 24, run_convert);
 }
 
 #[test]
