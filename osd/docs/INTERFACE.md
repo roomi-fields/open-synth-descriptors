@@ -29,11 +29,20 @@ A fault's `kind` is one of:
 - `UnknownField` — a field the version does not define, or, in a `midi_of` file, a key that is its target's.
 - `BadValue` — a value outside its type or its closed list, or a link that names no catalogue id, another maker's file or another device.
 - `Missing` — a required field is absent.
-- `UnreadVersion` — a version the crate does not read.
+- `UnreadVersion` — at `/$schema`, an address of a known host whose version the crate does not read (the fault names the address and the versions read), or whose version is read but whose address is not one of that version's identifiers (the fault names the address and the one accepted).
 - `LinkMissing` — a shared-MIDI or profile link names no file, or a profile without the block named.
 - `LinkCycle` — the links form a cycle.
 - `LinkTooDeep` — the links go deeper than 8.
 - `NotConvertible` — a field the target version cannot hold.
+
+## The `$schema` identifiers
+
+One table, read by `read` and written by `write`. `<kind>` is `device`, `profile`, `sound`, `fingerprint` or `firmware`; any other address of a known host is refused.
+
+| Version | Accepted `$schema` |
+|---|---|
+| 0.4 | `https://synthhub.roomi-fields.com/osd/0.4/<kind>.schema.json` |
+| 0.5 | `https://w3id.org/osd/0.5/<kind>.schema.json` |
 
 ## The guard
 

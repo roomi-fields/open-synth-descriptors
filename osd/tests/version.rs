@@ -176,3 +176,78 @@ fn criterion_2_text_that_is_not_json_is_a_syntax_fault_in_either_version() {
         assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::Syntax, ""), "{f}");
     }
 }
+
+fn refused_at_schema(kind: Kind, url: &str) -> osd::Fault {
+    osd::read(&with_schema(kind, json!(url)), kind).expect_err("refused")
+}
+
+#[test]
+fn a_w3id_address_of_0_4_is_refused_naming_the_address_and_the_synthhub_address_accepted() {
+    for (kind, name) in KINDS {
+        let url = format!("{W3ID}0.4/{name}.schema.json");
+        let f = refused_at_schema(kind, &url);
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnreadVersion, "/$schema"), "{name}: {f}");
+        let want = format!("`{url}` is not an address of 0.4; accepted: `{HOST}0.4/{name}.schema.json`");
+        assert!(f.rule.contains(&want), "{name}: {}", f.rule);
+        assert!(!f.rule.contains("is not read"), "{name}: {}", f.rule);
+    }
+}
+
+#[test]
+fn a_synthhub_address_of_0_5_is_refused_naming_the_address_and_the_w3id_address_accepted() {
+    for (kind, name) in KINDS {
+        let url = format!("{HOST}0.5/{name}.schema.json");
+        let f = refused_at_schema(kind, &url);
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnreadVersion, "/$schema"), "{name}: {f}");
+        let want = format!("`{url}` is not an address of 0.5; accepted: `{W3ID}0.5/{name}.schema.json`");
+        assert!(f.rule.contains(&want), "{name}: {}", f.rule);
+        assert!(!f.rule.contains("is not read"), "{name}: {}", f.rule);
+    }
+}
+
+#[test]
+fn an_address_of_an_unread_version_is_refused_naming_the_address_and_the_versions_read() {
+    for (kind, name) in KINDS {
+        for base in [W3ID, HOST] {
+            let url = format!("{base}0.3/{name}.schema.json");
+            let f = refused_at_schema(kind, &url);
+            assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnreadVersion, "/$schema"), "{name}: {f}");
+            assert!(f.rule.contains(&format!("`{url}`")), "{name}: {}", f.rule);
+            assert!(f.rule.contains("0.4, 0.5"), "{name}: {}", f.rule);
+        }
+    }
+}
+
+#[test]
+fn an_address_of_an_unknown_host_or_of_another_kind_is_a_bad_value_naming_the_kind() {
+    for (kind, name) in KINDS {
+        let other = KINDS.iter().map(|(_, n)| *n).find(|n| *n != name).unwrap();
+        for url in [
+            format!("https://example.org/osd/0.5/{name}.schema.json"),
+            format!("{W3ID}0.5/{other}.schema.json"),
+        ] {
+            let f = refused_at_schema(kind, &url);
+            assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{url}: {f}");
+            assert!(f.rule.contains(&format!("the URL of an OSD {name} schema")), "{url}: {}", f.rule);
+        }
+    }
+}
+
+#[test]
+fn every_complete_schema_address_the_readme_gives_is_read_without_fault() {
+    let readme = std::fs::read_to_string(common::repo().join("README.md")).unwrap();
+    let mut found = 0;
+    for word in readme.split(|c: char| c.is_whitespace() || "()[]`\"',".contains(c)) {
+        let Some(rest) = word.strip_prefix(W3ID).or_else(|| word.strip_prefix(HOST)) else { continue };
+        let Some(path) = rest.strip_suffix(".schema.json") else { continue };
+        if path.contains('<') {
+            continue;
+        }
+        let (_, name) = path.split_once('/').unwrap();
+        let (kind, _) = KINDS.iter().find(|(_, n)| *n == name).unwrap_or_else(|| panic!("{word}: unknown kind"));
+        found += 1;
+        let text = with_schema(*kind, json!(word));
+        osd::read(&text, *kind).unwrap_or_else(|f| panic!("{word}: {f}"));
+    }
+    assert!(found > 0, "the README gives no complete `$schema` address");
+}

@@ -77,12 +77,15 @@ into typed values and resolves a device's shared MIDI and maker profiles
 
 Every version's schemas have a permanent address,
 `https://w3id.org/osd/<version>/<name>.schema.json` (for example
-[`https://w3id.org/osd/0.4/device.schema.json`](https://w3id.org/osd/0.4/device.schema.json)),
+[`https://w3id.org/osd/0.5/device.schema.json`](https://w3id.org/osd/0.5/device.schema.json)),
 kept by the [W3C Permanent Identifier Community Group](https://w3id.org/)
 and redirecting to the schemas served from this repository. From 0.5, it is
-each schema's `$id`; versions 0.1 to 0.4 keep the `$id` they were published
-with, `https://synthhub.roomi-fields.com/osd/<version>/<name>.schema.json`,
-still served.
+each schema's `$id`, so the `$schema` of a 0.5 descriptor carries it; versions
+0.1 to 0.4 keep the `$id` they were published with,
+`https://synthhub.roomi-fields.com/osd/<version>/<name>.schema.json`, still
+served, and a 0.4 descriptor's `$schema` carries that one. The w3id address of
+an earlier version only fetches its schema; it does not name the version, and
+`osd` refuses it as a `$schema`.
 
 ## Closed vocabularies (0.5)
 

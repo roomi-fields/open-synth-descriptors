@@ -202,11 +202,18 @@ const HOST_0_4: &str = "https://synthhub.roomi-fields.com/osd/";
 const HOST_W3ID: &str = "https://w3id.org/osd/";
 
 impl Version {
+    /// The one table of `$schema` identifiers: the host that identifies
+    /// each version read (0.4 its published `$id`, 0.5 the permanent address).
     fn host(self) -> &'static str {
         match self {
             Version::V0_4 => HOST_0_4,
             Version::V0_5 => HOST_W3ID,
         }
+    }
+
+    /// The `$schema` identifier of this version for the kind `kind`.
+    fn address(self, kind: &str) -> String {
+        format!("{}{}/{}.schema.json", self.host(), self.name(), kind)
     }
 }
 
@@ -217,17 +224,28 @@ impl Codec for SchemaUrl {
         let tail = format!("/{}.schema.json", self.0);
         let found = [HOST_0_4, HOST_W3ID].iter().find_map(|host| {
             let name = s.strip_prefix(host)?.strip_suffix(tail.as_str())?;
-            Some((*host, name))
+            Some(name)
         });
         match found {
-            Some((host, name)) => VERSIONS.iter().copied().find(|x| x.name() == name && x.host() == host).ok_or_else(
-                || at.fault(FaultKind::UnreadVersion, format!("version {name} is not read (only {})", names())),
-            ),
+            Some(name) => match VERSIONS.iter().copied().find(|x| x.name() == name) {
+                Some(version) if version.address(self.0) == s => Ok(version),
+                Some(version) => Err(at.fault(
+                    FaultKind::UnreadVersion,
+                    format!(
+                        "`{s}` is not an address of {name}; accepted: `{}`",
+                        version.address(self.0)
+                    ),
+                )),
+                None => Err(at.fault(
+                    FaultKind::UnreadVersion,
+                    format!("`{s}` names a version that is not read; versions read: {}", names()),
+                )),
+            },
             None => Err(at.fault(FaultKind::BadValue, format!("the URL of an OSD {} schema", self.0))),
         }
     }
     fn write(&self, t: &Version) -> Option<Value> {
-        Some(Value::String(format!("{}{}/{}.schema.json", t.host(), t.name(), self.0)))
+        Some(Value::String(t.address(self.0)))
     }
 }
 
