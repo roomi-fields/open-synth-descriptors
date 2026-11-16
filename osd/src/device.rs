@@ -579,7 +579,20 @@ impl Device {
             s.forward = s.forward.clone().into_structures(&at)?;
         }
         if let Some(MidiIn::Templates(t)) = &self.midi_in {
-            self.midi_in = Some(MidiIn::Types(t.types(&At::Key(&root, "midi_in"))?));
+            let types = t.types(&At::Key(&root, "midi_in"))?;
+            // 0.5 `midi_in` is a list, which holds no note: each note moves to
+            // the device under `_midi_in` + its key, the first free one.
+            for (key, note) in &t.remarks {
+                let base = format!("_midi_in{key}");
+                let mut dest = base.clone();
+                let mut n = 2;
+                while self.remarks.contains_key(&dest) {
+                    dest = format!("{base}_{n}");
+                    n += 1;
+                }
+                self.remarks.insert(dest, note.clone());
+            }
+            self.midi_in = Some(MidiIn::Types(types));
         }
         let replies = At::Key(&root, "replies");
         for (n, r) in self.replies.iter_mut().flatten().enumerate() {

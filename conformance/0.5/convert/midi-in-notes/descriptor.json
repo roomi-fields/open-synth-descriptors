@@ -1,0 +1,9 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "midi_in": {
+    "_notes": "from midi_in",
+    "_source": "the manual",
+    "cc": "/cc/{num} {value} {channel}"
+  },
+  "_midi_in_notes": "already on the device"
+}

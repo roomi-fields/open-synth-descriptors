@@ -1,0 +1,12 @@
+{
+  "_about": "The notes of a 0.4 midi_in move to the device under _midi_in followed by their key; a taken key is never overwritten, the note takes the first free _2, _3….",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "midi_in": ["cc"],
+    "_midi_in_notes": "already on the device",
+    "_midi_in_notes_2": "from midi_in",
+    "_midi_in_source": "the manual"
+  }
+}

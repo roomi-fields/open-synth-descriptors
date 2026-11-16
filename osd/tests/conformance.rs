@@ -357,6 +357,20 @@ fn spec(root: &Path, name: &str) -> Value {
 }
 
 #[test]
+fn a_conversion_case_carries_the_notes_of_a_0_4_midi_in_to_the_device() {
+    let root = common::repo().join("conformance/0.5/convert");
+    let carries = case_names(&root).iter().any(|n| {
+        let dir = root.join(n);
+        let Ok(text) = std::fs::read_to_string(dir.join("descriptor.json")) else { return false };
+        let from: Value = serde_json::from_str(&text).unwrap();
+        let note = from.get("midi_in").and_then(Value::as_object).is_some_and(|m| m.keys().any(|k| k.starts_with('_')));
+        let result = &spec(&root, n)["result"];
+        note && result.as_object().is_some_and(|o| o.keys().any(|k| k.starts_with("_midi_in_")))
+    });
+    assert!(carries, "no conversion case with a note in midi_in carried to a _midi_in_ key");
+}
+
+#[test]
 fn criterion_12_the_conversion_cases_hold_each_address_and_argument_form_and_the_midi_in_list() {
     let root = common::repo().join("conformance/0.5/convert");
     let names = case_names(&root);
