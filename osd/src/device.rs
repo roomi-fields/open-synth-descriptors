@@ -129,18 +129,22 @@ words! {
     }
 }
 
-/// The OSC address each MIDI message is reported at, under the device's
-/// prefix, with its OSC arguments after the space in this order: fixed by
-/// the specification.
-pub(crate) const MIDI_TEMPLATES: [(MidiType, &str); 7] = [
-    (MidiType::NoteOn, "/note/on {note} {velocity} {channel}"),
-    (MidiType::NoteOff, "/note/off {note} {velocity} {channel}"),
-    (MidiType::Cc, "/cc/{num} {value} {channel}"),
-    (MidiType::Pitchbend, "/pitchbend {value_u14} {channel}"),
-    (MidiType::Aftertouch, "/aftertouch {value} {channel}"),
-    (MidiType::PolyAftertouch, "/poly_aftertouch {note} {value} {channel}"),
-    (MidiType::ProgramChange, "/program_change {program} {channel}"),
-];
+impl MidiType {
+    /// The OSC address the message is reported at, under the device's prefix
+    /// (not included), with its OSC arguments after the space in this order:
+    /// fixed by the specification.
+    pub fn template(self) -> &'static str {
+        match self {
+            MidiType::NoteOn => "/note/on {note} {velocity} {channel}",
+            MidiType::NoteOff => "/note/off {note} {velocity} {channel}",
+            MidiType::Cc => "/cc/{num} {value} {channel}",
+            MidiType::Pitchbend => "/pitchbend {value_u14} {channel}",
+            MidiType::Aftertouch => "/aftertouch {value} {channel}",
+            MidiType::PolyAftertouch => "/poly_aftertouch {note} {value} {channel}",
+            MidiType::ProgramChange => "/program_change {program} {channel}",
+        }
+    }
+}
 
 /// What the device sends while played that is reported (an osc-bridge
 /// extension).
@@ -149,7 +153,7 @@ pub enum MidiIn {
     /// 0.4: the address each message is reported at.
     Templates(MidiTemplates),
     /// 0.5: the types of the messages reported, whose addresses the
-    /// specification fixes ([`MIDI_TEMPLATES`]).
+    /// specification fixes ([`MidiType::template`]).
     Types(Vec<MidiType>),
 }
 
@@ -628,7 +632,7 @@ impl MidiTemplates {
         let mut out = Vec::new();
         for (t, template) in templates {
             let Some(template) = template else { continue };
-            let canonical = MIDI_TEMPLATES.iter().find(|(x, _)| *x == t).map(|(_, c)| *c).unwrap_or_default();
+            let canonical = t.template();
             if template != canonical {
                 return Err(At::Key(at, t.word()).fault(
                     FaultKind::NotConvertible,

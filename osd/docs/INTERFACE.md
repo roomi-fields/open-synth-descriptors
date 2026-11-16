@@ -17,6 +17,7 @@
 | `Resolved` | `device`, `files`, `capabilities`, `inherited` | — | — |
 | `Descriptor`, `Device`, `Profile`, `Sound`, `Fingerprint`, `Firmware`, `FrameToken`, `FramePart`, `Expr` | typed values of the format; `FrameToken` is a byte, a 0.4 string or a `FramePart` (the one-key structures and `any` of 0.5); `Expr` is a `pre` expression, a 0.4 string or a tree | — | — |
 | `Address`, `Segment`, `Scalar`, `MidiIn`, `MidiTemplates`, `MidiType` | typed values of the format; `Address` is a string (0.4, or 0.5 without capture) or an array of `Segment` (text or capture, 0.5); `Scalar` is an OSC argument: a number, a boolean, a string, or in 0.5 `Arg` / `Capture`; `MidiIn` is the 0.4 object of templates (`MidiTemplates`) or the 0.5 list of `MidiType` | — | — |
+| `MidiType::template` | `fn template(self) -> &'static str` | the address and arguments the specification fixes for the type (docs/INTERFACE.md, « Addresses, arguments and `midi_in` (0.5) »), the prefix not included | — |
 | `Fault` | typed fault: its `kind` (`FaultKind`), the `file` (the catalogue id, when met resolving; none for `read`), the JSON `pointer`, the `rule` | — | — |
 | `Remarks` | the keys starting with `_` an object holds beside those its schema names, kept as they are | — | — |
 | `VERSIONS` | the versions the crate reads | — | — |

@@ -11,6 +11,7 @@ mod examples;
 mod faults;
 mod frames;
 mod integers;
+mod midi_type_template;
 mod probe;
 mod published;
 mod readme;
