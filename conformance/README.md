@@ -39,6 +39,9 @@ descriptor validates against the schema and only the reader refuses it.
 - `case.json`: `resolve`, the id of the driver resolved; `_about`, what the
   case shows; then one of:
   - `result`: the resolved device, equal to the reader's, key order aside;
+    with `inherited`, the capabilities the merge requires that the driver's
+    own text does not (those a profile or a `midi_of` target brings); absent
+    means none;
   - `fault`: the refusal, by its `kind` (the faults of
     `osd/docs/INTERFACE.md`), the `file` it is in and the JSON `pointer` of
     the link refused.

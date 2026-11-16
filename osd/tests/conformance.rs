@@ -29,7 +29,12 @@ fn run_resolve(dir: &Path) -> Option<String> {
     match (got, case.get("result"), case.get("fault")) {
         (Ok(r), Some(want), None) => {
             let doc: Value = serde_json::from_str(&osd::write(&osd::Descriptor::Device(Box::new(r.device)))).unwrap();
-            (doc != *want).then(|| format!("resolved into {doc}"))
+            let inherited: Vec<&str> = r.inherited.iter().map(|c| c.word()).collect();
+            let want_inherited: Vec<&str> = case.get("inherited").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+            if doc != *want {
+                return Some(format!("resolved into {doc}"));
+            }
+            (inherited != want_inherited).then(|| format!("inherited {inherited:?}, the case states {want_inherited:?}"))
         }
         (Err(f), None, Some(want)) => {
             let got = serde_json::json!({"kind": format!("{:?}", f.kind), "file": f.file, "pointer": f.pointer});
@@ -154,7 +159,29 @@ fn every_resolution_case_of_0_4_passes() {
 
 #[test]
 fn every_resolution_case_of_0_5_passes() {
-    every_case(&common::repo().join("conformance/0.5/resolve"), 3, run_resolve);
+    every_case(&common::repo().join("conformance/0.5/resolve"), 4, run_resolve);
+}
+
+#[test]
+fn a_resolution_case_of_0_5_states_the_lua_a_profile_brings_as_inherited_with_valid_files() {
+    let case = common::repo().join("conformance/0.5/resolve/profile-brings-lua");
+    let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+    assert_eq!(spec["inherited"], serde_json::json!(["lua"]));
+    let schemas = common::Schemas::load("0.5");
+    let mut seen = 0;
+    for (id, text) in files(&case.join("files")) {
+        let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+        let doc: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(schemas.check(kind, &doc), None, "{id}");
+        seen += 1;
+    }
+    assert_eq!(seen, 2);
+}
+
+#[test]
+fn the_conformance_readme_describes_the_inherited_key_of_a_resolution_case() {
+    let readme = std::fs::read_to_string(common::repo().join("conformance/README.md")).unwrap();
+    assert!(readme.contains("`inherited`"), "README.md describes `inherited`");
 }
 
 #[test]

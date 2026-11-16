@@ -291,8 +291,9 @@ impl Device {
     }
 }
 
-/// A declared `capabilities`, read as a set, equals the derived list.
-fn check_capabilities(d: &Device) -> Result<(), Fault> {
+/// A declared `capabilities`, read as a set, equals the derived list. It
+/// plays on the text of one file as written, never on a merged document.
+pub(crate) fn check_capabilities(d: &Device) -> Result<(), Fault> {
     let derived = d.derived_capabilities();
     match &d.capabilities {
         Some(declared) if !(declared.iter().all(|c| derived.contains(c)) && derived.iter().all(|c| declared.contains(c))) => Err(Fault {
@@ -371,7 +372,6 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     }
     if v05 {
         check_vocabularies(d)?;
-        check_capabilities(d)?;
     }
     let mut frames = Vec::new();
     if let Some(i) = &d.identity {

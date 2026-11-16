@@ -35,6 +35,9 @@ pub struct Resolved {
     pub files: Vec<String>,
     /// What it requires from its reader beyond the declarative fields.
     pub capabilities: Vec<Capability>,
+    /// The capabilities the merge requires that the driver's own text does
+    /// not: those only a maker profile or a `midi_of` target brings.
+    pub inherited: Vec<Capability>,
 }
 
 /// The `device` keys that say which firmware a file is, not how it speaks
@@ -69,10 +72,16 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
     let (doc, typed) = fetch(id, files, Kind::Device, &mut read)?
         .ok_or_else(|| At::Root.fault(FaultKind::LinkMissing, format!("no file {id}")).in_file(id))?;
     let linked = doc.get("midi_of").is_some() || OWN_BLOCKS.iter().any(|k| doc.get(*k).and_then(|b| b.get("profile")).is_some());
+    // What the driver's own text requires, linked or not: never inherited.
+    let own = match &typed {
+        Descriptor::Device(d) => d.derived_capabilities(),
+        _ => Vec::new(),
+    };
     let device = match typed {
         // A driver that names no other file is already read.
         Descriptor::Device(d) if !linked => *d,
         _ => {
+            let declared = doc.get("capabilities").cloned();
             let mut doc = follow(id, doc, files, &mut Vec::new(), &mut read)?;
             let maker = maker_of(id).unwrap_or_default().to_string();
             for key in OWN_BLOCKS {
@@ -80,11 +89,18 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
                     doc[key] = complete(&maker, key, block, id, files, &mut Vec::new(), &mut read)?;
                 }
             }
+            // The capabilities declared were checked on the driver's own text; the
+            // merge keeps what the driver declared, not its target's.
+            match declared {
+                Some(c) => doc["capabilities"] = c,
+                None => { doc.as_object_mut().map(|o| o.remove("capabilities")); }
+            }
             Device::read(&doc, &At::Root).map_err(|f| f.in_file(id))?
         }
     };
     let capabilities = device.derived_capabilities();
-    Ok(Resolved { device, files: read, capabilities })
+    let inherited = capabilities.iter().copied().filter(|c| !own.contains(c)).collect();
+    Ok(Resolved { device, files: read, capabilities, inherited })
 }
 
 /// The maker of a catalogue id: `korg` for `korg/minilogue`.

@@ -34,7 +34,7 @@ pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
 pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 
-use json::{At, Codec, Object, Word};
+use json::{At, Codec, Object};
 use serde_json::Value;
 
 /// A kind of descriptor.
@@ -74,6 +74,13 @@ pub enum Capability {
     /// `transform`, `transform_reverse`, `script`, `custom_commands`, and four
     /// of 0.5).
     Lua,
+}
+
+impl Capability {
+    /// The word the format writes for it (`lua`).
+    pub fn word(self) -> &'static str {
+        <Self as json::Word>::word(self)
+    }
 }
 
 impl json::Word for Capability {
@@ -171,6 +178,9 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     Ok(match kind {
         Kind::Device => {
             let mut d = Device::read(v, &at)?;
+            if d.schema == Some(Version::V0_5) {
+                device::check_capabilities(&d)?;
+            }
             // `capabilities` reads as a set: a repeated entry is dropped, the
             // order of first occurrence kept.
             if let Some(c) = &mut d.capabilities {
