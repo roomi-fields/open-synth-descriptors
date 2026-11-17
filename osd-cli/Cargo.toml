@@ -2,5 +2,10 @@
 name = "osd-cli"
 version = "0.1.0"
 edition = "2021"
+description = "The osd command: validate, convert and start an Open Synth Descriptors file."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/roomi-fields/open-synth-descriptors"
+keywords = ["midi", "osc", "synthesizer", "descriptor"]
+categories = ["command-line-utilities", "multimedia::audio"]
 
 [dependencies]

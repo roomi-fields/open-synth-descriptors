@@ -2,5 +2,10 @@
 name = "osd-formats"
 version = "0.1.0"
 edition = "2021"
+description = "Open Synth Descriptors to and from the formats others use: MIDI CSV tables, Electra One, MIDNAM, OSCQuery."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/roomi-fields/open-synth-descriptors"
+keywords = ["midi", "osc", "synthesizer", "descriptor"]
+categories = ["multimedia::audio", "parser-implementations"]
 
 [dependencies]
