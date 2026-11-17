@@ -1,0 +1,5 @@
+{
+  "_about": "A file with midi_of writes each OSC address once in its own table: the second is refused, at its osc.",
+  "resolve": "acme/a",
+  "fault": { "kind": "BadValue", "file": "acme/a", "pointer": "/cc_params/entries/1/osc" }
+}

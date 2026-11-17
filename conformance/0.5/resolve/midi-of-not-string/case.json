@@ -1,0 +1,5 @@
+{
+  "_about": "A midi_of that is not a string is refused.",
+  "resolve": "acme/a",
+  "fault": { "kind": "BadValue", "file": "acme/a", "pointer": "/midi_of" }
+}

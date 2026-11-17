@@ -81,7 +81,9 @@ fn conformances() -> Vec<Doc> {
                         Kind::Device
                     };
                     let name = f.strip_prefix(common::repo()).unwrap().display().to_string();
-                    out.push(doc(name, kind, json_of(&f), false));
+                    // A resolution case may hold a file whose text is not JSON, to show the Syntax refusal.
+                    let Ok(value) = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()) else { continue };
+                    out.push(doc(name, kind, value, false));
                 }
             }
         }

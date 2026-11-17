@@ -1,0 +1,10 @@
+{
+  "_about": "A file with midi_of keeps its own identity keys (name, vendor, revision, osc_prefix, kind; one it does not write is absent) and takes the rest, here the cc_params, from its target.",
+  "resolve": "acme/fw-2",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth-2", "revision": "2" },
+    "cc_params": { "channel": 0, "entries": [{ "osc": "/x", "cc": 1 }] },
+    "midi_of": "acme/fw-1"
+  }
+}

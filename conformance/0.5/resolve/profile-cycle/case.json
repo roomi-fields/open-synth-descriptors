@@ -1,0 +1,5 @@
+{
+  "_about": "Profiles that name each other in a circle are refused.",
+  "resolve": "acme/synth",
+  "fault": { "kind": "LinkCycle", "file": "acme/_profile.b", "pointer": "/identity/profile" }
+}

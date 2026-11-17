@@ -1,0 +1,5 @@
+{
+  "_about": "Links that come back to a file already followed are refused as a circle.",
+  "resolve": "acme/a",
+  "fault": { "kind": "LinkCycle", "file": "acme/b", "pointer": "/midi_of" }
+}

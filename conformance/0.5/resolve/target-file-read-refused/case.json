@@ -1,0 +1,5 @@
+{
+  "_about": "A target file is read strictly before it is merged: its unknown field is refused by the reading, in the target's file, not the driver's.",
+  "resolve": "acme/a",
+  "fault": { "kind": "UnknownField", "file": "acme/b", "pointer": "/colour" }
+}

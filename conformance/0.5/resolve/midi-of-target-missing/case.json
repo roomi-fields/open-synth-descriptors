@@ -1,0 +1,5 @@
+{
+  "_about": "A midi_of whose target the catalogue does not hold is refused as a missing link, at /midi_of.",
+  "resolve": "acme/a",
+  "fault": { "kind": "LinkMissing", "file": "acme/a", "pointer": "/midi_of" }
+}

@@ -1,0 +1,16 @@
+{
+  "_about": "A block naming a maker profile is the profile's block with the block's own keys in place of the profile's, and names the profile.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "identity": {
+      "request": [240, 126, 127, 6, 1, 247],
+      "reply": [240, 126, "any", 6, 2, 67],
+      "firmware": { "decode": "ascii", "at": [12, 15] },
+      "family": [1, 0],
+      "member": [2, 0],
+      "profile": "acme"
+    }
+  }
+}

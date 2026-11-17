@@ -1,0 +1,5 @@
+{
+  "_about": "At most 8 profile links are followed from one block: the synth names p0, p0 names p1, and so on to p8, nine links, is refused.",
+  "resolve": "acme/synth",
+  "fault": { "kind": "LinkTooDeep", "file": "acme/_profile.p7", "pointer": "/identity/profile" }
+}

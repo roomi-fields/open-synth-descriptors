@@ -1,0 +1,16 @@
+{
+  "_about": "A family profile may itself name the maker's profile: the nearest keys win, and the block names the profile it wrote.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "identity": {
+      "request": [240, 126, 127, 6, 1, 247],
+      "reply": [240, 126, "any", 6, 2, 67],
+      "reply_text": "keys",
+      "family": [7, 0],
+      "member": [1, 0],
+      "profile": "acme/keys"
+    }
+  }
+}

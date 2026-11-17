@@ -1,0 +1,5 @@
+{
+  "_about": "A midi_of is a catalogue id of two parts, <maker>/<file>: three parts are refused.",
+  "resolve": "acme/a",
+  "fault": { "kind": "BadValue", "file": "acme/a", "pointer": "/midi_of" }
+}

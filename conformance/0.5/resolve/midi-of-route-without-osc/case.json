@@ -1,0 +1,5 @@
+{
+  "_about": "A route a file with midi_of adds has an OSC address: an entry without osc is refused as missing, at its osc.",
+  "resolve": "acme/a",
+  "fault": { "kind": "Missing", "file": "acme/a", "pointer": "/cc_params/entries/0/osc" }
+}

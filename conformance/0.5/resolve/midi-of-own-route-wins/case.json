@@ -1,0 +1,10 @@
+{
+  "_about": "When its own route and its target's have the same OSC address, the file's own wins: the target's is dropped and the own one comes after the target's others.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/y", "cc": 2 }, { "osc": "/x", "cc": 5 }] },
+    "midi_of": "acme/b"
+  }
+}

@@ -159,7 +159,103 @@ fn every_resolution_case_of_0_4_passes() {
 
 #[test]
 fn every_resolution_case_of_0_5_passes() {
-    every_case(&common::repo().join("conformance/0.5/resolve"), 4, run_resolve);
+    every_case(&common::repo().join("conformance/0.5/resolve"), 37, run_resolve);
+}
+
+/// The resolution cases of 0.5 that expect a result, one folder each.
+const RESOLVE_RESULT_CASES: [&str; 15] = [
+    "midi-of-own-keys", "profile-brings-lua", "resolve-plain-driver", "midi-of-identity-kept", "midi-of-routes-appended",
+    "midi-of-own-route-wins", "midi-of-table-absent-in-target", "midi-of-own-block-replaces", "midi-of-chain", "midi-of-credit",
+    "midi-of-capabilities-declared-kept", "profile-own-keys-win", "profile-null-drops-key", "profile-family-file", "profile-chain",
+];
+
+/// The resolution cases of 0.5 that expect a refusal, with the kind of the fault.
+const RESOLVE_FAULT_CASES: [(&str, &str); 22] = [
+    ("midi-of-target-keys-refused", "UnknownField"),
+    ("midi-of-schema-not-0-5-refused", "UnreadVersion"),
+    ("driver-missing", "LinkMissing"),
+    ("syntax-refused", "Syntax"),
+    ("target-file-read-refused", "UnknownField"),
+    ("midi-of-not-string", "BadValue"),
+    ("midi-of-id-malformed", "BadValue"),
+    ("midi-of-other-maker", "BadValue"),
+    ("midi-of-route-without-osc", "Missing"),
+    ("midi-of-route-twice", "BadValue"),
+    ("midi-of-target-missing", "LinkMissing"),
+    ("midi-of-cycle", "LinkCycle"),
+    ("midi-of-too-deep", "LinkTooDeep"),
+    ("midi-of-other-device", "BadValue"),
+    ("midi-of-table-extra-key", "UnknownField"),
+    ("profile-not-string", "BadValue"),
+    ("profile-id-malformed", "BadValue"),
+    ("profile-other-maker", "BadValue"),
+    ("profile-cycle", "LinkCycle"),
+    ("profile-too-deep", "LinkTooDeep"),
+    ("profile-file-missing", "LinkMissing"),
+    ("profile-block-missing", "LinkMissing"),
+];
+
+#[test]
+fn the_resolution_cases_of_0_5_hold_each_rule_as_a_result_and_each_refusal_as_its_fault() {
+    let root = common::repo().join("conformance/0.5/resolve");
+    let names = case_names(&root);
+    let spec_of = |n: &str| -> Value {
+        let text = std::fs::read_to_string(root.join(n).join("case.json")).unwrap_or_else(|_| panic!("no case {n} in {names:?}"));
+        serde_json::from_str(&text).unwrap()
+    };
+    let mut missing = Vec::new();
+    for want in RESOLVE_RESULT_CASES {
+        if !names.iter().any(|n| n == want) {
+            missing.push(want);
+            continue;
+        }
+        let spec = spec_of(want);
+        assert!(spec.get("result").is_some() && spec.get("fault").is_none(), "{want} expects a result");
+    }
+    for (want, _) in RESOLVE_FAULT_CASES {
+        if !names.iter().any(|n| n == want) {
+            missing.push(want);
+        }
+    }
+    assert!(missing.is_empty(), "no case {missing:?} in {names:?}");
+    for (want, kind) in RESOLVE_FAULT_CASES {
+        let spec = spec_of(want);
+        assert!(spec.get("result").is_none(), "{want} expects a fault, not a result");
+        assert_eq!(spec["fault"]["kind"], kind, "{want}");
+        assert!(spec["fault"]["file"].is_string() && spec["fault"]["pointer"].is_string(), "{want}: {spec}");
+    }
+}
+
+/// The cases whose files the 0.5 schemas are not meant to accept: the text is
+/// not JSON, the refusal is the schema's own, or a key the schema forbids.
+const RESOLVE_CASES_WITH_FILES_THE_SCHEMA_REFUSES: [&str; 7] = [
+    "syntax-refused", "target-file-read-refused", "midi-of-schema-not-0-5-refused", "midi-of-route-without-osc",
+    "midi-of-table-extra-key", "midi-of-not-string", "profile-not-string",
+];
+
+#[test]
+fn every_file_of_a_resolution_case_of_0_5_validates_except_those_whose_refusal_the_schema_states() {
+    let schemas = common::Schemas::load("0.5");
+    let root = common::repo().join("conformance/0.5/resolve");
+    let mut failures = Vec::new();
+    let names = case_names(&root);
+    for case in &names {
+        if RESOLVE_CASES_WITH_FILES_THE_SCHEMA_REFUSES.contains(&case.as_str()) {
+            continue;
+        }
+        for (id, text) in files(&root.join(case).join("files")) {
+            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            match serde_json::from_str::<Value>(&text) {
+                Err(e) => failures.push(format!("{case}: {id}: not JSON: {e}")),
+                Ok(doc) => {
+                    if let Some(e) = schemas.check(kind, &doc) {
+                        failures.push(format!("{case}: {id}: {e}"));
+                    }
+                }
+            }
+        }
+    }
+    common::report("files do not validate", failures);
 }
 
 #[test]

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "identity": { "request": [240, 126, 127, 6, 1, 247], "reply": [240, 126, "any", 6, 2, 67] },
+  "programs": { "selects": "sound", "program_change": true }
+}
