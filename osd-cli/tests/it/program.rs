@@ -8,15 +8,12 @@ fn words(text: &str) -> Vec<String> {
 }
 
 #[test]
-fn osd_help_lists_the_three_words_and_neither_import_nor_export() {
+fn osd_help_lists_the_five_words() {
     let run = osd(&["--help"]);
     assert_eq!(run.code, 0, "{:?}", run.stderr);
     let w = words(&run.stdout);
     for word in WORDS {
         assert!(w.iter().any(|x| x == word), "{word} missing from {:?}", run.stdout);
-    }
-    for word in ["import", "export"] {
-        assert!(!w.iter().any(|x| x == word), "{word} listed in {:?}", run.stdout);
     }
 }
 
@@ -96,11 +93,16 @@ fn the_interface_shapes_carry_the_kind_and_force_options() {
 }
 
 #[test]
-fn the_interface_keeps_import_and_export_marked_not_yet_delivered() {
+fn the_interface_shapes_of_import_and_export_carry_the_source_and_output_options() {
     let rows = interface_rows();
+    let shape = |w: &str| rows.iter().find(|r| r.0 == w).unwrap_or_else(|| panic!("no row for {w}")).1.clone();
+    for option in ["--source-url", "--source-author", "--license", "-o", "--force"] {
+        assert!(shape("import").contains(option), "{option} not in {}", shape("import"));
+    }
+    assert!(shape("export").contains("--force"), "{}", shape("export"));
     for word in ["import", "export"] {
-        let (_, _, line) = rows.iter().find(|r| r.0 == word).unwrap_or_else(|| panic!("no row for {word}"));
-        assert!(line.contains("not yet delivered"), "{line}");
+        let (_, _, line) = rows.iter().find(|r| r.0 == word).unwrap();
+        assert!(!line.contains("not yet delivered"), "{line}");
     }
 }
 
@@ -110,7 +112,7 @@ fn the_readme_presents_the_three_words_with_the_interface_shapes() {
     let part = readme.split("## Checking a file").nth(1).expect("the README has `Checking a file`");
     let part = part.split("\n## ").next().unwrap();
     for (word, shape, _) in interface_rows() {
-        if WORDS.contains(&word.as_str()) {
+        if ["validate", "convert", INIT].contains(&word.as_str()) {
             assert!(part.contains(&shape), "{shape:?} not in the README part on checking a file");
         }
     }

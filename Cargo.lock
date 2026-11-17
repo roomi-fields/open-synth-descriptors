@@ -449,6 +449,7 @@ version = "0.1.0"
 dependencies = [
  "jsonschema",
  "osd",
+ "osd-formats",
  "serde_json",
  "tempfile",
 ]
@@ -456,6 +457,10 @@ dependencies = [
 [[package]]
 name = "osd-formats"
 version = "0.1.0"
+dependencies = [
+ "osd",
+ "serde_json",
+]
 
 [[package]]
 name = "outref"

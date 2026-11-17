@@ -5,6 +5,7 @@
 mod common;
 
 mod convert;
+mod formats;
 mod init;
 mod program;
 mod validate;

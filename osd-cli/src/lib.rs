@@ -9,6 +9,9 @@ use std::io::Write;
 const VALIDATE_SHAPE: &str = "osd validate [--kind <kind>] <file>…";
 const CONVERT_SHAPE: &str = "osd convert [--kind <kind>] <file> [-o <file>] [--force]";
 const INIT_SHAPE: &str = "osd init <kind> [-o <file>] [--force]";
+const IMPORT_SHAPE: &str =
+    "osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [-o <file>] [--force]";
+const EXPORT_SHAPE: &str = "osd export <format> <file> [-o <file>] [--force]";
 
 /// The kinds, with the template embedded for each.
 const KINDS: [(&str, osd::Kind, &str); 5] = [
@@ -23,15 +26,23 @@ fn kind_names() -> String {
     KINDS.iter().map(|k| k.0).collect::<Vec<_>>().join(", ")
 }
 
+fn format_names() -> String {
+    osd_formats::Format::ALL.iter().map(|f| f.name()).collect::<Vec<_>>().join(", ")
+}
+
 fn general_help() -> String {
     format!(
         "osd: check, convert and start an Open Synth Descriptors file.\n\n\
-         Usage:\n  {VALIDATE_SHAPE}\n  {CONVERT_SHAPE}\n  {INIT_SHAPE}\n\n\
+         Usage:\n  {VALIDATE_SHAPE}\n  {CONVERT_SHAPE}\n  {INIT_SHAPE}\n  {IMPORT_SHAPE}\n  {EXPORT_SHAPE}\n\n\
          Words:\n  validate  say whether each file is well written\n  \
          convert   write a descriptor in the latest version\n  \
-         {}   write a template to fill\n\n\
+         {}   write a template to fill\n  \
+         import    write the descriptor of a file in another format ({})\n  \
+         export    write a descriptor in another format ({})\n\n\
          Options:\n  --help     show this help (also after a word)\n  --version  show the versions of the format read\n",
-        word_init()
+        word_init(),
+        format_names(),
+        format_names()
     )
 }
 
@@ -56,6 +67,22 @@ fn word_help(word: &str) -> String {
              for a file without `$schema`.\nExit 1 when the text cannot be converted, 2 when misused.\n",
             kind_names()
         ),
+        "import" => format!(
+            "{IMPORT_SHAPE}\n\nWrites the descriptor of the file, a file of the format ({}), on the standard output, or in\n\
+             the file `-o` names; an existing file is replaced only with `--force`.\n\
+             The descriptor carries the source given by `--source-url`, `--source-author` and `--license`:\n\
+             one of the url or the author, and the license, are needed (exit 2 without them).\n\
+             What the file could not say is printed on the error output, one line per loss.\n\
+             Exit 1 when the file is not valid in its format, 2 when misused.\n",
+            format_names()
+        ),
+        "export" => format!(
+            "{EXPORT_SHAPE}\n\nWrites the descriptor file, read alone, in the format ({}) on the standard output, or in\n\
+             the file `-o` names; an existing file is replaced only with `--force`.\n\
+             What the format cannot carry is printed on the error output, one line per loss.\n\
+             Exit 1 when the descriptor cannot be read, resolved or written, 2 when misused.\n",
+            format_names()
+        ),
         _ => format!(
             "{INIT_SHAPE}\n\nWrites a template of the kind ({}) on the standard output, or in the file\n\
              `-o` names; an existing file is replaced only with `--force`.\n\
@@ -76,10 +103,13 @@ struct Options {
     kind: Option<String>,
     output: Option<String>,
     force: bool,
+    source_url: Option<String>,
+    source_author: Option<String>,
+    license: Option<String>,
     positional: Vec<String>,
 }
 
-fn parse(args: &[String], takes_kind: bool, takes_output: bool) -> Result<Options, String> {
+fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bool) -> Result<Options, String> {
     let mut o = Options::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -87,6 +117,9 @@ fn parse(args: &[String], takes_kind: bool, takes_output: bool) -> Result<Option
             "--kind" if takes_kind => o.kind = Some(it.next().ok_or("`--kind` needs a kind")?.clone()),
             "-o" if takes_output => o.output = Some(it.next().ok_or("`-o` needs a file")?.clone()),
             "--force" if takes_output => o.force = true,
+            "--source-url" if takes_source => o.source_url = Some(it.next().ok_or("`--source-url` needs a url")?.clone()),
+            "--source-author" if takes_source => o.source_author = Some(it.next().ok_or("`--source-author` needs a name")?.clone()),
+            "--license" if takes_source => o.license = Some(it.next().ok_or("`--license` needs an SPDX id")?.clone()),
             s if s.starts_with('-') && s.len() > 1 => return Err(format!("unknown option `{s}`")),
             _ => o.positional.push(a.clone()),
         }
@@ -225,6 +258,120 @@ fn convert(o: Options, help: &str) -> i32 {
     }
 }
 
+/// Prints each loss on the error output, one per line.
+fn print_losses(lost: &[osd_formats::Loss]) {
+    for l in lost {
+        eprintln!("{}: {}", l.place, l.reason);
+    }
+}
+
+fn format_named(name: &str, help: &str) -> Result<osd_formats::Format, i32> {
+    osd_formats::Format::from_name(name)
+        .ok_or_else(|| misuse(&format!("`{name}` is not a format; the formats are {}", format_names()), help))
+}
+
+fn read_input(file: &str) -> Result<String, i32> {
+    std::fs::read_to_string(file).map_err(|e| {
+        eprintln!("osd: {file}: {e}");
+        2
+    })
+}
+
+fn import(o: Options, help: &str) -> i32 {
+    let [name, file] = o.positional.as_slice() else {
+        return misuse("import needs a format and a file", help);
+    };
+    let format = match format_named(name, help) {
+        Ok(f) => f,
+        Err(c) => return c,
+    };
+    let text = match read_input(file) {
+        Ok(t) => t,
+        Err(c) => return c,
+    };
+    let source = osd::Source {
+        kind: "community-re".to_string(),
+        url: o.source_url.clone(),
+        firmware: None,
+        author: o.source_author.clone(),
+        attribution: None,
+        license: o.license.clone(),
+        commit: None,
+        imported_at: None,
+        notes: None,
+        extra: Default::default(),
+    };
+    match osd_formats::import(&text, format, &source) {
+        Ok(t) => {
+            print_losses(&t.lost);
+            emit(&osd::write(&osd::Descriptor::Device(Box::new(t.value))), &o)
+        }
+        Err(f) => {
+            eprintln!("{file}: {f}");
+            if f.kind == osd_formats::FaultKind::SourceIncomplete {
+                2
+            } else {
+                1
+            }
+        }
+    }
+}
+
+/// The one file of an export: the catalogue holds it alone, so a link no file answers is a fault.
+struct Alone {
+    id: String,
+    text: String,
+}
+
+impl Alone {
+    /// The file under an id of the maker its `midi_of` names (a link stays within one maker).
+    fn new(text: String) -> Alone {
+        let maker = match osd::read(&text, osd::Kind::Device) {
+            Ok(osd::Descriptor::Device(d)) => d.midi_of.as_deref().and_then(|t| t.split('/').next()).map(str::to_string),
+            _ => None,
+        };
+        Alone { id: format!("{}/file", maker.unwrap_or_else(|| "file".to_string())), text }
+    }
+}
+
+impl osd::Files for Alone {
+    fn get(&self, id: &str) -> Option<String> {
+        (id == self.id).then(|| self.text.clone())
+    }
+}
+
+fn export(o: Options, help: &str) -> i32 {
+    let [name, file] = o.positional.as_slice() else {
+        return misuse("export needs a format and a file", help);
+    };
+    let format = match format_named(name, help) {
+        Ok(f) => f,
+        Err(c) => return c,
+    };
+    let text = match read_input(file) {
+        Ok(t) => t,
+        Err(c) => return c,
+    };
+    let files = Alone::new(text);
+    let resolved = match osd::resolve(&files.id, &files) {
+        Ok(r) => r,
+        Err(f) => {
+            eprintln!("{}", fault_line(file, &f));
+            return 1;
+        }
+    };
+    match osd_formats::export(&resolved, format) {
+        Ok(t) => {
+            print_losses(&t.lost);
+            emit(&t.value, &o)
+        }
+        Err(f) => {
+            eprintln!("{file}: {f}");
+            1
+        }
+    }
+}
+
 fn template(o: Options, help: &str) -> i32 {
     let [name] = o.positional.as_slice() else {
         return misuse(&format!("{} needs one kind: {}", word_init(), kind_names()), help);
@@ -251,7 +398,7 @@ pub fn run(args: Vec<String>) -> i32 {
             println!("osd {} (reads the format versions {})", env!("CARGO_PKG_VERSION"), versions.join(", "));
             0
         }
-        w @ ("validate" | "convert") | w @ "init" => {
+        w @ ("validate" | "convert" | "import" | "export") | w @ "init" => {
             let rest = &args[1..];
             if rest.iter().any(|a| a == "--help" || a == "-h") {
                 print!("{}", word_help(w));
@@ -259,15 +406,18 @@ pub fn run(args: Vec<String>) -> i32 {
             }
             let wh = word_help(w);
             let parsed = match w {
-                "validate" => parse(rest, true, false),
-                "convert" => parse(rest, true, true),
-                _ => parse(rest, false, true),
+                "validate" => parse(rest, true, false, false),
+                "convert" => parse(rest, true, true, false),
+                "import" => parse(rest, false, true, true),
+                _ => parse(rest, false, true, false),
             };
             match parsed {
                 Err(m) => misuse(&m, &help),
                 Ok(o) => match w {
                     "validate" => validate(o, &wh),
                     "convert" => convert(o, &wh),
+                    "import" => import(o, &wh),
+                    "export" => export(o, &wh),
                     _ => template(o, &wh),
                 },
             }

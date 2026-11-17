@@ -40,8 +40,8 @@ pub fn osd(args: &[&str]) -> Run {
 /// repository.
 pub const INIT: &str = concat!("in", "it");
 
-/// The three words the program delivers.
-pub const WORDS: [&str; 3] = ["validate", "convert", INIT];
+/// The five words the program delivers.
+pub const WORDS: [&str; 5] = ["validate", "convert", INIT, "import", "export"];
 
 pub fn kind_of(word: &str) -> osd::Kind {
     match word {

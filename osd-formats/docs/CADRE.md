@@ -26,7 +26,7 @@
 
 - **R8** Losing something silently: what a translation cannot carry is in the list it returns.
 - **R9** Inventing a value the source does not give.
-- **R10** Dropping the source's credit or licence, and writing a device whose sources forbid sharing in that format: a typed fault naming the source.
+- **R10** Dropping the source's credit or licence: a device without sources is not written.
 - **R11** A file that is not valid in its format.
 - **R12** Running another format's code: a KnobKraft adaptation is read by its host, not here.
 - **R13** Any I/O.

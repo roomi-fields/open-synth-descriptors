@@ -9,3 +9,5 @@ keywords = ["midi", "osc", "synthesizer", "descriptor"]
 categories = ["multimedia::audio", "parser-implementations"]
 
 [dependencies]
+osd = { version = "0.1.0", path = "../osd" }
+serde_json = { version = "1", features = ["preserve_order"] }

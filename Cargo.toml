@@ -7,8 +7,8 @@ exclude = ["tools/osc-bridge-parity"]
 # they use run optimised.
 [workspace.metadata.grillhouse.frontieres]
 osd = []
-osd-cli = ["osd"]
-osd-formats = []
+osd-cli = ["osd", "osd-formats"]
+osd-formats = ["osd"]
 
 [profile.dev.package."*"]
 opt-level = 2
