@@ -7,7 +7,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 const VALIDATE_SHAPE: &str = "osd validate [--kind <kind>] <file>…";
-const CONVERT_SHAPE: &str = "osd convert [--kind <kind>] <file> [-o <file>] [--force]";
+const CONVERT_SHAPE: &str = "osd convert [--kind <kind>] [--to <version>] <file> [-o <file>] [--force]";
 const INIT_SHAPE: &str = "osd init <kind> [-o <file>] [--force]";
 const IMPORT_SHAPE: &str =
     "osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [-o <file>] [--force]";
@@ -61,8 +61,9 @@ fn word_help(word: &str) -> String {
             kind_names()
         ),
         "convert" => format!(
-            "{CONVERT_SHAPE}\n\nWrites the descriptor in the latest version on the standard output, or in the\n\
+            "{CONVERT_SHAPE}\n\nWrites the descriptor in the latest published version on the standard output, or in the\n\
              file `-o` names; an existing file is replaced only with `--force`.\n\
+             `--to <version>` names the version to write: the 0.6 draft only when asked for by name.\n\
              The kind is read from the `$schema` of the file; `--kind <kind>` ({}) gives it\n\
              for a file without `$schema`.\nExit 1 when the text cannot be converted, 2 when misused.\n",
             kind_names()
@@ -101,6 +102,7 @@ fn misuse(message: &str, help: &str) -> i32 {
 #[derive(Default)]
 struct Options {
     kind: Option<String>,
+    to: Option<String>,
     output: Option<String>,
     force: bool,
     source_url: Option<String>,
@@ -115,6 +117,7 @@ fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bo
     while let Some(a) = it.next() {
         match a.as_str() {
             "--kind" if takes_kind => o.kind = Some(it.next().ok_or("`--kind` needs a kind")?.clone()),
+            "--to" if takes_kind && takes_output => o.to = Some(it.next().ok_or("`--to` needs a version")?.clone()),
             "-o" if takes_output => o.output = Some(it.next().ok_or("`-o` needs a file")?.clone()),
             "--force" if takes_output => o.force = true,
             "--source-url" if takes_source => o.source_url = Some(it.next().ok_or("`--source-url` needs a url")?.clone()),
@@ -234,6 +237,16 @@ fn convert(o: Options, help: &str) -> i32 {
         Ok(k) => k,
         Err(c) => return c,
     };
+    let target = match &o.to {
+        None => osd::PUBLISHED,
+        Some(name) => match osd::VERSIONS.iter().copied().find(|v| v.name() == name) {
+            Some(v) => v,
+            None => {
+                let known: Vec<&str> = osd::VERSIONS.iter().map(|v| v.name()).collect();
+                return misuse(&format!("`{name}` is not a version read; the versions are {}", known.join(", ")), help);
+            }
+        },
+    };
     let file = &o.positional[0];
     let text = match std::fs::read_to_string(file) {
         Ok(t) => t,
@@ -249,7 +262,7 @@ fn convert(o: Options, help: &str) -> i32 {
             return 2;
         }
     };
-    match osd::convert(&text, kind) {
+    match osd::convert_to(&text, kind, target) {
         Ok(out) => emit(&out, &o),
         Err(f) => {
             eprintln!("{}", fault_line(file, &f));

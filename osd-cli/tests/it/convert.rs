@@ -112,3 +112,71 @@ fn convert_refuses_a_file_without_schema_declaration_and_without_kind() {
     assert!(run.stderr.contains("--kind"), "{:?}", run.stderr);
     assert_eq!(run.stdout, "");
 }
+
+#[test]
+fn convert_with_to_0_6_writes_the_draft_as_osd_convert_to_renders_it() {
+    for kind in common::KINDS {
+        let file = path_of(&common::example_path(kind));
+        let text = std::fs::read_to_string(&file).unwrap();
+        let run = osd(&["convert", "--to", "0.6", &file]);
+        assert_eq!(run.code, 0, "{kind}: {:?}", run.stderr);
+        assert_eq!(run.stdout, osd::convert_to(&text, common::kind_of(kind), osd::Version::V0_6).unwrap(), "{kind}");
+        let doc: Value = serde_json::from_str(&run.stdout).unwrap();
+        assert_eq!(doc["$schema"], format!("https://w3id.org/osd/0.6/{kind}.schema.json"), "{kind}");
+    }
+}
+
+#[test]
+fn convert_with_to_0_6_carries_a_0_4_descriptor_through_0_5() {
+    let file = path_of(&repo().join("examples/devices/test_synth.json"));
+    let run = osd(&["convert", "--kind", "device", "--to", "0.6", &file]);
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    let doc: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert_eq!(doc["$schema"], "https://w3id.org/osd/0.6/device.schema.json");
+}
+
+#[test]
+fn convert_without_to_stays_on_the_latest_published_version() {
+    let file = path_of(&common::example_path("device"));
+    let run = osd(&["convert", &file]);
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    let doc: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert_eq!(doc["$schema"], format!("https://w3id.org/osd/{}/device.schema.json", osd::PUBLISHED.name()));
+}
+
+#[test]
+fn convert_with_to_an_unknown_version_is_a_misuse() {
+    let file = path_of(&common::example_path("device"));
+    for version in ["0.9", "banana", "0.7"] {
+        let run = osd(&["convert", "--to", version, &file]);
+        assert_eq!(run.code, 2, "{version}: {:?}", run.stderr);
+        assert_eq!(run.stdout, "", "{version}");
+        assert!(run.stderr.contains(version), "{version}: {:?}", run.stderr);
+    }
+    let run = osd(&["convert", &file, "--to"]);
+    assert_eq!(run.code, 2, "{:?}", run.stderr);
+}
+
+#[test]
+fn convert_with_to_an_older_version_than_the_file_is_refused_with_its_fault() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = path_of(&common::example_path("device"));
+    let draft = dir.path().join("draft.json");
+    std::fs::write(&draft, std::fs::read_to_string(&file).unwrap().replace("/0.5/", "/0.6/")).unwrap();
+    let draft = path_of(&draft);
+    let run = osd(&["convert", "--to", "0.5", &draft]);
+    assert_eq!(run.code, 1, "{:?}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert!(run.stderr.contains(" at \"/$schema\""), "{:?}", run.stderr);
+    let run = osd(&["convert", &draft]);
+    assert_eq!(run.code, 1, "{:?}", run.stderr);
+    assert!(run.stderr.contains(" at \"/$schema\""), "{:?}", run.stderr);
+}
+
+#[test]
+fn convert_with_to_0_4_is_refused_with_its_fault() {
+    let file = path_of(&common::example_path("device"));
+    let run = osd(&["convert", "--to", "0.4", &file]);
+    assert_eq!(run.code, 1, "{:?}", run.stderr);
+    assert!(run.stderr.contains(" at \"/$schema\""), "{:?}", run.stderr);
+}

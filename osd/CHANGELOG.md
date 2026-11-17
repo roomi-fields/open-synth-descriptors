@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reads the 0.6 draft of the format and converts to it: `convert_to(text, kind, Version::V0_6)` carries a 0.4 or 0.5 descriptor to it, forward only. `convert` keeps writing the latest published version, 0.5, named by the new `PUBLISHED`; `osd convert --to 0.6` asks for the draft. A 0.6 device refuses a repeated `capabilities` entry, which 0.5 still reads once.
+
 - `declared_kind` gives the kind that the `$schema` of a text declares (`None` when the text is not JSON, has no `$schema`, or one that is not an accepted address of a version read), so a command or a tool no longer keeps its own table of the addresses.
 
 - `MidiType::template` gives the OSC address and arguments the specification fixes for a `midi_in` type (prefix not included), so an engine no longer keeps its own copy of the table; the 0.4 → 0.5 conversion reads it.

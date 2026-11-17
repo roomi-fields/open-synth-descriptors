@@ -36,7 +36,7 @@ fn template(kind: &str) -> Value {
 
 #[test]
 fn init_writes_a_template_of_each_kind_with_the_latest_schema() {
-    let latest = osd::VERSIONS.last().unwrap().name();
+    let latest = osd::PUBLISHED.name();
     for kind in KINDS {
         let t = template(kind);
         assert_eq!(t["$schema"], format!("https://w3id.org/osd/{latest}/{kind}.schema.json"), "{kind}");

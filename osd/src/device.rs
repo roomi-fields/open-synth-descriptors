@@ -309,7 +309,7 @@ pub(crate) fn check_capabilities(d: &Device) -> Result<(), Fault> {
                 d.derived_capabilities().iter().map(|c| c.word()).collect::<Vec<_>>().join(", ")
             ),
         }),
-        None if d.schema == Some(Version::V0_5) && !d.derived_capabilities().is_empty() => Err(Fault {
+        None if crate::is_05_form(d.schema) && !d.derived_capabilities().is_empty() => Err(Fault {
             kind: FaultKind::BadValue,
             file: None,
             pointer: "/capabilities".into(),
@@ -369,7 +369,7 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
-    let v05 = d.schema == Some(Version::V0_5);
+    let v05 = crate::is_05_form(d.schema);
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
@@ -451,7 +451,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
 }
 
 fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
-    let v05 = p.schema == Some(Version::V0_5);
+    let v05 = crate::is_05_form(p.schema);
     check_05_fields(p.identity.as_ref(), p.programs.as_ref(), v05)?;
     if v05 {
         if let Some(i) = &p.identity {

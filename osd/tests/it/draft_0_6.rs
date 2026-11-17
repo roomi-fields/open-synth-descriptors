@@ -1,0 +1,330 @@
+//! OSD 0.6, a draft: read like 0.5 at its opening, except that `capabilities`
+//! forbids a repeated entry; `osd::convert_to` carries a 0.4 or 0.5 text to it;
+//! `osd::convert` stays on the latest published version, 0.5. The schemas and the
+//! conformance cases of 0.6 mirror those of 0.5; its checksums are written when
+//! the version is published.
+
+use crate::common;
+
+use osd::{FaultKind, Kind, Version};
+use serde_json::{json, Value};
+use std::path::Path;
+
+const KINDS: [(Kind, &str); 5] = [
+    (Kind::Device, "device"),
+    (Kind::Profile, "profile"),
+    (Kind::Sound, "sound"),
+    (Kind::Fingerprint, "fingerprint"),
+    (Kind::Firmware, "firmware"),
+];
+
+fn address(version: &str, kind: &str) -> String {
+    format!("https://w3id.org/osd/{version}/{kind}.schema.json")
+}
+
+fn file(path: &str) -> String {
+    std::fs::read_to_string(common::repo().join(path)).unwrap()
+}
+
+/// The 0.5 examples, by kind.
+fn examples_05() -> Vec<(Kind, String)> {
+    vec![
+        (Kind::Device, file("examples/0.5/synth.device.json")),
+        (Kind::Profile, file("examples/0.5/acme.profile.json")),
+        (Kind::Sound, file("examples/0.5/warm-pad.sound.json")),
+        (Kind::Fingerprint, file("examples/0.5/minilogue.fingerprint.json")),
+        (Kind::Firmware, file("examples/0.5/tribe-0.3-beta.firmware.json")),
+    ]
+}
+
+/// Documents of 0.4, by kind.
+fn texts_04() -> Vec<(Kind, String)> {
+    vec![
+        (Kind::Device, file("examples/devices/test_synth.json")),
+        (Kind::Sound, file("examples/warm-pad.sound.json")),
+        (Kind::Fingerprint, file("examples/minilogue.fingerprint.json")),
+        (Kind::Firmware, file("examples/tribe-0.3-beta.firmware.json")),
+    ]
+}
+
+fn name(kind: Kind) -> &'static str {
+    KINDS.iter().find(|(k, _)| *k == kind).unwrap().1
+}
+
+/// The text with its 0.5 `$schema` address turned into the 0.6 one.
+fn as_06(text: &str, kind: Kind) -> String {
+    text.replace(&address("0.5", name(kind)), &address("0.6", name(kind)))
+}
+
+fn value(text: &str) -> Value {
+    serde_json::from_str(text).unwrap()
+}
+
+fn without_schema(text: &str) -> Value {
+    let mut v = value(text);
+    v.as_object_mut().unwrap().remove("$schema");
+    v
+}
+
+/// A device of version `version` whose `capabilities` is `caps` and which holds
+/// Lua (a `transform`), so that `["lua"]` is the derived list.
+fn lua_device(version: &str, caps: Value) -> String {
+    json!({
+        "$schema": address(version, "device"),
+        "device": {"name": "T", "osc_prefix": "/t"},
+        "cc_params": {"channel": 0, "entries": [{"osc": "/a", "cc": 1, "transform": "x * 2"}]},
+        "capabilities": caps
+    })
+    .to_string()
+}
+
+#[test]
+fn the_reader_lists_the_0_6_draft_among_its_versions_and_keeps_0_5_published() {
+    assert_eq!(Version::V0_6.name(), "0.6");
+    assert!(osd::VERSIONS.contains(&Version::V0_6));
+    assert_eq!(osd::PUBLISHED, Version::V0_5);
+    assert_ne!(Some(&osd::PUBLISHED), osd::VERSIONS.last());
+}
+
+#[test]
+fn a_0_6_address_is_the_w3id_one_of_its_kind() {
+    for (kind, n) in KINDS {
+        let text = as_06(&examples_05().into_iter().find(|(k, _)| *k == kind).unwrap().1, kind);
+        assert!(osd::read(&text, kind).is_ok(), "{n}");
+        assert_eq!(osd::declared_kind(&text), Some(kind), "{n}");
+        let d = osd::read_as(&text, kind, Version::V0_6).unwrap_or_else(|f| panic!("{n}: {f}"));
+        assert_eq!(value(&osd::write(&d))["$schema"], address("0.6", n), "{n}");
+        // Read as another version, it is refused at `$schema`.
+        let f = osd::read_as(&text, kind, Version::V0_5).unwrap_err();
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{n}");
+    }
+}
+
+#[test]
+fn a_0_6_address_on_the_old_host_is_refused() {
+    let text = file("examples/0.5/synth.device.json")
+        .replace("https://w3id.org/osd/0.5/", "https://synthhub.roomi-fields.com/osd/0.6/");
+    let f = osd::read(&text, Kind::Device).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnreadVersion, "/$schema"));
+}
+
+#[test]
+fn a_0_5_descriptor_whose_schema_is_changed_to_0_6_reads_to_the_same_values() {
+    for (kind, text) in examples_05() {
+        let twin = as_06(&text, kind);
+        assert_ne!(twin, text, "{kind:?}");
+        let d = osd::read(&twin, kind).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
+        assert_eq!(without_schema(&osd::write(&d)), without_schema(&text), "{kind:?}");
+    }
+}
+
+#[test]
+fn a_0_6_descriptor_with_an_unknown_field_is_refused() {
+    let mut top = value(&as_06(&file("examples/0.5/synth.device.json"), Kind::Device));
+    top["colour"] = json!("red");
+    let f = osd::read(&top.to_string(), Kind::Device).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnknownField, "/colour"));
+    let mut nested = value(&as_06(&file("examples/0.5/synth.device.json"), Kind::Device));
+    nested["device"]["colour"] = json!("red");
+    let f = osd::read(&nested.to_string(), Kind::Device).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnknownField, "/device/colour"));
+    let mut sound = value(&as_06(&file("examples/0.5/warm-pad.sound.json"), Kind::Sound));
+    sound["colour"] = json!("red");
+    let f = osd::read(&sound.to_string(), Kind::Sound).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::UnknownField, "/colour"));
+}
+
+#[test]
+fn the_closed_vocabularies_of_0_5_apply_to_0_6() {
+    let mut doc = value(&as_06(&file("examples/0.5/warm-pad.sound.json"), Kind::Sound));
+    doc["license"] = json!("none");
+    let f = osd::read(&doc.to_string(), Kind::Sound).unwrap_err();
+    assert_eq!(f.kind, FaultKind::BadValue, "{f}");
+    assert_eq!(f.pointer, "/license");
+}
+
+#[test]
+fn the_0_6_reader_refuses_a_repeated_capabilities_entry() {
+    let f = osd::read(&lua_device("0.6", json!(["lua", "lua"])), Kind::Device).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/capabilities"), "{f}");
+    // A list without a repeat reads.
+    assert!(osd::read(&lua_device("0.6", json!(["lua"])), Kind::Device).is_ok());
+}
+
+#[test]
+fn the_0_5_reader_still_reads_a_repeated_capabilities_entry_once() {
+    let d = osd::read(&lua_device("0.5", json!(["lua", "lua"])), Kind::Device).unwrap();
+    let Some(device) = (match d {
+        osd::Descriptor::Device(x) => Some(x),
+        _ => None,
+    }) else {
+        panic!("a device")
+    };
+    assert_eq!(device.capabilities, Some(vec![osd::Capability::Lua]));
+}
+
+#[test]
+fn the_0_6_device_schema_forbids_a_repeated_capabilities_entry() {
+    let schemas = common::Schemas::load("0.6");
+    let errors = schemas.errors(Kind::Device, &value(&lua_device("0.6", json!(["lua", "lua"]))));
+    assert!(errors.iter().any(|(at, _)| at == "/capabilities"), "{errors:?}");
+    assert!(schemas.errors(Kind::Device, &value(&lua_device("0.6", json!(["lua"])))).is_empty());
+}
+
+#[test]
+fn the_0_6_schemas_are_the_five_of_the_version_with_their_w3id_ids_and_no_checksum_line() {
+    let schemas = common::repo().join("schemas/0.6");
+    for (_, n) in KINDS {
+        let schema = value(&std::fs::read_to_string(schemas.join(format!("{n}.schema.json"))).unwrap());
+        assert_eq!(schema["$id"], address("0.6", n), "{n}");
+    }
+    let files = std::fs::read_dir(&schemas).unwrap().count();
+    assert_eq!(files, 5);
+    // The five compile as JSON Schema.
+    let _ = common::Schemas::load("0.6");
+    let sums = file("schemas/SHA256SUMS");
+    assert!(!sums.lines().any(|l| l.contains("0.6/")), "a 0.6 line in SHA256SUMS");
+}
+
+#[test]
+fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_and_the_unique_capabilities() {
+    for (_, n) in KINDS {
+        let read = |v: &str| std::fs::read_to_string(common::repo().join(format!("schemas/{v}/{n}.schema.json"))).unwrap();
+        let mut now = value(&read("0.6"));
+        let mut before = value(&read("0.5"));
+        if n == "device" {
+            assert_eq!(now["properties"]["capabilities"]["uniqueItems"], json!(true));
+            now["properties"]["capabilities"].as_object_mut().unwrap().remove("uniqueItems");
+        }
+        // Compare once the version names are the same everywhere.
+        let norm = |v: &mut Value| {
+            *v = value(&v.to_string().replace("osd/0.6/", "osd/0.5/").replace("0.6", "0.5"));
+        };
+        norm(&mut now);
+        norm(&mut before);
+        assert_eq!(now, before, "{n}");
+    }
+}
+
+#[test]
+fn convert_to_0_6_carries_a_0_5_text_with_its_schema_changed_and_its_values_kept() {
+    for (kind, text) in examples_05() {
+        let out = osd::convert_to(&text, kind, Version::V0_6).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
+        assert_eq!(value(&out)["$schema"], address("0.6", name(kind)), "{kind:?}");
+        assert_eq!(without_schema(&out), without_schema(&text), "{kind:?}");
+        assert!(osd::read_as(&out, kind, Version::V0_6).is_ok(), "{kind:?}");
+    }
+}
+
+#[test]
+fn convert_to_0_6_carries_a_0_4_text_through_0_5() {
+    for (kind, text) in texts_04() {
+        let out = osd::convert_to(&text, kind, Version::V0_6).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
+        let via_05 = osd::convert(&text, kind).unwrap();
+        assert_eq!(value(&out)["$schema"], address("0.6", name(kind)), "{kind:?}");
+        assert_eq!(without_schema(&out), without_schema(&via_05), "{kind:?}");
+        assert_eq!(out, as_06(&via_05, kind), "{kind:?}");
+    }
+}
+
+#[test]
+fn convert_to_0_5_of_a_0_4_text_is_what_convert_gives() {
+    for (kind, text) in texts_04() {
+        assert_eq!(osd::convert_to(&text, kind, Version::V0_5).unwrap(), osd::convert(&text, kind).unwrap(), "{kind:?}");
+    }
+}
+
+#[test]
+fn convert_to_0_6_writes_a_repeated_capabilities_entry_once() {
+    let out = osd::convert_to(&lua_device("0.5", json!(["lua", "lua"])), Kind::Device, Version::V0_6).unwrap();
+    assert_eq!(value(&out)["capabilities"], json!(["lua"]));
+    assert_eq!(value(&out)["$schema"], address("0.6", "device"));
+    assert!(osd::read(&out, Kind::Device).is_ok());
+}
+
+#[test]
+fn convert_to_the_version_of_the_text_returns_it_as_it_is() {
+    for (kind, text) in examples_05() {
+        let twin = as_06(&text, kind);
+        let compact = value(&twin).to_string();
+        assert_eq!(osd::convert_to(&compact, kind, Version::V0_6).unwrap(), compact, "{kind:?}");
+        assert_eq!(osd::convert_to(&text, kind, Version::V0_5).unwrap(), osd::convert(&text, kind).unwrap(), "{kind:?}");
+    }
+}
+
+#[test]
+fn convert_to_the_same_version_writes_a_repeated_capabilities_entry_once() {
+    let out = osd::convert_to(&lua_device("0.5", json!(["lua", "lua"])), Kind::Device, Version::V0_5).unwrap();
+    assert_eq!(value(&out)["capabilities"], json!(["lua"]));
+}
+
+#[test]
+fn convert_to_an_older_version_than_the_source_is_refused_at_the_schema() {
+    for (kind, text) in examples_05() {
+        let twin = as_06(&text, kind);
+        let f = osd::convert_to(&twin, kind, Version::V0_5).unwrap_err();
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{kind:?}: {f}");
+        let f = osd::convert_to(&twin, kind, Version::V0_4).unwrap_err();
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{kind:?}: {f}");
+    }
+}
+
+#[test]
+fn convert_to_0_4_is_refused_at_the_schema() {
+    for (kind, text) in examples_05().into_iter().chain(texts_04()) {
+        let f = osd::convert_to(&text, kind, Version::V0_4).unwrap_err();
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{kind:?}: {f}");
+    }
+}
+
+#[test]
+fn convert_given_a_0_6_text_is_refused_at_the_schema() {
+    for (kind, text) in examples_05() {
+        let f = osd::convert(&as_06(&text, kind), kind).unwrap_err();
+        assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/$schema"), "{kind:?}: {f}");
+    }
+}
+
+#[test]
+fn convert_keeps_the_latest_published_version_as_its_target() {
+    for (kind, text) in texts_04() {
+        let out = osd::convert(&text, kind).unwrap();
+        assert_eq!(value(&out)["$schema"], address(osd::PUBLISHED.name(), name(kind)), "{kind:?}");
+    }
+}
+
+/// The cases of a folder, by name.
+fn case_names(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> =
+        std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+    names.sort();
+    names
+}
+
+/// A case file with the 0.5 address turned into the 0.6 one, `_about` left out.
+fn twin_of(text: &str) -> Value {
+    let mut v = value(&text.replace("https://w3id.org/osd/0.5/", "https://w3id.org/osd/0.6/"));
+    if let Some(o) = v.as_object_mut() {
+        o.remove("_about");
+    }
+    v
+}
+
+#[test]
+fn every_reading_case_of_0_5_has_its_0_6_twin_with_the_same_expected_result() {
+    let root = common::repo().join("conformance");
+    let before = case_names(&root.join("0.5/read"));
+    let now = case_names(&root.join("0.6/read"));
+    assert_eq!(now, before, "the cases of 0.6 are those of 0.5");
+    let mut failures = Vec::new();
+    for n in &before {
+        for f in ["descriptor.json", "case.json"] {
+            let a = std::fs::read_to_string(root.join("0.5/read").join(n).join(f)).unwrap();
+            let b = std::fs::read_to_string(root.join("0.6/read").join(n).join(f)).unwrap();
+            if twin_of(&a) != twin_of(&b) {
+                failures.push(format!("{n}/{f}"));
+            }
+        }
+    }
+    common::report("0.6 cases differ from their 0.5 twin", failures);
+}

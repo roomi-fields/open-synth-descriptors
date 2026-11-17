@@ -1,0 +1,5 @@
+{
+  "_about": "A maker's word is a 0.4 word: 0.5 selects takes a term of the list or an extension x-<registrant>-<term>, and is refused otherwise, at the value.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/programs/selects"}
+}

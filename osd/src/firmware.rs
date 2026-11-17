@@ -49,7 +49,7 @@ object! {
 
 /// A 0.5 firmware holds a closed licence value; a 0.4 one any text.
 fn licence_of_its_version(f: &Firmware, _: &crate::json::At) -> Result<(), crate::Fault> {
-    if f.schema == Some(Version::V0_5) {
+    if crate::is_05_form(f.schema) {
         crate::vocabulary::check_license(f.license.as_deref(), "/license")?;
     }
     Ok(())

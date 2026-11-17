@@ -55,11 +55,11 @@ object! {
 }
 
 fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
-    if s.schema == Some(Version::V0_5) {
+    if crate::is_05_form(s.schema) {
         crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
     }
     let newer = matches!(s.kind, SoundKind::Performance | SoundKind::Scene | SoundKind::Setlist);
-    if newer && s.schema != Some(Version::V0_5) {
+    if newer && !crate::is_05_form(s.schema) {
         return Err(At::Key(at, "kind").fault(FaultKind::BadValue, "this kind is not a sound kind of 0.4"));
     }
     if s.kind != SoundKind::Clip && s.device.is_none() {

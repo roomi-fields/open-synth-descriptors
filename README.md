@@ -15,6 +15,10 @@ sounds and firmwares people share.
 [SynthHub](https://synthhub.roomi-fields.com/) catalogue is written in:
 every device of it is a valid OSD device descriptor, checked by its tests.
 
+**0.6 is a draft**: it may change until it is published, and 0.5 stays the
+published version. The `schemas/0.6/` folder and `osd` read it; `osd` writes it
+only when asked by name (`osd convert --to 0.6`).
+
 ## What is described
 
 | Descriptor | What it says | Schema |
@@ -67,13 +71,13 @@ The `osd` command checks, converts and starts a descriptor, without writing code
 
 ```sh
 osd validate [--kind <kind>] <file>…
-osd convert [--kind <kind>] <file> [-o <file>] [--force]
+osd convert [--kind <kind>] [--to <version>] <file> [-o <file>] [--force]
 osd init <kind> [-o <file>] [--force]
 osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [-o <file>] [--force]
 osd export <format> <file> [-o <file>] [--force]
 ```
 
-`validate` prints `<file>: ok` or one line per fault (its JSON pointer and its rule) and exits 0, 1 or 2; the kind is read from the file's `$schema`, and `--kind` gives it for a file without one. `convert` writes the latest version. `init` writes a template whose places to fill start with `FILL: `. `import` and `export` translate the pencilresearch/midi CSV (`midi-csv`) to a descriptor and back, and print on the error output what the CSV cannot carry. Until `osd` reads every file, the Python script does the same check on the schemas:
+`validate` prints `<file>: ok` or one line per fault (its JSON pointer and its rule) and exits 0, 1 or 2; the kind is read from the file's `$schema`, and `--kind` gives it for a file without one. `convert` writes the latest published version (0.5), or the version `--to` names (the 0.6 draft). `init` writes a template whose places to fill start with `FILL: `. `import` and `export` translate the pencilresearch/midi CSV (`midi-csv`) to a descriptor and back, and print on the error output what the CSV cannot carry. Until `osd` reads every file, the Python script does the same check on the schemas:
 
 ```sh
 pip install jsonschema
@@ -228,6 +232,12 @@ A new version is recorded when it is published, from the `schemas` folder:
 sha256sum <version>/*.schema.json >> SHA256SUMS
 ```
 
+- **0.6 (draft)**: may change until it is published; 0.5 stays the published
+  version. At its opening it means what 0.5 means, with one difference:
+  `capabilities` forbids a repeated entry (`uniqueItems`; the 0.6 reader
+  refuses it, the 0.5 reader reads it once). `osd::convert_to(text, kind,
+  Version::V0_6)` carries a 0.4 or 0.5 descriptor to it. The checksums are
+  written when it is published.
 - **0.5**: published and frozen. Every 0.4 descriptor converts with `osd::convert`
   (`convert(text, kind)`; a 0.5 text comes back as it is); an element it
   cannot turn into a structure is `NotConvertible`, at its JSON pointer, and

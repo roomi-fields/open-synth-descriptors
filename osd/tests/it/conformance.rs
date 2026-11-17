@@ -310,6 +310,11 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 }
 
 #[test]
+fn every_reading_case_of_the_0_6_draft_passes() {
+    every_case(&common::repo().join("conformance/0.6/read"), 44, run_read);
+}
+
+#[test]
 fn criterion_5_the_reading_cases_of_0_5_cover_each_kind_and_a_refused_version() {
     let mut results = std::collections::BTreeSet::new();
     let mut unread = 0;

@@ -7,6 +7,7 @@ mod catalogue;
 mod conformance;
 mod convert;
 mod convert_midi_in_notes;
+mod draft_0_6;
 mod examples;
 mod faults;
 mod frames;

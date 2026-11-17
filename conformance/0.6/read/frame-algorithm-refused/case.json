@@ -1,0 +1,5 @@
+{
+  "_about": "A checksum algorithm outside twos7, sum7 and xor7 is refused, at the element.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/frame/1"}
+}

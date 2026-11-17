@@ -52,6 +52,8 @@ pub enum Kind {
 pub enum Version {
     V0_4,
     V0_5,
+    /// A draft: it may change until it is published.
+    V0_6,
 }
 
 impl Version {
@@ -60,12 +62,23 @@ impl Version {
         match self {
             Version::V0_4 => "0.4",
             Version::V0_5 => "0.5",
+            Version::V0_6 => "0.6",
         }
     }
 }
 
-/// The versions this crate reads.
-pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5];
+/// The versions this crate reads, the draft included.
+pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5, Version::V0_6];
+
+/// The latest published version: what [`convert`] writes and what the
+/// `osd init` templates declare. A draft read after it is not published.
+pub const PUBLISHED: Version = Version::V0_5;
+
+/// Whether a descriptor's `$schema` names a version with the forms of 0.5
+/// (structures, closed vocabularies): 0.5 and the drafts after it.
+pub(crate) fn is_05_form(v: Option<Version>) -> bool {
+    v.is_some_and(|v| v >= Version::V0_5)
+}
 
 /// What a driver requires from its reader beyond the declarative fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -178,8 +191,15 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     Ok(match kind {
         Kind::Device => {
             let mut d = Device::read(v, &at)?;
-            if d.schema == Some(Version::V0_5) {
+            if is_05_form(d.schema) {
                 device::check_capabilities(&d)?;
+            }
+            if d.schema >= Some(Version::V0_6) {
+                // From 0.6 `capabilities` is a set: a repeated entry is refused.
+                let list = d.capabilities.as_deref().unwrap_or_default();
+                if list.iter().enumerate().any(|(i, c)| list[..i].contains(c)) {
+                    return Err(At::Key(&at, "capabilities").fault(FaultKind::BadValue, "`capabilities` repeats an entry"));
+                }
             }
             // `capabilities` reads as a set: a repeated entry is dropped, the
             // order of first occurrence kept.
@@ -229,7 +249,7 @@ impl Version {
     fn host(self) -> &'static str {
         match self {
             Version::V0_4 => HOST_0_4,
-            Version::V0_5 => HOST_W3ID,
+            Version::V0_5 | Version::V0_6 => HOST_W3ID,
         }
     }
 
@@ -340,29 +360,78 @@ pub fn read_as(text: &str, kind: Kind, version: Version) -> Result<Descriptor, F
     }
 }
 
-/// The 0.5 text of a 0.4 descriptor: its `$schema` (the first key) names
-/// 0.5, every value is kept, the text is laid out as [`write`] does. A text
-/// already 0.5 comes back as it is, except that a repeated `capabilities`
-/// entry is written once.
+/// The text of a descriptor in the latest published version ([`PUBLISHED`]):
+/// [`convert_to`] with that target.
 pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
+    convert_to(text, kind, PUBLISHED)
+}
+
+/// The text of a descriptor in `target`: its `$schema` (the first key) names
+/// the target, every other value is kept, a text that changes version is laid
+/// out as [`write`] does. Conversion goes forward only: a text already in
+/// the target comes back as it is, except that a repeated `capabilities`
+/// entry is written once; a target older than the text, or 0.4, is refused
+/// at `/$schema`.
+pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fault> {
     let d = read(text, kind)?;
-    if d.schema() == Some(Version::V0_5) {
-        // A 0.5 text is already in its form; only a repeated `capabilities`
-        // entry is dropped, so the list is a set.
-        if let Descriptor::Device(x) = &d {
-            let mut v: Value = serde_json::from_str(text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()))?;
-            let kept = x.capabilities.as_ref().map(Vec::len);
-            let given = v.get("capabilities").and_then(Value::as_array).map(Vec::len);
-            if kept != given {
-                let list = x.capabilities.iter().flatten().map(|c| Value::String(c.word().into())).collect();
-                v["capabilities"] = Value::Array(list);
-                let mut out = serde_json::to_string_pretty(&v).unwrap_or_default();
-                out.push('\n');
-                return Ok(out);
-            }
-        }
-        return Ok(text.to_string());
+    let from = d.schema().unwrap_or(Version::V0_4);
+    let at = At::Key(&At::Root, "$schema");
+    if target == Version::V0_4 || target < from {
+        return Err(at.fault(
+            FaultKind::BadValue,
+            format!("a descriptor of {} is not converted to {}: conversion goes forward only", from.name(), target.name()),
+        ));
     }
+    if from == target || from == Version::V0_5 {
+        let kept = convert_same(text, &d)?;
+        if from == target {
+            return Ok(kept);
+        }
+        // 0.5 to the draft: the address changes, the values stay.
+        let Ok(Value::Object(mut v)) = serde_json::from_str::<Value>(&kept) else { unreachable!("a descriptor is a JSON object") };
+        v.insert("$schema".into(), SchemaUrl(kind_name(kind)).write(&target).unwrap_or_default());
+        let mut out = serde_json::to_string_pretty(&Value::Object(v)).unwrap_or_default();
+        out.push('\n');
+        return Ok(out);
+    }
+    let via_05 = convert_from_04(d, kind)?;
+    if target == Version::V0_5 {
+        return Ok(via_05);
+    }
+    convert_to(&via_05, kind, target)
+}
+
+fn kind_name(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Device => "device",
+        Kind::Profile => "profile",
+        Kind::Sound => "sound",
+        Kind::Fingerprint => "fingerprint",
+        Kind::Firmware => "firmware",
+    }
+}
+
+/// A text already in the form of its version: as it is, except that a
+/// repeated `capabilities` entry is written once.
+fn convert_same(text: &str, d: &Descriptor) -> Result<String, Fault> {
+    if let Descriptor::Device(x) = d {
+        let mut v: Value = serde_json::from_str(text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()))?;
+        let kept = x.capabilities.as_ref().map(Vec::len);
+        let given = v.get("capabilities").and_then(Value::as_array).map(Vec::len);
+        if kept != given {
+            let list = x.capabilities.iter().flatten().map(|c| Value::String(c.word().into())).collect();
+            v["capabilities"] = Value::Array(list);
+            let mut out = serde_json::to_string_pretty(&v).unwrap_or_default();
+            out.push('\n');
+            return Ok(out);
+        }
+    }
+    Ok(text.to_string())
+}
+
+/// The 0.5 text of a 0.4 descriptor: structures for the strings, closed
+/// licences, `$schema` first.
+fn convert_from_04(d: Descriptor, kind: Kind) -> Result<String, Fault> {
     let d = match d {
         Descriptor::Device(x) => Descriptor::Device(Box::new(x.into_structures()?)),
         Descriptor::Profile(x) => Descriptor::Profile(Box::new(x.into_structures()?)),
@@ -380,18 +449,11 @@ pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
         }
         other => other,
     };
-    let name = match kind {
-        Kind::Device => "device",
-        Kind::Profile => "profile",
-        Kind::Sound => "sound",
-        Kind::Fingerprint => "fingerprint",
-        Kind::Firmware => "firmware",
-    };
     let Ok(Value::Object(written)) = serde_json::from_str::<Value>(&write(&d)) else {
         unreachable!("write gives a JSON object")
     };
     let mut out = serde_json::Map::new();
-    out.insert("$schema".into(), SchemaUrl(name).write(&Version::V0_5).unwrap_or_default());
+    out.insert("$schema".into(), SchemaUrl(kind_name(kind)).write(&Version::V0_5).unwrap_or_default());
     out.extend(written.into_iter().filter(|(k, _)| k != "$schema"));
     let mut text = serde_json::to_string_pretty(&Value::Object(out)).unwrap_or_default();
     text.push('\n');

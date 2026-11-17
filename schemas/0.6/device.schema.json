@@ -1,0 +1,1613 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/osd/0.6/device.schema.json",
+  "title": "OSD device descriptor 0.6",
+  "description": "How a synthesizer, drum machine, controller or music software speaks MIDI or OSC: its identity, controls, messages, programs and drum sounds, with where each piece of data comes from. One file per device and source; a firmware with its own MIDI is its own file. Fields starting with _ are notes for people.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "device"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people (provenance, caveats, usage); never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "firmware": {
+                "type": "object",
+                "properties": { "decode": { "const": "lua" } },
+                "required": ["decode"]
+              }
+            },
+            "required": ["firmware"]
+          }
+        },
+        "required": ["identity"]
+      },
+      "then": {
+        "properties": { "capabilities": { "contains": { "const": "lua" } } },
+        "required": ["capabilities"]
+      }
+    }
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://w3id.org/osd/0.6/device.schema.json"
+    },
+    "device": {
+      "$ref": "#/$defs/device"
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["lua"]
+      },
+      "description": "What a reader needs beyond the declarative fields. A closed list, today lua (a Lua expression or script). The reader derives the list from the fields present and refuses a declared list that differs; decode lua requires lua."
+    },
+    "midi_of": {
+      "type": "string",
+      "description": "The descriptor whose MIDI this firmware answers to unchanged (its id, maker/file without .json): this file then only says what differs."
+    },
+    "loads_sounds_of": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Devices (their address prefix without /) whose sounds this one loads as they are."
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "programs": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "selects": {
+          "anyOf": [
+            {
+              "enum": [
+                "sound",
+                "kit",
+                "sequence",
+                "project",
+                "bank",
+                "clip",
+                "performance",
+                "scene",
+                "setlist"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What a program change selects: the sound kind's list, or an extension x-<registrant>-<term> (read as a plain recall)."
+        },
+        "program_change": {
+          "type": "boolean"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Settings on the device needed first, as its manual names them."
+        },
+        "banks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bank"
+          }
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/frame_token"
+            },
+            "description": "A message, byte by byte."
+          },
+          "description": "Messages sent before a recall."
+        },
+        "after": {
+          "$ref": "#/properties/programs/properties/before",
+          "description": "Messages sent after a recall (before it for before); with program_change false, before and after recall alone."
+        },
+        "recall_script": {
+          "type": "string",
+          "description": "A Lua script that writes the recall itself, in place of before, the bank select, the program change and after: it reads ctx (channel, dev, family, member, bank, bank_name, msb, lsb, program, index, number) and returns the messages, a list of lists of bytes. Requires the lua capability."
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dump": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "none",
+                "request",
+                "edit_buffer",
+                "manual"
+              ]
+            },
+            "request": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/frame_token"
+              },
+              "description": "A message, byte by byte."
+            },
+            "script": {
+              "type": "string",
+              "description": "A Lua script that writes the request that reads a sound back: it reads ctx like recall_script and returns one list of bytes. Requires the lua capability."
+            }
+          },
+          "patternProperties": {
+            "^_": {
+              "description": "A note for people (provenance, caveats, usage); never read by a program."
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "description": "How the current sound is taken from it."
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Its programs and banks: how to select one, how they are numbered, how a sound is taken from it."
+    },
+    "sysex": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "footer": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "The bytes every SysEx message of the device starts and ends with."
+    },
+    "cc_params": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cc_entry"
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "entries"
+      ],
+      "description": "Controls set by Control Change, 14-bit CC pairs, NRPN or RPN."
+    },
+    "params": {
+      "type": "object",
+      "properties": {
+        "get_frame": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame_token"
+          },
+          "description": "A message, byte by byte."
+        },
+        "set_frame": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame_token"
+          },
+          "description": "A message, byte by byte."
+        },
+        "value_type": {
+          "enum": [
+            "u7",
+            "u14",
+            "s32"
+          ]
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/param_entry"
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "get_frame",
+        "set_frame",
+        "value_type",
+        "entries"
+      ],
+      "description": "Parameters read and written by SysEx through one shared message shape."
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
+      },
+      "description": "Named messages: SysEx utilities, or OSC messages of a software."
+    },
+    "triggers": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trigger"
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "entries"
+      ],
+      "description": "Drum and sample sounds fired by a note."
+    },
+    "midi_out": {
+      "type": "object",
+      "properties": {
+        "default_channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "note_offset": {
+          "type": "integer",
+          "description": "Added to every note number sent."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Playing it: notes, pitch bend, aftertouch, program change."
+    },
+    "midi_in": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "note_on",
+          "note_off",
+          "cc",
+          "pitchbend",
+          "aftertouch",
+          "poly_aftertouch",
+          "program_change"
+        ]
+      },
+      "uniqueItems": true,
+      "x-osd-extension": "osc-bridge",
+      "description": "osc-bridge extension: the MIDI messages the device sends while played and that are reported, each at the OSC address the specification fixes, under the device's prefix; what follows the space are the OSC arguments, in this order. note_on: /note/on {note} {velocity} {channel}. note_off: /note/off {note} {velocity} {channel}. cc: /cc/{num} {value} {channel}. pitchbend: /pitchbend {value_u14} {channel}. aftertouch: /aftertouch {value} {channel}. poly_aftertouch: /poly_aftertouch {note} {value} {channel}. program_change: /program_change {program} {channel}. An empty list reports nothing."
+    },
+    "replies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reply"
+      },
+      "description": "Messages the device answers or sends by itself, recognised."
+    },
+    "subscriptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "enum": [
+              "startup"
+            ]
+          },
+          "forward": {
+            "$ref": "#/$defs/forward"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people (provenance, caveats, usage); never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "forward"
+        ]
+      },
+      "description": "OSC messages a software needs at start to report its changes."
+    },
+    "custom_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "osc": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix."
+          },
+          "script": {
+            "type": "string",
+            "description": "osc-bridge extension: a Lua script that builds the message.",
+            "x-osd-extension": "osc-bridge"
+          },
+          "profile": {
+            "enum": [
+              "default",
+              "preset_ingest"
+            ]
+          },
+          "wrap_sysex": {
+            "type": "boolean"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people (provenance, caveats, usage); never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "osc",
+          "script"
+        ]
+      },
+      "x-osd-extension": "osc-bridge",
+      "description": "osc-bridge extension: addresses handled by a script only."
+    },
+    "_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      },
+      "description": "Where the data comes from, with its credit, licence and the firmware it documents."
+    },
+    "_coverage": {
+      "type": "object",
+      "description": "What the source covers, counted.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "capture_segment": {
+      "type": "object",
+      "required": ["capture"],
+      "additionalProperties": false,
+      "properties": {
+        "capture": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+      },
+      "description": "A capture in an address: the part of the address that takes the value of the field of this name."
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^[^{}]*$" },
+          { "$ref": "#/$defs/capture_segment" }
+        ]
+      },
+      "contains": { "$ref": "#/$defs/capture_segment" },
+      "description": "An address with captures: the concatenation of its segments, never split on a slash. At least one capture, at most 16 segments; an address without capture is a string."
+    },
+    "emitted_segments": {
+      "$ref": "#/$defs/segments"
+    },
+    "recognised_segments": {
+      "allOf": [
+        { "$ref": "#/$defs/segments" },
+        { "$comment": "two captures side by side are ambiguous where an address is recognised: none of the 15 pairs of neighbours (the bound is 16 segments) is two objects",
+          "allOf": [
+        { "not": { "prefixItems": [{"type":"object"}, {"type":"object"}], "minItems": 2 } },
+        { "not": { "prefixItems": [true, {"type":"object"}, {"type":"object"}], "minItems": 3 } },
+        { "not": { "prefixItems": [true, true, {"type":"object"}, {"type":"object"}], "minItems": 4 } },
+        { "not": { "prefixItems": [true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 5 } },
+        { "not": { "prefixItems": [true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 6 } },
+        { "not": { "prefixItems": [true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 7 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 8 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 9 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 10 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 11 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 12 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 13 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 14 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 15 } },
+        { "not": { "prefixItems": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, {"type":"object"}, {"type":"object"}], "minItems": 16 } }
+          ]
+        }
+      ]
+    },
+    "emitted_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{}]*$" },
+        { "$ref": "#/$defs/emitted_segments" }
+      ],
+      "description": "An address emitted: a string without brace, or an array of segments (a string without brace or a capture); captures may sit side by side."
+    },
+    "reported_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{} ]*$" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/emitted_segments" },
+            { "items": { "oneOf": [{ "type": "object" }, { "type": "string", "pattern": "^[^ ]*$" }] } }
+          ]
+        }
+      ]
+    },
+    "recognised_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^{}]*$" },
+        { "$ref": "#/$defs/recognised_segments" }
+      ],
+      "description": "An address recognised: a string without brace, or an array of segments with no two captures side by side."
+    },
+    "command_address": {
+      "oneOf": [
+        { "type": "string", "pattern": "^/[^{}]*$" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/recognised_segments" },
+            { "prefixItems": [{ "type": "string", "pattern": "^/" }] }
+          ]
+        }
+      ],
+      "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix: a string starting with / and without brace, or segments whose first is a string starting with /."
+    },
+    "osc_value": {
+      "oneOf": [
+        { "type": ["integer", "number", "boolean"] },
+        { "type": "string", "pattern": "^[^{}]*$" },
+        {
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": { "arg": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } },
+          "description": "The value of an argument of the command."
+        },
+        { "$ref": "#/$defs/capture_segment" }
+      ],
+      "description": "An OSC argument: a JSON literal, {\"arg\": name} (an argument of the command) or {\"capture\": name} (a field captured in the message)."
+    },
+    "frame_part": {
+      "description": "An element of a frame that is not a byte: an object of one key of its nature, with the keys that qualify it.",
+      "oneOf": [
+        {
+          "title": "arg",
+          "description": "An argument of the command, with its encoding, or an offset added to a 7-bit argument (the sum wraps on 7 bits).",
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": {
+            "arg": { "type": "string" },
+            "encoding": { "enum": ["u14_msb", "u14_lsb", "s32", "ascii", "bytes"] }
+          }
+        },
+        {
+          "title": "arg with an added offset",
+          "type": "object",
+          "required": ["arg", "add"],
+          "additionalProperties": false,
+          "properties": {
+            "arg": { "type": "string" },
+            "add": { "type": "integer", "minimum": 0, "maximum": 127 }
+          }
+        },
+        {
+          "title": "device_id",
+          "description": "The device id, by the rule of identity.device_id with its default value.",
+          "type": "object",
+          "required": ["device_id"],
+          "additionalProperties": false,
+          "properties": {
+            "device_id": { "const": true }
+          }
+        },
+        {
+          "title": "identity",
+          "description": "The bytes of the model's family or member: all of them, or the one at index.",
+          "type": "object",
+          "required": ["identity"],
+          "additionalProperties": false,
+          "properties": {
+            "identity": { "enum": ["family", "member"] },
+            "index": { "type": "integer", "minimum": 0, "maximum": 255 }
+          }
+        },
+        {
+          "title": "checksum",
+          "description": "The checksum of the bytes written from offset from (F0 is 0), on length bytes when given: twos7 is Roland's two's complement, sum7 Waldorf's sum, xor7 Fractal's xor, each on 7 bits.",
+          "type": "object",
+          "required": ["checksum", "from"],
+          "additionalProperties": false,
+          "properties": {
+            "checksum": { "enum": ["twos7", "sum7", "xor7"] },
+            "from": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "length": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        }
+      ]
+    },
+    "frame_token": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "$ref": "#/$defs/frame_part"
+        }
+      ],
+      "description": "An element of a message sent: a byte, or an object of one key of its nature (arg, device_id, identity, checksum)."
+    },
+    "recognised_frame_token": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "const": "any"
+        },
+        {
+          "type": "object",
+          "title": "capture",
+          "description": "Where a recognised message is read: the value is kept under this name.",
+          "required": ["capture"],
+          "additionalProperties": false,
+          "properties": {
+            "capture": { "type": "string" }
+          }
+        },
+        {
+          "$ref": "#/$defs/frame_part"
+        }
+      ],
+      "description": "An element of a message recognised: a byte, the word any (any byte), a capture, or an object of one key of its nature (arg, device_id, identity, checksum)."
+    },
+    "expr": {
+      "description": "A value computed from the arguments, a byte of MIDI data from 0 to 127 as the engine bounds it: add, sub and mul give their result bounded to 0..127; gt, lt, eq and ne give 0 or 1; if gives its second operand when the first is not 0, else its third.",
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 127 },
+        {
+          "title": "arg",
+          "type": "object",
+          "required": ["arg"],
+          "additionalProperties": false,
+          "properties": { "arg": { "type": "string" } }
+        },
+        { "$ref": "#/$defs/expr_op" }
+      ]
+    },
+    "expr_op": {
+      "oneOf": [
+        { "$ref": "#/$defs/expr_binary_add" },
+        { "$ref": "#/$defs/expr_binary_sub" },
+        { "$ref": "#/$defs/expr_binary_mul" },
+        { "$ref": "#/$defs/expr_binary_gt" },
+        { "$ref": "#/$defs/expr_binary_lt" },
+        { "$ref": "#/$defs/expr_binary_eq" },
+        { "$ref": "#/$defs/expr_binary_ne" },
+        {
+          "title": "if",
+          "type": "object",
+          "required": ["if"],
+          "additionalProperties": false,
+          "properties": {
+            "if": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "$ref": "#/$defs/expr" }
+            }
+          }
+        }
+      ]
+    },
+    "expr_binary_add": { "type": "object", "required": ["add"], "additionalProperties": false, "properties": { "add": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_sub": { "type": "object", "required": ["sub"], "additionalProperties": false, "properties": { "sub": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_mul": { "type": "object", "required": ["mul"], "additionalProperties": false, "properties": { "mul": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_gt": { "type": "object", "required": ["gt"], "additionalProperties": false, "properties": { "gt": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_lt": { "type": "object", "required": ["lt"], "additionalProperties": false, "properties": { "lt": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_eq": { "type": "object", "required": ["eq"], "additionalProperties": false, "properties": { "eq": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_binary_ne": { "type": "object", "required": ["ne"], "additionalProperties": false, "properties": { "ne": { "$ref": "#/$defs/expr_pair" } } },
+    "expr_pair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/expr" }
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The model's name, as its maker writes it."
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string",
+          "description": "The version this file describes (firmware or document)."
+        },
+        "osc_prefix": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "The device's own address prefix (/minilogue)."
+        },
+        "manufacturer_id": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "description": "The maker's SysEx id: one byte, or three starting with 0."
+        },
+        "device_id": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          }
+        },
+        "rate_limit_hz": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Most messages a second the device takes; 0: no limit known."
+        },
+        "kind": {
+          "enum": [
+            "hardware",
+            "software"
+          ]
+        },
+        "transport": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "midi",
+                "osc"
+              ]
+            },
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "reply_port": {
+              "type": "integer"
+            },
+            "rate_limit_hz": {
+              "type": "integer"
+            },
+            "passthrough_prefix": {
+              "type": "string"
+            }
+          },
+          "patternProperties": {
+            "^_": {
+              "description": "A note for people (provenance, caveats, usage); never read by a program."
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "description": "How a software is reached (OSC host and ports)."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "osc_prefix"
+      ]
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "A maker profile this extends (maker or maker/family)."
+        },
+        "request": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame_token"
+          },
+          "description": "The identify request, when not the Universal Identity Request (F0 7E 7F 06 01 F7); its elements may take the device's own values (an identity object)."
+        },
+        "to": {
+          "enum": ["every_port", "named_ports"],
+          "description": "Where the request goes: every_port (default), or named_ports, only the ports whose name matches ports (for a message other devices might misread)."
+        },
+        "script": {
+          "type": "string",
+          "description": "A Lua script that says whether a reply is this device's, for what reply cannot say: it reads reply (the bytes, from 1) and returns true or false; with reply, both must hold. Requires the lua capability."
+        },
+        "unpack": {
+          "enum": [
+            "lsb_8to7"
+          ]
+        },
+        "reply": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recognised_frame_token"
+          },
+          "description": "The start of the reply, element by element: a byte, any, a capture, or an object of its nature."
+        },
+        "reply_text": {
+          "type": "string"
+        },
+        "family": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "member": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "device_id": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "integer"
+            },
+            "min": {
+              "type": "integer"
+            },
+            "max": {
+              "type": "integer"
+            }
+          },
+          "patternProperties": {
+            "^_": {
+              "description": "A note for people (provenance, caveats, usage); never read by a program."
+            }
+          },
+          "additionalProperties": false
+        },
+        "firmware": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+                "decode": {
+                  "enum": [
+                    "raw_bytes",
+                    "json",
+                    "korg_minor_major",
+                    "yamaha_tenths",
+                    "ascii",
+                    "lua"
+                  ],
+                  "description": "How the bytes read as a version. A closed list, with no extension: raw_bytes, json (needs field), korg_minor_major, yamaha_tenths, ascii, lua (needs script)."
+                },
+                "at": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "field": {
+                  "type": "string",
+                  "description": "With decode json: the reply from the offset in at to F7 is a JSON object, and the version is this key's text."
+                },
+                "script": {
+                  "type": "string",
+                  "description": "With decode lua: the script that reads the version from the reply."
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "decode": {
+                        "const": "json"
+                      }
+                    },
+                    "required": [
+                      "decode"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "field"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "decode": {
+                        "const": "lua"
+                      }
+                    },
+                    "required": [
+                      "decode"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "script"
+                    ]
+                  }
+                }
+              ],
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people (provenance, caveats, usage); never read by a program."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "decode",
+                "at"
+              ],
+          "description": "Where the reply carries the firmware version, and how to read it."
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Its port names, for a device that does not answer."
+        },
+        "usb": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/usb_id"
+          },
+          "description": "Its USB identities (one per model version or mode): the strongest sign of which model is plugged in, read by a native program (a web browser does not see it)."
+        },
+        "sends": {
+          "$ref": "#/$defs/sends"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "How to recognise the device and its firmware: its answer to an identify request, its port names, its USB identity, what it sends by itself. The controls it sends when its knobs are turned are its cc_params and params."
+    },
+    "bank": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "msb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "lsb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "first_pc": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "first_number": {
+          "type": "integer"
+        },
+        "display": {
+          "type": "string",
+          "description": "How the device numbers it (A01-H16)."
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "selects": {
+          "anyOf": [
+            {
+              "enum": [
+                "sound",
+                "kit",
+                "sequence",
+                "project",
+                "bank",
+                "clip",
+                "performance",
+                "scene",
+                "setlist"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What a bank selects: the sound kind's list, or an extension x-<registrant>-<term> (read as a plain recall)."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "size"
+      ]
+    },
+    "cc_entry": {
+      "type": "object",
+      "properties": {
+        "osc": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix."
+        },
+        "cc": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "cc_lsb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "nrpn_msb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "nrpn_lsb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "nrpn_lsb_range": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        },
+        "rpn_msb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "rpn_lsb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        },
+        "orientation": {
+          "enum": [
+            "0-based",
+            "centered"
+          ]
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "section": {
+          "type": "string"
+        },
+        "expects": {
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "switch",
+                "momentary",
+                "trigger",
+                "clock",
+                "discrete"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete, or an extension x-<registrant>-<term> (read as continuous)."
+        },
+        "transform": {
+          "type": "string",
+          "description": "osc-bridge extension: a Lua expression applied to the value.",
+          "x-osd-extension": "osc-bridge"
+        },
+        "transform_reverse": {
+          "type": "string",
+          "description": "osc-bridge extension: its reverse.",
+          "x-osd-extension": "osc-bridge"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "osc"
+      ]
+    },
+    "param_entry": {
+      "type": "object",
+      "properties": {
+        "osc": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix."
+        },
+        "pr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "p": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "c": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "r": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "id": {
+          "type": "integer"
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        },
+        "section": {
+          "type": "string"
+        },
+        "expects": {
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "switch",
+                "momentary",
+                "trigger",
+                "clock",
+                "discrete"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What the control expects: continuous (default), switch, momentary, trigger, clock or discrete, or an extension x-<registrant>-<term> (read as continuous)."
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Named values."
+        },
+        "transform": {
+          "type": "string",
+          "description": "osc-bridge extension: a Lua expression applied to the value.",
+          "x-osd-extension": "osc-bridge"
+        },
+        "transform_reverse": {
+          "type": "string",
+          "description": "osc-bridge extension: its reverse.",
+          "x-osd-extension": "osc-bridge"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "osc"
+      ]
+    },
+    "arg": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "u7",
+            "u14",
+            "s32",
+            "int",
+            "float",
+            "bool",
+            "string",
+            "enum"
+          ]
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "default": {}
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "forward": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/emitted_address"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/osc_value"
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "description": "The OSC message sent to a software; {\"arg\": name} takes an argument of the command, {\"capture\": name} a capture."
+    },
+    "command": {
+      "type": "object",
+      "properties": {
+        "osc": {
+          "$ref": "#/$defs/command_address"
+        },
+        "section": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arg"
+          }
+        },
+        "pre": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "bind": {
+                "type": "string"
+              },
+              "expr": {
+                "$ref": "#/$defs/expr"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people (provenance, caveats, usage); never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "bind",
+              "expr"
+            ]
+          },
+          "description": "Values computed from the arguments before the message is built (split a number into bytes)."
+        },
+        "frame": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame_token"
+          },
+          "description": "A message, byte by byte."
+        },
+        "forward": {
+          "$ref": "#/$defs/forward"
+        },
+        "script": {
+          "type": "string",
+          "description": "osc-bridge extension: a Lua script that changes the message before it is sent.",
+          "x-osd-extension": "osc-bridge"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "osc"
+      ]
+    },
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "osc": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "The control's address, read the same way from one device to the next (/filter/cutoff), after the device's prefix."
+        },
+        "sound": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "channel_mode": {
+          "enum": [
+            "fixed",
+            "basic",
+            "omni",
+            "auto"
+          ]
+        },
+        "note_range": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        },
+        "note": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "velocity_usage": {
+          "type": "string"
+        },
+        "comments": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "osc",
+        "sound",
+        "note_range"
+      ]
+    },
+    "reply": {
+      "type": "object",
+      "properties": {
+        "match_frame": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recognised_frame_token"
+          },
+          "description": "A message recognised, element by element: a byte, any, a capture, or an object of its nature."
+        },
+        "match_osc": {
+          "$ref": "#/$defs/recognised_address"
+        },
+        "match_args": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people (provenance, caveats, usage); never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "type"
+            ]
+          }
+        },
+        "emit_osc": {
+          "$ref": "#/$defs/reported_address",
+          "description": "The address it is reported at: a string without space or brace, or segments whose captures take the message's captured fields."
+        },
+        "emit_args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/osc_value"
+          },
+          "description": "The OSC arguments it is reported with, in order; absent: none."
+        },
+        "script": {
+          "type": "string",
+          "description": "osc-bridge extension: a Lua script that reads the message.",
+          "x-osd-extension": "osc-bridge"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "emit_osc"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "hardware-verified",
+                "hardware-observed",
+                "software-verified",
+                "vendor-doc",
+                "vendor-osc-api",
+                "vendor-self-described",
+                "third-party-osc",
+                "community-re",
+                "electra-preset",
+                "pencilresearch",
+                "knobkraft",
+                "midnam",
+                "contributed",
+                "test-fixture"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x-[a-z0-9]+-[a-z0-9-]+$"
+            }
+          ],
+          "description": "What kind of source: one of the 14 terms of the README, or an extension x-<registrant>-<term> (read as the lowest reliability)."
+        },
+        "url": {
+          "type": "string"
+        },
+        "firmware": {
+          "type": "string",
+          "description": "The firmware the source documents; unknown when it does not say."
+        },
+        "author": {
+          "type": "string"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "pattern": "^(public-domain|NOASSERTION|NONE|(?![Nn][Oo][Nn][Ee]$|[Nn][Oo][Aa][Ss][Ss][Ee][Rr][Tt][Ii][Oo][Nn]$|[Pp][Uu][Bb][Ll][Ii][Cc]-[Dd][Oo][Mm][Aa][Ii][Nn]$)[A-Z][A-Za-z0-9.+-]*)$",
+          "description": "An SPDX licence id (by its shape), public-domain, NOASSERTION (SPDX: the source states no licence; nothing is asserted) or NONE (SPDX: the source declares that it grants no licence). SPDX's two special values are written in capitals; other spellings are refused."
+        },
+        "commit": {
+          "type": "string"
+        },
+        "imported_at": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "usb_id": {
+      "type": "object",
+      "required": [
+        "vendor_id",
+        "product_id"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "properties": {
+        "vendor_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "product_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      }
+    },
+    "sends": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "description": "What the device sends by itself, unasked: habits that tell models apart.",
+      "properties": {
+        "active_sensing": {
+          "type": "boolean",
+          "description": "Sends Active Sensing (FE) about every 300 ms."
+        },
+        "clock": {
+          "type": "boolean",
+          "description": "Sends MIDI clock (F8) even when stopped."
+        },
+        "note_off": {
+          "enum": [
+            "note_off",
+            "note_on_velocity_0"
+          ],
+          "description": "How it ends a note."
+        }
+      }
+    }
+  }
+}
