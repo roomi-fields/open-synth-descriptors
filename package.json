@@ -32,7 +32,9 @@
     ]
   },
   "workspaces": [
-    "osd"
+    "osd",
+    "osd-cli",
+    "osd-formats"
   ],
   "packageManager": "npm@11.20.0"
 }

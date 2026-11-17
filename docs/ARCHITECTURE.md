@@ -33,6 +33,8 @@ What the reader accepts and refuses lives in `osd/docs/CADRE.md`; what it export
 
 5. **The format's identity is a permanent address.** From version 0.5, each schema's `$id` is `https://w3id.org/osd/<version>/<kind>.schema.json`, a permanent identifier kept by the W3C Permanent Identifier Community Group, which redirects to the schemas served by GitHub Pages from this repository; the format is also listed in the SchemaStore catalogue, so code editors complete OSD descriptors. Reason: the format's identity depends on no host, person or domain, and moving the hosting changes only the redirect.
 
+6. **A published version is a promise.** A published version never changes, and each version converts by itself from the one before (`osd::convert`). Version 1.0 is published when three independent readers hold the format: osc-bridge, SyntHub, and a complete round trip with a partner's format. Until then a 0.x version may add and rename, never silently: the converter carries every change. Reason: someone who adopts the format knows what will not move.
+
 ## 3. Components
 
 ```mermaid
@@ -41,6 +43,9 @@ flowchart TB
   osd[osd crate] --> schemas
   osd --> cases
   examples[examples] --> schemas
+  cli[osd-cli] --> osd
+  fmt[osd-formats] --> osd
+  cli --> fmt
 ```
 
 | Part | Responsibility | Owns | Language |
@@ -48,6 +53,8 @@ flowchart TB
 | `schemas/<version>/` | the shape of each descriptor kind: device, profile, sound, fingerprint, firmware | the published JSON schemas | |
 | conformance cases (`conformance/<version>/`) | the meaning: what a reader returns for each case, resolution included | input files and expected results | |
 | `osd` (`osd/`, the Cargo workspace at the root) | read a descriptor strictly into types, resolve maker profiles and shared MIDI (`midi_of`), report declared capabilities, convert between versions | the Rust types of the format | cargo |
+| `osd-cli` (`osd-cli/`) | the `osd` command: validate a descriptor, convert it to the latest version, write a template to fill, import from and export to other formats | the command's words and its exit codes | cargo |
+| `osd-formats` (`osd-formats/`) | translate between OSD and the formats others already use: the pencilresearch/midi CSV, Electra One presets, MIDNAM, OSCQuery, KnobKraft | one importer and one exporter per format, with what each loses | cargo |
 | `examples/` | one readable example per descriptor kind | example files | |
 
 ## 4. Data
