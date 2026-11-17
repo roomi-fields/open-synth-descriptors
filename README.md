@@ -11,7 +11,7 @@ describe some of itself. OSD covers the rest: the thousands of devices that
 never will, the maker-specific SysEx that holds most of a synth, and the
 sounds and firmwares people share.
 
-**Status: 0.5, published and frozen.** It describes the format the
+**Status: 0.5, draft.** It describes the format the
 [SynthHub](https://synthhub.roomi-fields.com/) catalogue is written in:
 every device of it is a valid OSD device descriptor, checked by its tests.
 
@@ -216,7 +216,7 @@ A new version is recorded when it is published, from the `schemas` folder:
 sha256sum <version>/*.schema.json >> SHA256SUMS
 ```
 
-- **0.5**: published and frozen. Every 0.4 descriptor converts with `osd::convert`
+- **0.5**: draft. Every 0.4 descriptor converts with `osd::convert`
   (`convert(text, kind)`; a 0.5 text comes back as it is); an element it
   cannot turn into a structure is `NotConvertible`, at its JSON pointer, and
   no text is returned. Field by field:
