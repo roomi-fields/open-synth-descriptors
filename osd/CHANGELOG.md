@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `declared_kind` gives the kind that the `$schema` of a text declares (`None` when the text is not JSON, has no `$schema`, or one that is not an accepted address of a version read), so a command or a tool no longer keeps its own table of the addresses.
+
 - `MidiType::template` gives the OSC address and arguments the specification fixes for a `midi_in` type (prefix not included), so an engine no longer keeps its own copy of the table; the 0.4 → 0.5 conversion reads it.
 
 - `resolve` accepts `$schema` in a `midi_of` file and keeps the target's in the result: `convert` writes it in every 0.5 file, so a converted `midi_of` driver was refused. A key that belongs to the target is still refused; a `$schema` that is not a 0.5 schema URL is refused at `/$schema`.

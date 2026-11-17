@@ -63,6 +63,16 @@ name so that exporting stays a translation, not a guess.
 
 ## Checking a file
 
+The `osd` command checks, converts and starts a descriptor, without writing code:
+
+```sh
+osd validate [--kind <kind>] <file>…
+osd convert [--kind <kind>] <file> [-o <file>] [--force]
+osd init <kind> [-o <file>] [--force]
+```
+
+`validate` prints `<file>: ok` or one line per fault (its JSON pointer and its rule) and exits 0, 1 or 2; the kind is read from the file's `$schema`, and `--kind` gives it for a file without one. `convert` writes the latest version. `init` writes a template whose places to fill start with `FILL: `. Until `osd` reads every file, the Python script does the same check on the schemas:
+
 ```sh
 pip install jsonschema
 python tools/validate.py device path/to/devices/

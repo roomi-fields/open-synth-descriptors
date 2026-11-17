@@ -1,6 +1,9 @@
 {
   "name": "osd-cli",
   "private": true,
+  "dependencies": {
+    "osd": "*"
+  },
   "scripts": {
     "build": "cd .. && grillhouse construire osd-cli",
     "test:unit": "cd .. && grillhouse tests-du-paquet osd-cli",

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/firmware.schema.json",
+  "name": "FILL: the name of the firmware",
+  "version": "FILL: the version of the firmware",
+  "device": {
+    "descriptor": "FILL: the id of the descriptor of the device the firmware runs on",
+    "vendor": "FILL: the maker of the device",
+    "model": "FILL: the model of the device"
+  },
+  "license": "FILL: the licence of the firmware, as an SPDX identifier"
+}

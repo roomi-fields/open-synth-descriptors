@@ -1,0 +1,8 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/profile.schema.json",
+  "identity": {
+    "request": "FILL: the bytes of the identity request that the devices of this maker answer",
+    "reply": "FILL: the bytes of the reply, with a {\"device_id\": true} object where the device id stands",
+    "reply_text": "FILL: the name of the maker, as the reply spells it"
+  }
+}

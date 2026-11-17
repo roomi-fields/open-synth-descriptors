@@ -446,6 +446,12 @@ dependencies = [
 [[package]]
 name = "osd-cli"
 version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "osd",
+ "serde_json",
+ "tempfile",
+]
 
 [[package]]
 name = "osd-formats"

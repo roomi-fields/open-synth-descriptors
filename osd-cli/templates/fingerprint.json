@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/fingerprint.schema.json",
+  "observed": "FILL: the date of the observation, for example 2026-10-27",
+  "via": "FILL: how the device was observed, for example web-midi",
+  "ports": "FILL: the MIDI ports of the device: an object with its inputs and its outputs, each a list of names",
+  "identity_reply": "FILL: the identity reply of the device, in hexadecimal bytes",
+  "device": {
+    "descriptor": "FILL: the id of the device descriptor this fingerprint recognises",
+    "firmware": "FILL: the firmware version observed"
+  }
+}

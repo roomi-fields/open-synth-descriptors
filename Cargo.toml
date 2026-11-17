@@ -5,5 +5,10 @@ exclude = ["tools/osc-bridge-parity"]
 
 # The tests check the whole catalogue against the schemas: the libraries
 # they use run optimised.
+[workspace.metadata.grillhouse.frontieres]
+osd = []
+osd-cli = ["osd"]
+osd-formats = []
+
 [profile.dev.package."*"]
 opt-level = 2

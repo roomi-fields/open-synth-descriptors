@@ -305,6 +305,24 @@ impl Descriptor {
     }
 }
 
+/// The kind that the `$schema` of `text` declares: `None` when the text is
+/// not JSON, has no `$schema`, or one that is not an accepted address of a
+/// version read.
+pub fn declared_kind(text: &str) -> Option<Kind> {
+    let v: Value = serde_json::from_str(text).ok()?;
+    let s = v.get("$schema")?.as_str()?;
+    const KINDS: [(&str, Kind); 5] = [
+        ("device", Kind::Device),
+        ("profile", Kind::Profile),
+        ("sound", Kind::Sound),
+        ("fingerprint", Kind::Fingerprint),
+        ("firmware", Kind::Firmware),
+    ];
+    VERSIONS
+        .iter()
+        .find_map(|ver| KINDS.iter().find(|(name, _)| ver.address(name) == s).map(|(_, k)| *k))
+}
+
 /// The descriptor of kind `kind` that `text` holds, read in `version`: a
 /// 0.5 descriptor must carry its `$schema`; one that names another version
 /// is refused.

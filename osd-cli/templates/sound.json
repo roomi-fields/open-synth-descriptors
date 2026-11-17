@@ -1,0 +1,17 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/sound.schema.json",
+  "name": "FILL: the name of the sound",
+  "kind": "FILL: what the sound is, for example sound",
+  "device": {
+    "descriptor": "FILL: the id of the device descriptor the sound is for, for example korg/minilogue",
+    "vendor": "FILL: the maker of the device",
+    "model": "FILL: the model of the device"
+  },
+  "content": {
+    "settings": "FILL: the settings of the sound: an object of OSC addresses, each with its list of values"
+  },
+  "author": {
+    "name": "FILL: the name of the person who made the sound"
+  },
+  "license": "FILL: the licence of the sound, as an SPDX identifier, for example CC0-1.0"
+}
