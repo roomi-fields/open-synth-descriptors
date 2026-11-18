@@ -94,7 +94,14 @@ fn export_writes_a_preset_of_the_descriptor_and_prints_its_losses_on_the_error_o
     let preset: Value = serde_json::from_str(&run.stdout).unwrap();
     assert_eq!(preset["version"], 3);
     assert!(!preset["controls"].as_array().unwrap().is_empty());
-    assert!(run.stderr.lines().all(|l| l.starts_with('/')), "{:?}", run.stderr);
+    let (losses, credit) = match run.stderr.split_once("credit to carry with the file:") {
+        Some((before, after)) => (before, Some(after)),
+        None => (run.stderr.as_str(), None),
+    };
+    assert!(losses.lines().all(|l| l.starts_with('/')), "{:?}", run.stderr);
+    if let Some(after) = credit {
+        assert!(after.lines().skip(1).all(|l| l.starts_with(char::is_whitespace)), "{:?}", run.stderr);
+    }
 }
 
 #[test]

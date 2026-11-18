@@ -4,7 +4,7 @@
 use osd::Source;
 
 /// One source as a sentence: who made it, where, under which licence, of which kind.
-fn source_text(s: &Source) -> String {
+pub(crate) fn source_text(s: &Source) -> String {
     let mut parts: Vec<String> = [&s.author, &s.attribution, &s.url].into_iter().flatten().filter(|p| !p.trim().is_empty()).cloned().collect();
     if let Some(l) = s.license.as_ref().filter(|l| !l.trim().is_empty()) {
         parts.push(l.clone());

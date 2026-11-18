@@ -282,6 +282,17 @@ fn print_losses(lost: &[osd_formats::Loss]) {
     }
 }
 
+/// Prints on the error output the credit to carry with a file the format cannot hold it in.
+fn print_credit(lines: &[String]) {
+    if lines.is_empty() {
+        return;
+    }
+    eprintln!("credit to carry with the file:");
+    for l in lines {
+        eprintln!("  {l}");
+    }
+}
+
 fn format_named(name: &str, help: &str) -> Result<osd_formats::Format, i32> {
     osd_formats::Format::from_name(name)
         .ok_or_else(|| misuse(&format!("`{name}` is not a format; the formats are {}", format_names()), help))
@@ -400,6 +411,7 @@ fn export(o: Options, help: &str) -> i32 {
     match osd_formats::export(&resolved, format) {
         Ok(t) => {
             print_losses(&t.lost);
+            print_credit(&osd_formats::credit_to_carry(&resolved, &t.lost));
             emit(&t.value, &o)
         }
         Err(f) => {

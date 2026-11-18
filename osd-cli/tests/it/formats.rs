@@ -129,6 +129,40 @@ fn export_writes_the_csv_of_a_descriptor_and_prints_its_losses_on_the_error_outp
     assert!(run.stderr.lines().any(|l| l.starts_with("/sysex: ")), "{:?}", run.stderr);
 }
 
+fn export_with_credit(extra_sources: &str) -> (tempfile::TempDir, crate::common::Run) {
+    let dir = tempfile::tempdir().unwrap();
+    let file = path_of(&dir.path().join("d.json"));
+    let text = format!(
+        r#"{{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "_sources": [{extra_sources}],
+        "device": {{"name": "T", "osc_prefix": "/t"}}}}"#
+    );
+    std::fs::write(&file, text).unwrap();
+    let run = osd_in(dir.path(), &["export", "midi-csv", &file]);
+    (dir, run)
+}
+
+#[test]
+fn export_prints_on_the_error_output_the_credit_of_each_source_with_its_licence_and_attribution() {
+    let (_dir, run) = export_with_credit(
+        r#"{"type": "community-re", "url": "https://example.org/x", "author": "Ada", "license": "CC-BY-4.0", "attribution": "Thanks to Ada"},
+           {"type": "vendor-doc", "url": "https://example.org/y", "license": "CC0-1.0"}"#,
+    );
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    assert!(run.stderr.lines().any(|l| l.starts_with("/_sources: ")), "{:?}", run.stderr);
+    for word in ["https://example.org/x", "Ada", "CC-BY-4.0", "Thanks to Ada", "https://example.org/y", "CC0-1.0"] {
+        assert!(run.stderr.contains(word), "{word} not in {:?}", run.stderr);
+    }
+    assert!(!run.stdout.contains("example.org") && !run.stdout.contains("Ada"), "{}", run.stdout);
+    assert_eq!(run.stdout, format!("{HEADER}\n"));
+}
+
+#[test]
+fn export_prints_the_credit_of_a_source_with_only_an_author() {
+    let (_dir, run) = export_with_credit(r#"{"type": "vendor-doc", "author": "Lofty", "license": "MIT"}"#);
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    assert!(run.stderr.contains("Lofty") && run.stderr.contains("MIT"), "{:?}", run.stderr);
+}
+
 #[test]
 fn export_of_what_import_wrote_gives_back_the_rows_of_the_cc_and_nrpn_controls() {
     let dir = tempfile::tempdir().unwrap();

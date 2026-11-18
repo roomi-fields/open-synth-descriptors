@@ -10,6 +10,7 @@
 |---|---|---|---|
 | `import` | `fn import(text: &str, format: Format, source: &Source) -> Result<Translated<Device>, Fault>` | the OSD device, carrying `source` in `_sources` as given, and the list of what the source could not say | a source with none of `url`, `author`, `attribution` or with no `license` (`SourceIncomplete`); a file not valid in its format (`InvalidFile`, with its line, or its JSON pointer for a preset or a namespace; a MIDNAM file is judged by its DTD) |
 | `export` | `fn export(device: &Resolved, format: Format) -> Result<Translated<String>, Fault>` | the text in the other format and the list of what it cannot carry | a device without a `_sources` entry (`NoSources`) |
+| `credit_to_carry` | `fn credit_to_carry(device: &Resolved, lost: &[Loss]) -> Vec<String>` | one line per source of the device (author, attribution, url, licence, kind) when `lost` lists `/_sources`, else none | — |
 | `Format` | closed enum of the formats read or written (`MidiCsv`, named `midi-csv`; `MidiTriggersCsv`, named `midi-triggers-csv`; `ElectraOne`, named `electra-one`; `Midnam`, named `midnam`; `OscQuery`, named `oscquery`), with `ALL`, `name` and `from_name` | — | — |
 | `import_into` | `fn import_into(base: Device, text: &str, format: Format, source: &Source) -> Result<Translated<Device>, Fault>` | `base` with the entries of `text` added after those it holds in `cc_params` (`MidiCsv`) or `triggers` (`MidiTriggersCsv`), addresses unique over the whole descriptor, `source` added after its `_sources`; the identity of `base` wins, a different `vendor` or `name` in the file is a loss at its line and column; the other blocks are untouched | as `import`; any other format (`InvalidFile`) |
 | `Translated<T>` | `value`, `lost`: the `Loss` of each element not carried, in the order of the source | — | — |
@@ -29,7 +30,7 @@ The fate of each column of the pencilresearch/midi CSV is in [midi-csv.md](midi-
 
 ## Consumers
 
-- `osd-cli` (this repository): `import`, `import_into`, `export`, `Format`, `Fault`, `FaultKind`, `Loss`
+- `osd-cli` (this repository): `import`, `import_into`, `export`, `credit_to_carry`, `Format`, `Fault`, `FaultKind`, `Loss`
 - osc-bridge (the application): `export`, `Format`
 - the SyntHub service and tools: `import`, `export`, `Format`
 

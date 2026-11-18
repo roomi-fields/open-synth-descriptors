@@ -412,6 +412,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     let mut losses = Vec::new();
     let mut out = csv::line(&HEADER);
+    gone(&mut losses, "/_sources".to_string(), "the CSV has no column for the credit or the licence of the sources");
 
     // The blocks of the device, in the order of its schema.
     let info = &d.device;

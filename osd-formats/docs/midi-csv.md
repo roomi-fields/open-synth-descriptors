@@ -22,3 +22,5 @@ The columns of `template.csv` of github.com/pencilresearch/midi (commit 215c64e8
 | `orientation` | `orientation` | `0-based` and `centered`; any other word is lost |
 | `notes` | remark `_notes` | the entry has no field for notes |
 | `usage` | remark `_usage` | carried whole, never cut |
+
+The credit of the sources has no column in the format: the repository carries one licence for all its files (its `LICENSE`), and no file or column per device. The exporter lists `/_sources` in its losses, once, whatever the number of sources, and writes no cell for it; `osd export midi-csv` prints on the error output the credit to carry with the file: for each source its author or url, its licence and its attribution. A device without sources is refused.

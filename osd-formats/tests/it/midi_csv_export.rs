@@ -68,7 +68,45 @@ fn every_block_a_device_holds_that_the_csv_cannot_carry_is_in_the_losses_by_its_
 #[test]
 fn a_device_with_only_a_sysex_block_loses_exactly_that_block() {
     let t = export(&device(r#", "sysex": {"header": [240], "footer": [247]}"#), Format::MidiCsv).unwrap();
-    assert_eq!(t.lost.iter().map(|l| l.place.as_str()).collect::<Vec<_>>(), ["/sysex"]);
+    let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
+    places.sort();
+    assert_eq!(places, ["/_sources", "/sysex"]);
+}
+
+#[test]
+fn the_sources_of_a_device_are_in_the_losses_once_with_the_reason_the_csv_has_no_column_for_the_credit() {
+    let t = export(&device(""), Format::MidiCsv).unwrap();
+    let lost: Vec<_> = t.lost.iter().filter(|l| l.place == "/_sources").collect();
+    assert_eq!(lost.len(), 1, "{:?}", t.lost);
+    let reason = lost[0].reason.to_lowercase();
+    assert!(reason.contains("column") && reason.contains("credit") && reason.contains("licence"), "{reason}");
+}
+
+#[test]
+fn several_sources_still_give_one_loss_of_the_sources() {
+    let text = r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "_sources": [
+        {"type": "community-re", "url": "https://example.org/a", "license": "CC0-1.0"},
+        {"type": "vendor-doc", "author": "Lofty", "license": "CC-BY-4.0"},
+        {"type": "community-re", "url": "https://example.org/c", "license": "MIT"}],
+        "device": {"name": "T", "osc_prefix": "/t"}}"#;
+    let t = export(&resolved(device_from(text)), Format::MidiCsv).unwrap();
+    assert_eq!(t.lost.iter().filter(|l| l.place == "/_sources").count(), 1, "{:?}", t.lost);
+    assert_eq!(parse(&t.value), vec![HEADER.to_vec()]);
+}
+
+#[test]
+fn a_device_without_sources_is_refused_and_gives_no_loss() {
+    let text = r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "device": {"name": "T", "osc_prefix": "/t"}}"#;
+    assert_eq!(export(&resolved(device_from(text)), Format::MidiCsv).expect_err("refused").kind, FaultKind::NoSources);
+}
+
+#[test]
+fn the_credit_of_the_sources_is_written_in_no_cell_of_the_csv() {
+    let d = device(r#", "cc_params": {"entries": [{"osc": "/a", "cc": 1}]}"#);
+    let t = export(&d, Format::MidiCsv).unwrap();
+    assert!(!t.value.contains("example.org") && !t.value.contains("CC0-1.0"), "{}", t.value);
+    assert_eq!(parse(&t.value).len(), 2);
+    assert!(parse(&t.value).iter().all(|r| r.len() == 18));
 }
 
 #[test]
@@ -138,7 +176,7 @@ fn the_default_of_a_control_with_only_an_nrpn_goes_to_the_nrpn_default_cell() {
     let t = export(&d, Format::MidiCsv).unwrap();
     let r = &parse(&t.value)[1];
     assert_eq!((cell(r, "nrpn_default_value"), cell(r, "cc_default_value")), ("100".into(), "".into()));
-    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    assert!(!t.lost.iter().any(|l| l.place != "/_sources"), "{:?}", t.lost);
 }
 
 #[test]

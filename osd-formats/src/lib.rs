@@ -105,6 +105,15 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
     }
 }
 
+/// The credit and licence to carry with a file whose format has no place for them: one line per
+/// source of `device`, or none when `lost` does not list `/_sources`.
+pub fn credit_to_carry(device: &osd::Resolved, lost: &[Loss]) -> Vec<String> {
+    if !lost.iter().any(|l| l.place == "/_sources") {
+        return Vec::new();
+    }
+    device.device.sources.as_deref().unwrap_or_default().iter().map(credit::source_text).collect()
+}
+
 /// Writes `device` in `format`.
 pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<String>, Fault> {
     match format {
