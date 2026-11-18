@@ -242,6 +242,10 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
                 assert!(defs.remove(def).is_some(), "no def {def}");
             }
         }
+        // The identities other tools give a sound (`external_ids`) are 0.6's own.
+        if n == "sound" {
+            assert!(now["properties"].as_object_mut().unwrap().remove("external_ids").is_some(), "sound has no external_ids");
+        }
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {
             *v = value(&v.to_string().replace("osd/0.6/", "osd/0.5/").replace("0.6", "0.5"));

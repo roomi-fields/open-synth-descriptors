@@ -1,0 +1,5 @@
+{
+  "_about": "An entry of external_ids without its tool is refused at the tool.",
+  "read": "sound",
+  "fault": { "kind": "Missing", "pointer": "/external_ids/0/tool" }
+}

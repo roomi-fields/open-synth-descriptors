@@ -1,0 +1,6 @@
+{
+  "_about": "Two entries of the same computation (same tool, by and algorithm) with different values are refused at the later entry. No schema states it, so the schema accepts the descriptor.",
+  "read": "sound",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/external_ids/1" }
+}

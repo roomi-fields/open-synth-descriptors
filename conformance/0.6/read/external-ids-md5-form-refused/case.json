@@ -1,0 +1,5 @@
+{
+  "_about": "An md5 value that is not 32 lower-case hexadecimal digits is refused at the value.",
+  "read": "sound",
+  "fault": { "kind": "BadValue", "pointer": "/external_ids/0/value" }
+}

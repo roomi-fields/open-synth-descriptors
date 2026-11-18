@@ -50,11 +50,77 @@ object! {
         "published" published: Option<String> = Opt(STRING),
         "updated" updated: Option<String> = Opt(STRING),
         "links" links: Option<Vec<Link>> = Opt(list(obj())),
+        /// The identities other tools give this sound (0.6); never OSD's own.
+        "external_ids" external_ids: Option<Vec<ExternalId>> = Opt(list(obj())),
     }
     check device_unless_clip
 }
 
+object! {
+    /// The identity another tool gives a sound, as that tool writes it.
+    ExternalId {
+        /// The tool that gives the identity.
+        "tool" tool: String = STRING,
+        /// What in the tool computes it per device (a KnobKraft Orm adaptation).
+        "by" by: Option<String> = Opt(STRING),
+        /// The algorithm, when known: `md5`, `sha1`, `sha256` fix the form of the value.
+        "algorithm" algorithm: Option<String> = Opt(STRING),
+        "value" value: String = STRING,
+    }
+    check external_id_form
+}
+
+/// The number of lower-case hexadecimal digits a known algorithm gives.
+fn digest_digits(algorithm: &str) -> Option<usize> {
+    match algorithm.to_ascii_lowercase().as_str() {
+        "md5" => Some(32),
+        "sha1" => Some(40),
+        "sha256" => Some(64),
+        _ => None,
+    }
+}
+
+fn external_id_form(e: &ExternalId, at: &At) -> Result<(), Fault> {
+    if e.tool.eq_ignore_ascii_case("osd") {
+        return Err(At::Key(at, "tool").fault(FaultKind::BadValue, "the identity of OSD is never in external_ids"));
+    }
+    let value = At::Key(at, "value");
+    if e.value.is_empty() {
+        return Err(value.fault(FaultKind::BadValue, "a non-empty value"));
+    }
+    if let Some(n) = e.algorithm.as_deref().and_then(digest_digits) {
+        if e.value.len() != n || !e.value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+            return Err(value.fault(FaultKind::BadValue, format!("{n} lower-case hexadecimal digits, the form of its algorithm")));
+        }
+    }
+    Ok(())
+}
+
+fn same_computation(a: &ExternalId, b: &ExternalId) -> bool {
+    let eq = |x: &Option<String>, y: &Option<String>| match (x, y) {
+        (None, None) => true,
+        (Some(x), Some(y)) => x.eq_ignore_ascii_case(y),
+        _ => false,
+    };
+    a.tool.eq_ignore_ascii_case(&b.tool) && eq(&a.by, &b.by) && eq(&a.algorithm, &b.algorithm)
+}
+
+fn check_external_ids(s: &Sound, at: &At) -> Result<(), Fault> {
+    let Some(ids) = &s.external_ids else { return Ok(()) };
+    let list = At::Key(at, "external_ids");
+    if s.schema < Some(Version::V0_6) {
+        return Err(list.fault(FaultKind::UnknownField, "external_ids is not a field before 0.6"));
+    }
+    for (i, e) in ids.iter().enumerate() {
+        if ids[..i].iter().any(|p| same_computation(p, e) && p.value != e.value) {
+            return Err(At::Index(&list, i).fault(FaultKind::BadValue, "an entry of the same computation with another value"));
+        }
+    }
+    Ok(())
+}
+
 fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
+    check_external_ids(s, at)?;
     if crate::is_05_form(s.schema) {
         crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
     }

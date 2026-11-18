@@ -43,7 +43,7 @@ pub use role_vocabulary::{
 pub use sound_transfer::{
     sound_identity, sound_identity_support, Carries, Element, Elements, IdentitySupport, Packing, SoundTransfer,
 };
-pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
+pub use sound::{Attached, Author, Content, ExternalId, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 
 use json::{At, Codec, Object};
 use serde_json::Value;

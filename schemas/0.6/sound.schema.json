@@ -402,6 +402,101 @@
           "url"
         ]
       }
+    },
+    "external_ids": {
+      "type": "array",
+      "description": "The identities other tools give this sound, each beside OSD's own, never in its place: the SHA-256 of its data stays the identity of OSD. Two entries of the same computation (tool, by and algorithm, compared without case) with different values, and the tool OSD, are refused by the reader.",
+      "items": {
+        "type": "object",
+        "required": [
+          "tool",
+          "value"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "The tool that gives the identity, such as KnobKraft Orm."
+          },
+          "by": {
+            "type": "string",
+            "description": "What in the tool computes it per device, such as the name of a KnobKraft adaptation."
+          },
+          "algorithm": {
+            "type": "string",
+            "description": "The algorithm when it is known; md5, sha1 and sha256 (read without case) fix the form of the value."
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The value as the tool writes it."
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "algorithm"
+              ],
+              "properties": {
+                "algorithm": {
+                  "pattern": "^[mM][dD]5$"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "algorithm"
+              ],
+              "properties": {
+                "algorithm": {
+                  "pattern": "^[sS][hH][aA]1$"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "pattern": "^[0-9a-f]{40}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "algorithm"
+              ],
+              "properties": {
+                "algorithm": {
+                  "pattern": "^[sS][hH][aA]256$"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          }
+        ]
+      }
     }
   },
   "anyOf": [

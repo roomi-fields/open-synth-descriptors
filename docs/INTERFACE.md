@@ -83,6 +83,14 @@ A reader without Lua knows at load, per transfer, whether it computes the identi
 
 Refused, at the address of the fault: an element outside the message (the name included, the last sound of a bank included), an empty data, a data that overlaps the header, the checksum or a transport part, two transport parts that overlap (at the later, in the order of the table above), an element given by positions and by a script, a name that straddles the end of the data or that lies inside a packed data, a `packing` word outside the list, a script without the `lua` capability and the capability without a script. A descriptor of 0.4 or 0.5 refuses `sound_transfers` as an unknown field; `osd::convert` from 0.5 adds none.
 
+## The identities other tools give a sound (0.6)
+
+A 0.6 sound descriptor may hold `external_ids`, a list of the identities other tools give the same sound, so that a tool which holds it recognises it. Each entry is `{tool, by, algorithm, value}`: `tool` (required) names the tool, such as `KnobKraft Orm`; `by` names what in the tool computes the identity per device, such as the name of a KnobKraft adaptation; `algorithm` names the algorithm when it is known, such as `md5`; `value` (required) is the value as the tool writes it. The model is the external identifiers of Wikidata (an item keeps the identifier each other catalogue gives it, with that catalogue's name). For KnobKraft Orm, the piece is the guide of KnobKraft Orm (`docs/programming-guide.md`, revision 735e96c9), on `calculateFingerprint` (lines 872 and 924): each adaptation writes its own `calculateFingerprint`, which hashes the bytes it chooses with MD5 and returns 32 hexadecimal digits.
+
+The list never replaces the rule of the identity of a sound above: the identity of OSD is the SHA-256 of its data, it is never written in this list, and the tool `OSD` (in any case) is refused. The list does not promise that two tools agree on what the data of a sound is: each value says only what that tool gives. The field is allowed for every `kind`.
+
+A known algorithm fixes the form of the value (names read without case): `md5` 32, `sha1` 40, `sha256` 64 lower-case hexadecimal digits; a tool that writes capitals leaves `algorithm` out. An unknown or absent algorithm only requires a non-empty value. Refused, at the address of the fault: an entry without `tool` or `value` (`Missing`), an unknown key of an entry (`UnknownField`), the tool `OSD`, an empty value, a value outside the form of its algorithm, and two entries of the same computation (same `tool`, `by` and `algorithm`, each compared without case, an absent one equal to an absent one) with different values, at the later one (`BadValue`). The md5 and the sha1 of one adaptation are not the same computation. A descriptor of 0.4 or 0.5 refuses `external_ids` as an unknown field; `osd::convert` from 0.5 adds none.
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.
