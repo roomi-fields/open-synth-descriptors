@@ -51,3 +51,21 @@ version's schemas.
 
 A maker profile `acme` is the file `acme/_profile`, and `acme/keys` the
 file `acme/_profile.keys`.
+
+## Roles (0.6)
+
+A reading case that expects a result may state `roles`: each role of the
+descriptor by the JSON `pointer` of the role, with its `meaning`, `known` (every
+term is a term of the state named by `role_vocabulary`) or `none` (the role
+holds an extension: no known role). A case that states none has no role.
+
+## Vocabulary states (`0.6/vocabulary/<case>/`)
+
+- `vocabulary.json`: the state of the vocabulary of roles the case reads.
+- `case.json`: `_about`, what the case shows; then one of:
+  - `result`: the state is valid; `terms` lists the names read;
+  - `fault`: the refusal, by its `kind` and the JSON `pointer` of the value
+    refused; with `"schema_accepts": true`, the schema of the vocabulary
+    validates the state and only the reader refuses it (comparing two terms is
+    not a schema's), otherwise the schema has an error at the pointer or at the
+    object that holds it.

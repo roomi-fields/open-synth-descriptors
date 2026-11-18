@@ -273,6 +273,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                 expects: None,
                 transform: None,
                 transform_reverse: None,
+                role: None,
                 remarks: Default::default(),
             };
             for (key, column) in REMARKS {
@@ -325,6 +326,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         custom_commands: None,
         sources: Some(vec![source.clone()]),
         coverage: None,
+        role_vocabulary: None,
         remarks: Default::default(),
     };
     Ok(Translated { value: device, lost: losses })

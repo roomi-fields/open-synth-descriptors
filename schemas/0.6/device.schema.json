@@ -14,6 +14,31 @@
     }
   },
   "additionalProperties": false,
+  "if": {
+    "anyOf": [
+      {
+        "properties": {
+          "cc_params": {
+            "properties": { "entries": { "contains": { "required": ["role"] } } },
+            "required": ["entries"]
+          }
+        },
+        "required": ["cc_params"]
+      },
+      {
+        "properties": {
+          "params": {
+            "properties": { "entries": { "contains": { "required": ["role"] } } },
+            "required": ["entries"]
+          }
+        },
+        "required": ["params"]
+      }
+    ]
+  },
+  "then": {
+    "required": ["role_vocabulary"]
+  },
   "allOf": [
     {
       "if": {
@@ -51,6 +76,11 @@
         "enum": ["lua"]
       },
       "description": "What a reader needs beyond the declarative fields. A closed list, today lua (a Lua expression or script). The reader derives the list from the fields present and refuses a declared list that differs; decode lua requires lua."
+    },
+    "role_vocabulary": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "description": "The state of the vocabulary of roles (schemas/vocabulary/<state>/) every role of the descriptor is written with; required when a control carries a role. The reader refuses a state it does not hold."
     },
     "midi_of": {
       "type": "string",
@@ -432,6 +462,34 @@
     }
   },
   "$defs": {
+    "role": {
+      "type": "object",
+      "required": ["part", "setting"],
+      "properties": {
+        "part": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "A part of the instrument: a term of type part of the vocabulary state the descriptor names, or an extension x-<registrant>-<term>."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of the part, from 1, when the instrument has several."
+        },
+        "setting": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "What is set on the part: a term of type setting of the vocabulary state the descriptor names, or an extension x-<registrant>-<term>."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "What a control does, in the words every device shares. The reader checks each term against the state named by role_vocabulary, and that the setting applies to the part."
+    },
     "capture_segment": {
       "type": "object",
       "required": ["capture"],
@@ -1128,6 +1186,9 @@
           "type": "string",
           "description": "osc-bridge extension: its reverse.",
           "x-osd-extension": "osc-bridge"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
         }
       },
       "patternProperties": {
@@ -1218,6 +1279,9 @@
           "type": "string",
           "description": "osc-bridge extension: its reverse.",
           "x-osd-extension": "osc-bridge"
+        },
+        "role": {
+          "$ref": "#/$defs/role"
         }
       },
       "patternProperties": {

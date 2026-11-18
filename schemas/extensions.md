@@ -7,6 +7,8 @@ required to promote an extension to a core term in a later version.
 
 Each entry: the extension, the field it extends, a one-sentence definition, its stable URL.
 
+The roles of 0.6 (`role.part`, `role.setting`) take the same form for a term the vocabulary lacks; the rule and the passage from an extension to a term of a later state are in [docs/vocabulary.md](../docs/vocabulary.md).
+
 ## `osd`: words of the SyntHub catalogue with no core term
 
 The converter maps these 0.4 `selects` words to them.

@@ -1,0 +1,27 @@
+{
+  "_about": "A role composes a part, its number when there are several (index, from 1) and a setting; a CC entry and a param entry each carry one.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/fx2/depth", "cc": 92, "role": { "part": "effect", "index": 2, "setting": "depth" } }
+      ]
+    },
+    "params": {
+      "get_frame": [240, 247],
+      "set_frame": [240, 247],
+      "value_type": "u7",
+      "entries": [
+        { "osc": "/out/pan", "id": 3, "role": { "part": "output", "setting": "pan" } }
+      ]
+    }
+  },
+  "roles": [
+    { "pointer": "/cc_params/entries/0/role", "meaning": "known" },
+    { "pointer": "/params/entries/0/role", "meaning": "known" }
+  ]
+}

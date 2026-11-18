@@ -179,6 +179,12 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     for (k, v) in doc.as_object().into_iter().flatten() {
         if k == "$schema" {
             // The version is the target's; the file's own was read as 0.5 when fetched.
+        } else if k == "role_vocabulary" {
+            // Each file's roles are read against the state it names: states are never merged.
+            if obj.get(k).is_some_and(|t| t != v) {
+                return Err(fault(FaultKind::BadValue, "/role_vocabulary".into(), "the file names another state of the vocabulary than its target's".into()));
+            }
+            obj.insert(k.clone(), v.clone());
         } else if k == "device" {
             for key in IDENTITY {
                 match v.get(key) {

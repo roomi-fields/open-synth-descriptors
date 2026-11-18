@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/osd/vocabulary/1/vocabulary.schema.json",
+  "title": "OSD vocabulary of roles, state 1",
+  "description": "A numbered state of the vocabulary of roles: the terms (parts and settings) a control's role is written with. A published state never changes; the next state is a new folder that only adds. What a schema cannot say (a name or a maker's word present twice, a term that composes a part and a setting already held, an `applies_to` or a `replaced_by` that names no term) the reader `osd` refuses at the pointer of the fault.",
+  "type": "object",
+  "required": ["$schema", "state", "terms"],
+  "patternProperties": {
+    "^_": { "description": "A note for people; never read by a program." }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "https://w3id.org/osd/vocabulary/1/vocabulary.schema.json" },
+    "state": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "description": "The number of the state, written as a string."
+    },
+    "terms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/term" }
+    }
+  },
+  "$defs": {
+    "term": {
+      "type": "object",
+      "required": ["name", "type", "definition", "words", "source"],
+      "patternProperties": {
+        "^_": { "description": "A note for people; never read by a program." }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The term's one name."
+        },
+        "type": {
+          "enum": ["part", "setting"],
+          "description": "A part of the instrument, or what is set on a part."
+        },
+        "definition": {
+          "type": "string",
+          "pattern": "^[^.!?\\s]([^.!?]|[.!?][^\\s])*[.!?]?$",
+          "description": "The term's definition, in one sentence."
+        },
+        "applies_to": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "The parts, terms of type part of the same state, a setting applies to."
+        },
+        "words": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/word" },
+          "description": "The makers' words that mean this term, each with its origin."
+        },
+        "source": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/controller" },
+          "description": "The controllers of the MIDI 1.0 table of defined controllers whose composition uses this term."
+        },
+        "replaced_by": {
+          "type": "string",
+          "description": "The term of the same state that replaces this one, which keeps its place."
+        }
+      },
+      "if": { "properties": { "type": { "const": "setting" } }, "required": ["type"] },
+      "then": { "required": ["applies_to"] },
+      "else": { "properties": { "applies_to": false } }
+    },
+    "word": {
+      "type": "object",
+      "required": ["word", "origin"],
+      "patternProperties": {
+        "^_": { "description": "A note for people; never read by a program." }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "word": { "type": "string", "minLength": 1 },
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The specification or the maker that uses the word: the name of the MIDI 1.0 table or of Property Exchange, or the name of the maker."
+        }
+      }
+    },
+    "controller": {
+      "type": "object",
+      "required": ["controller", "name"],
+      "patternProperties": {
+        "^_": { "description": "A note for people; never read by a program." }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "controller": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

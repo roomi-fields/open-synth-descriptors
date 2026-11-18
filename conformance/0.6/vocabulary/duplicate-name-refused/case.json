@@ -1,0 +1,5 @@
+{
+  "_about": "A name present twice is refused, at the second name: a function enters once. The schema cannot compare two items, so it accepts the state.",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/name" }
+}

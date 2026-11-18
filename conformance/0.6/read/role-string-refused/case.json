@@ -1,0 +1,5 @@
+{
+  "_about": "A role is an object, never a string: structure lives in JSON structures, not in a mini-language inside a string.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role" }
+}

@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 
+pub mod midi1;
 pub mod probe;
 
 use std::path::{Path, PathBuf};

@@ -13,6 +13,7 @@ use crate::frame::{
     check_expr, check_frame, convert_expr, convert_token, Expr, FrameToken, Place, EXPR, FRAME_TOKEN, MATCH_TOKEN,
     REPLY_TOKEN,
 };
+use crate::role::{check_roles, Role};
 use crate::vocabulary;
 use crate::{Capability, Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
@@ -35,6 +36,9 @@ object! {
         /// What a reader needs beyond the declarative fields (0.5): the list
         /// the reader derives from the fields present, nothing else.
         "capabilities" capabilities: Option<Vec<Capability>> = Opt(list(closed())),
+        /// The state of the vocabulary of roles every role of the descriptor is
+        /// written with (0.6).
+        "role_vocabulary" role_vocabulary: Option<String> = Opt(STRING),
         /// The driver whose MIDI this firmware answers to unchanged
         /// (`maker/file`): this file then only says what differs.
         "midi_of" midi_of: Option<String> = Opt(STRING),
@@ -371,6 +375,7 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = crate::is_05_form(d.schema);
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
+    check_roles(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
     }
@@ -871,6 +876,8 @@ object! {
         "transform" transform: Option<String> = Opt(STRING),
         /// osc-bridge extension: its reverse.
         "transform_reverse" transform_reverse: Option<String> = Opt(STRING),
+        /// What the control does, in the words every device shares (0.6).
+        "role" role: Option<Role> = Opt(obj()),
     }
 }
 
@@ -890,6 +897,8 @@ object! {
         "values" values: Option<BTreeMap<String, i64>> = Opt(Dict(INTEGER)),
         "transform" transform: Option<String> = Opt(STRING),
         "transform_reverse" transform_reverse: Option<String> = Opt(STRING),
+        /// What the control does, in the words every device shares (0.6).
+        "role" role: Option<Role> = Opt(obj()),
     }
 }
 

@@ -1,0 +1,6 @@
+{
+  "_about": "A term neither in the named state nor written as an extension x-<registrant>-<term> is refused, at the term.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/setting" }
+}

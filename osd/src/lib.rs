@@ -16,6 +16,8 @@ mod firmware;
 mod frame;
 mod json;
 mod resolve;
+mod role;
+mod role_vocabulary;
 mod sound;
 mod vocabulary;
 
@@ -32,6 +34,10 @@ pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports,
 pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
+pub use role::{roles, Role, RoleMeaning};
+pub use role_vocabulary::{
+    read_vocabulary, vocabulary_state, Controller, MakerWord, Term, TermKind, Vocabulary, VOCABULARY_STATES,
+};
 pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 
 use json::{At, Codec, Object};

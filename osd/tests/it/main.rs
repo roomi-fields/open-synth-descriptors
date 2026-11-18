@@ -17,5 +17,7 @@ mod probe;
 mod published;
 mod readme;
 mod resolve_capabilities;
+mod role_vocabulary;
+mod roles;
 mod version;
 mod vocabularies;

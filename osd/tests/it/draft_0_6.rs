@@ -186,8 +186,29 @@ fn the_0_6_schemas_are_the_five_of_the_version_with_their_w3id_ids_and_no_checks
     assert!(!sums.lines().any(|l| l.contains("0.6/")), "a 0.6 line in SHA256SUMS");
 }
 
+/// The schema without what states the role: every key that holds "role", and every
+/// conditional or array item that names it.
+fn strip_roles(v: &mut Value) {
+    match v {
+        Value::Object(o) => {
+            o.retain(|k, _| !k.contains("role"));
+            for key in ["if", "then", "else", "dependentRequired", "dependentSchemas", "allOf"] {
+                if o.get(key).is_some_and(|x| x.to_string().contains("role")) {
+                    o.remove(key);
+                }
+            }
+            o.values_mut().for_each(strip_roles);
+        }
+        Value::Array(a) => {
+            a.retain(|x| !x.to_string().contains("role_vocabulary"));
+            a.iter_mut().for_each(strip_roles);
+        }
+        _ => {}
+    }
+}
+
 #[test]
-fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_and_the_unique_capabilities() {
+fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabilities_and_the_role() {
     for (_, n) in KINDS {
         let read = |v: &str| std::fs::read_to_string(common::repo().join(format!("schemas/{v}/{n}.schema.json"))).unwrap();
         let mut now = value(&read("0.6"));
@@ -196,6 +217,8 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_and_the_unique_cap
             assert_eq!(now["properties"]["capabilities"]["uniqueItems"], json!(true));
             now["properties"]["capabilities"].as_object_mut().unwrap().remove("uniqueItems");
         }
+        // The role (`role` on an entry, `role_vocabulary`, and what requires it) is 0.6's own.
+        strip_roles(&mut now);
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {
             *v = value(&v.to_string().replace("osd/0.6/", "osd/0.5/").replace("0.6", "0.5"));
@@ -315,7 +338,7 @@ fn every_reading_case_of_0_5_has_its_0_6_twin_with_the_same_expected_result() {
     let root = common::repo().join("conformance");
     let before = case_names(&root.join("0.5/read"));
     let now = case_names(&root.join("0.6/read"));
-    assert_eq!(now, before, "the cases of 0.6 are those of 0.5");
+    assert!(before.iter().all(|n| now.contains(n)), "the cases of 0.6 hold those of 0.5");
     let mut failures = Vec::new();
     for n in &before {
         for f in ["descriptor.json", "case.json"] {

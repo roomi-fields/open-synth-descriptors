@@ -1,0 +1,5 @@
+{
+  "_about": "A maker's word present under two terms is refused, at the second word, whatever its case.",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/words/0/word" }
+}

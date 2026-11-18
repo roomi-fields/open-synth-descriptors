@@ -1,0 +1,16 @@
+{
+  "_about": "A term the vocabulary lacks is written as an extension x-<registrant>-<term>: the descriptor is valid and its role reads as no known role.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/filter/wobble", "cc": 20, "role": { "part": "filter", "setting": "x-acme-wobble" } }
+      ]
+    }
+  },
+  "roles": [{ "pointer": "/cc_params/entries/0/role", "meaning": "none" }]
+}

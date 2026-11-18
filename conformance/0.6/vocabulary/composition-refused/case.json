@@ -1,0 +1,5 @@
+{
+  "_about": "A term that says what a part and a setting the state already holds say together (brightness next to filter and cutoff, which MIDI 1.0 controller 74 composes) is refused, at the term: the function is written filter + cutoff, and Brightness is a maker's word of cutoff.",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/terms/4" }
+}

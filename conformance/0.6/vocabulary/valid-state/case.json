@@ -1,0 +1,4 @@
+{
+  "_about": "A state of the vocabulary: each term has one name, a one-sentence definition, a type, its makers' words each with its origin, and a source of MIDI 1.0 controllers; each setting lists the parts it applies to.",
+  "result": { "terms": ["filter", "cutoff", "output", "pan", "resonance"] }
+}

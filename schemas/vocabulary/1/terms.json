@@ -1,0 +1,182 @@
+{
+  "$schema": "https://w3id.org/osd/vocabulary/1/vocabulary.schema.json",
+  "state": "1",
+  "_about": "State 1 of the vocabulary of roles: the defined controllers of MIDI 1.0 that set a sound, each written as a part and a setting. A term cites in `source` every controller whose composition uses it. The names of MIDI 2.0 Property Exchange enter in a later state, once read at their piece.",
+  "terms": [
+    {
+      "name": "voice",
+      "type": "part",
+      "definition": "The sound generator that plays one note at a time or several, before its filter and its output.",
+      "words": [],
+      "source": [
+        { "controller": 5, "name": "Portamento Time" },
+        { "controller": 65, "name": "Portamento On/Off" },
+        { "controller": 84, "name": "Portamento Control" }
+      ]
+    },
+    {
+      "name": "sound",
+      "type": "part",
+      "definition": "The sound as a whole, what a program recalls.",
+      "words": [],
+      "source": [
+        { "controller": 70, "name": "Sound Controller 1 (Sound Variation)" }
+      ]
+    },
+    {
+      "name": "filter",
+      "type": "part",
+      "definition": "A filter that shapes the harmonic content of the sound.",
+      "words": [],
+      "source": [
+        { "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" },
+        { "controller": 74, "name": "Brightness" }
+      ]
+    },
+    {
+      "name": "envelope",
+      "type": "part",
+      "definition": "An envelope that shapes the level of the sound over the life of a note.",
+      "words": [],
+      "source": [
+        { "controller": 72, "name": "Sound Controller 3 (Release Time)" },
+        { "controller": 73, "name": "Sound Controller 4 (Attack Time)" }
+      ]
+    },
+    {
+      "name": "output",
+      "type": "part",
+      "definition": "The output of the instrument, where the sound leaves it.",
+      "words": [],
+      "source": [
+        { "controller": 7, "name": "Channel Volume" },
+        { "controller": 8, "name": "Balance" },
+        { "controller": 10, "name": "Pan" },
+        { "controller": 11, "name": "Expression Controller" }
+      ]
+    },
+    {
+      "name": "effect",
+      "type": "part",
+      "definition": "An effect unit, numbered when the instrument has several.",
+      "words": [],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" }
+      ]
+    },
+    {
+      "name": "portamento-time",
+      "type": "setting",
+      "definition": "How long a note takes to glide to the next one.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 5, "name": "Portamento Time" }]
+    },
+    {
+      "name": "portamento",
+      "type": "setting",
+      "definition": "Whether notes glide from one to the next, on or off.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 65, "name": "Portamento On/Off" }]
+    },
+    {
+      "name": "portamento-start",
+      "type": "setting",
+      "definition": "The note from which the next glide starts.",
+      "applies_to": ["voice"],
+      "words": [{ "word": "Portamento Control", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 84, "name": "Portamento Control" }]
+    },
+    {
+      "name": "variation",
+      "type": "setting",
+      "definition": "Which variation of the sound plays, among those it holds.",
+      "applies_to": ["sound"],
+      "words": [],
+      "source": [{ "controller": 70, "name": "Sound Controller 1 (Sound Variation)" }]
+    },
+    {
+      "name": "resonance",
+      "type": "setting",
+      "definition": "How much the filter emphasises the frequencies around its cutoff.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Timbre/Harmonic Intensity", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" }]
+    },
+    {
+      "name": "cutoff",
+      "type": "setting",
+      "definition": "The frequency above which the filter lets less of the sound through.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Brightness", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 74, "name": "Brightness" }]
+    },
+    {
+      "name": "attack-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to rise when a note starts.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [{ "controller": 73, "name": "Sound Controller 4 (Attack Time)" }]
+    },
+    {
+      "name": "release-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to fall when a note ends.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [{ "controller": 72, "name": "Sound Controller 3 (Release Time)" }]
+    },
+    {
+      "name": "level",
+      "type": "setting",
+      "definition": "How loud the output is.",
+      "applies_to": ["output"],
+      "words": [{ "word": "Channel Volume", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 7, "name": "Channel Volume" }]
+    },
+    {
+      "name": "balance",
+      "type": "setting",
+      "definition": "How the output leans between its left and right sides.",
+      "applies_to": ["output"],
+      "words": [],
+      "source": [{ "controller": 8, "name": "Balance" }]
+    },
+    {
+      "name": "pan",
+      "type": "setting",
+      "definition": "Where the output sits between left and right.",
+      "applies_to": ["output"],
+      "words": [],
+      "source": [{ "controller": 10, "name": "Pan" }]
+    },
+    {
+      "name": "expression",
+      "type": "setting",
+      "definition": "A level that scales the output within the level already set.",
+      "applies_to": ["output"],
+      "words": [{ "word": "Expression Controller", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 11, "name": "Expression Controller" }]
+    },
+    {
+      "name": "depth",
+      "type": "setting",
+      "definition": "How much of the sound goes to the effect.",
+      "applies_to": ["effect"],
+      "words": [],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" }
+      ]
+    }
+  ]
+}

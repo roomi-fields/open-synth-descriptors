@@ -1,0 +1,5 @@
+{
+  "_about": "A setting applies to parts of the same state: an applies_to that names a term the state lacks (or one that is not a part) is refused, at that entry.",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/applies_to/0" }
+}

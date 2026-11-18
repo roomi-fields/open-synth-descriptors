@@ -13,6 +13,8 @@ The specification publishes three things: the schemas of each version, their per
 
 A descriptor names its version by `$schema`. A reader states the versions it reads.
 
+From 0.6, the vocabulary of roles is published beside the schemas: `schemas/vocabulary/<state>/` (its own schema and its terms), numbered states that grow without a new version of the format, and conformance cases under `conformance/0.6/vocabulary/`. A descriptor with a role names its state in `role_vocabulary`. The rule of entry and the publication of a state are in [vocabulary.md](vocabulary.md).
+
 ## The faults
 
 A conformance case expects either a result or one of the faults the `osd` interface names (`UnknownField`, `BadValue`, `Missing`, `UnreadVersion`, `LinkMissing`, `LinkCycle`, `LinkTooDeep`, `NotConvertible`); another reader maps them to its own.

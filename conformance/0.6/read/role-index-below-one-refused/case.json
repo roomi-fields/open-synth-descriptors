@@ -1,0 +1,5 @@
+{
+  "_about": "The index of a part counts from 1: an index below 1 is refused, at the index.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/index" }
+}
