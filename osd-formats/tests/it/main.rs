@@ -6,6 +6,7 @@ mod common;
 
 mod electra_export;
 mod electra_import;
+mod electra_playable;
 mod electra_round_trip;
 mod electra_table;
 mod format_names;

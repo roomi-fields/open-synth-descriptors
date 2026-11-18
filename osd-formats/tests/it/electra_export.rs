@@ -85,11 +85,11 @@ fn a_command_whose_frame_has_an_argument_or_none_is_a_loss_at_its_pointer_and_no
 }
 
 #[test]
-fn the_name_of_a_control_is_its_remark_name_else_its_address() {
-    let entries = json!([{"osc": "/filter/cutoff", "cc": 1, "_name": "Cutoff"}, {"osc": "/filter/res", "cc": 2}]);
+fn the_name_of_a_control_is_its_remark_name_else_its_readable_address() {
+    let entries = json!([{"osc": "/filter/cutoff", "cc": 1, "_name": "Brightness"}, {"osc": "/filter/res", "cc": 2}]);
     let (p, _) = exported(&device(entries, json!([])));
-    assert_eq!(p["controls"][0]["name"], "Cutoff");
-    assert_eq!(p["controls"][1]["name"], "/filter/res");
+    assert_eq!(p["controls"][0]["name"], "Brightness");
+    assert_eq!(p["controls"][1]["name"], "Res");
 }
 
 #[test]

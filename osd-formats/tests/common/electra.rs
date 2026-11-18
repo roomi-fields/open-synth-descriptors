@@ -86,6 +86,83 @@ pub fn device(entries: Value, commands: Value) -> osd::Resolved {
     super::resolved(super::device_from(&doc.to_string()))
 }
 
+/// A device of 0.6 from the JSON of its entries: one source, no command.
+pub fn device6(entries: Value) -> osd::Resolved {
+    let doc = json!({
+        "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+        "_sources": [{"type": "community-re", "url": "https://example.org/d", "license": "CC0-1.0"}],
+        "device": {"name": "Trundler", "osc_prefix": "/trundler"},
+        "role_vocabulary": "1",
+        "cc_params": {"entries": entries},
+    });
+    super::resolved(super::device_from(&doc.to_string()))
+}
+
+/// The longest `name` of a control (page, control, attribute `name`: maxLength 40).
+pub const CONTROL_NAME_MAX: usize = 40;
+/// The longest `label` of an overlay item (page, overlay, `items`: maxLength 20).
+pub const LABEL_MAX: usize = 20;
+
+fn overlaps(a: &Value, b: &Value) -> bool {
+    let n = |v: &Value, i: usize| v[i].as_i64().unwrap();
+    let (ax, ay, aw, ah) = (n(a, 0), n(a, 1), n(a, 2), n(a, 3));
+    let (bx, by, bw, bh) = (n(b, 0), n(b, 1), n(b, 2), n(b, 3));
+    ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah
+}
+
+fn inside(inner: &Value, outer: &Value) -> bool {
+    let n = |v: &Value, i: usize| v[i].as_i64().unwrap();
+    n(inner, 0) >= n(outer, 0)
+        && n(inner, 1) >= n(outer, 1)
+        && n(inner, 0) + n(inner, 2) <= n(outer, 0) + n(outer, 2)
+        && n(inner, 1) + n(inner, 3) <= n(outer, 1) + n(outer, 3)
+}
+
+/// What makes a preset hard to play: a name too long, a list without its overlay or with a label
+/// too long, a group that overlaps another or does not frame exactly its own controls.
+pub fn unplayable(preset: &Value) -> Vec<String> {
+    let mut out = Vec::new();
+    let controls = preset["controls"].as_array().cloned().unwrap_or_default();
+    let groups = preset["groups"].as_array().cloned().unwrap_or_default();
+    let overlays = preset["overlays"].as_array().cloned().unwrap_or_default();
+    for (n, c) in controls.iter().enumerate() {
+        let len = c["name"].as_str().unwrap_or("").chars().count();
+        if len > CONTROL_NAME_MAX {
+            out.push(format!("/controls/{n}/name: {len} characters, at most {CONTROL_NAME_MAX}"));
+        }
+        if c["type"] == "list" {
+            let id = &c["values"][0]["overlayId"];
+            if !overlays.iter().any(|o| o["id"] == *id) {
+                out.push(format!("/controls/{n}: a list without its overlay"));
+            }
+        }
+    }
+    for (n, o) in overlays.iter().enumerate() {
+        for (m, i) in o["items"].as_array().into_iter().flatten().enumerate() {
+            if i["label"].as_str().unwrap_or("").chars().count() > LABEL_MAX {
+                out.push(format!("/overlays/{n}/items/{m}/label: more than {LABEL_MAX} characters"));
+            }
+        }
+    }
+    for (a, g) in groups.iter().enumerate() {
+        for (b, h) in groups.iter().enumerate().skip(a + 1) {
+            if g["pageId"] == h["pageId"] && overlaps(&g["bounds"], &h["bounds"]) {
+                out.push(format!("groups {a} and {b} overlap on page {}", g["pageId"]));
+            }
+        }
+        for (n, c) in controls.iter().enumerate().filter(|(_, c)| c["pageId"] == g["pageId"]) {
+            let own = c.get("groupId") == Some(&g["id"]);
+            if own && !inside(&c["bounds"], &g["bounds"]) {
+                out.push(format!("/controls/{n} is outside its group {a}"));
+            }
+            if !own && overlaps(&c["bounds"], &g["bounds"]) {
+                out.push(format!("/controls/{n} lies in the group {a}, which is not its own"));
+            }
+        }
+    }
+    out
+}
+
 /// What an import returned, as the JSON a reader sees.
 pub fn json_of(d: &osd::Device) -> Value {
     let text = osd::write(&osd::Descriptor::Device(Box::new(d.clone())));

@@ -5,6 +5,19 @@ use crate::common::electra::{COMMAND_KIND, CONTROL_KINDS, KINDS};
 
 const TABLE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/electra-one.md");
 
+/// The rows of the table of what the export writes for each element of a control.
+const ELEMENTS: [&str; 7] = ["control name", "list", "pad", "fader", "group bounds", "credit", "ways"];
+
+#[test]
+fn every_element_the_export_writes_has_a_row_with_its_rule_and_the_piece_of_the_maker_s_page() {
+    let lines = table_lines();
+    for element in ELEMENTS {
+        let line = lines.iter().find(|l| l[0] == element).unwrap_or_else(|| panic!("no row for {element} in {TABLE}"));
+        assert!(line.len() >= 3 && !line[1].is_empty(), "{element}: no rule");
+        assert!(line[2].contains("presetformat"), "{element}: the piece of the maker's page is not cited: {:?}", line.get(2));
+    }
+}
+
 fn table_lines() -> Vec<Vec<String>> {
     std::fs::read_to_string(TABLE)
         .unwrap_or_else(|e| panic!("{TABLE}: {e}"))
@@ -46,7 +59,7 @@ fn the_table_lists_no_kind_the_maker_does_not_document() {
     let known = ["pages", "control sets", "pots", "controls", "devices"];
     for line in table_lines() {
         let name = line[0].as_str();
-        if name == "Kind" || name == "Limit" || name.starts_with('-') || known.contains(&name) {
+        if name == "Kind" || name == "Limit" || name == "Element" || ELEMENTS.contains(&name) || name.starts_with('-') || known.contains(&name) {
             continue;
         }
         assert!(KINDS.contains(&name), "{name} is in the table and not in the documented kinds");

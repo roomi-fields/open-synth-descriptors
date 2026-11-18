@@ -7,7 +7,7 @@ use crate::midi_csv::{check_source, slug, unique};
 use crate::{Fault, FaultKind, Loss, Translated};
 use osd::{Address, CcEntry, CcParams, Command, Device, DeviceInfo, FrameToken, Resolved, Source, Version};
 use serde_json::{json, Map, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Every kind of message the maker documents (page, "type" of a message).
 const KINDS: [&str; 18] = [
@@ -21,6 +21,7 @@ const CONTROL_SETS: usize = 3;
 const POTS: usize = 12;
 const CONTROLS: usize = 432;
 const SLOTS_PER_PAGE: usize = CONTROL_SETS * POTS;
+const COLUMNS: usize = 6;
 
 const LOOK: &str = "the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen";
 
@@ -104,10 +105,13 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         .collect();
 
     let mut losses = Vec::new();
+    let overlays: Vec<Value> = root.get("overlays").and_then(Value::as_array).cloned().unwrap_or_default();
+    // The overlays a carried control refers to: their labels are its `values`.
+    let mut overlays_read: BTreeSet<usize> = BTreeSet::new();
+    let mut any_values = false;
     for (key, reason) in [
         ("pages", "the pages are the look of the preset"),
         ("devices", "the ports and channels of the preset's devices (and each message's deviceId) are the setup of the controller"),
-        ("overlays", "the lists of labels are the look of the preset"),
     ] {
         if root.contains_key(key) {
             loss(&mut losses, format!("/{key}"), reason);
@@ -148,9 +152,30 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
             let Some(v) = v.as_object() else {
                 return Err(invalid(at, "a value is a JSON object"));
             };
+            let carried_kind = matches!(
+                v.get("message").and_then(|m| m.get("type")).and_then(Value::as_str),
+                Some("cc7" | "cc14" | "nrpn" | "rpn")
+            );
+            let overlay_at = carried_kind
+                .then(|| v.get("overlayId"))
+                .flatten()
+                .and_then(|id| overlays.iter().position(|o| o.get("id") == Some(id)));
             for key in v.keys().filter(|k| !["id", "min", "max", "message"].contains(&k.as_str())) {
+                if key == "overlayId" && overlay_at.is_some() {
+                    continue;
+                }
                 loss(&mut losses, format!("{at}/{}", segment(key)), "how the value is shown on the controller");
             }
+            let labels: Option<BTreeMap<String, i64>> = overlay_at.map(|o| {
+                overlays_read.insert(o);
+                overlays[o]
+                    .get("items")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|i| Some((i.get("label")?.as_str()?.to_string(), i.get("value")?.as_i64()?)))
+                    .collect()
+            });
             let Some(message) = v.get("message") else {
                 loss(&mut losses, at, "the value has no message");
                 continue;
@@ -236,6 +261,8 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                     if let Some(r) = remark(&name) {
                         entry.remarks.insert("_name".to_string(), r);
                     }
+                    entry.values = labels.filter(|l| !l.is_empty());
+                    any_values |= entry.values.is_some();
                     entries.push(entry);
                 }
                 "sysex" => {
@@ -306,13 +333,16 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         }
     }
 
+    for (n, _) in overlays.iter().enumerate().filter(|(n, _)| !overlays_read.contains(n)) {
+        loss(&mut losses, format!("/overlays/{n}"), "the list of labels is the look of the preset: no control of the descriptor uses it");
+    }
     let name = root.get("name").and_then(Value::as_str).filter(|n| !n.is_empty()).unwrap_or("Electra One preset").to_string();
     let prefix = match slug(&name) {
         s if s.is_empty() => "/electra-one-preset".to_string(),
         s => format!("/{s}"),
     };
     let device = Device {
-        schema: Some(Version::V0_5),
+        schema: Some(if any_values { Version::V0_6 } else { Version::V0_5 }),
         device: DeviceInfo {
             name,
             vendor: None,
@@ -361,6 +391,21 @@ enum Message {
     Sysex(Vec<u8>),
 }
 
+/// The longest `name` of a control, of a group, of a preset and of an overlay label (page,
+/// "Preset format description": the `maxLength` of each `name` and of an item's `label`).
+const CONTROL_NAME_MAX: usize = 40;
+const GROUP_NAME_MAX: usize = 40;
+const PRESET_NAME_MAX: usize = 20;
+const LABEL_MAX: usize = 20;
+
+/// What a control is on the screen of the controller.
+enum Look {
+    Fader,
+    Pad,
+    /// A list: its positions and their labels, in the order of the values.
+    List(Vec<(i64, String)>),
+}
+
 /// A control to place: what it says, where the descriptor has it.
 struct Item {
     pointer: String,
@@ -368,6 +413,60 @@ struct Item {
     section: Option<String>,
     range: Option<[i64; 2]>,
     message: Message,
+    look: Look,
+}
+
+/// The first `max` characters of a text.
+fn cut(s: &str, max: usize) -> String {
+    s.chars().take(max).collect::<String>().trim_end().to_string()
+}
+
+/// A text within `max` characters that is not in `taken`: cut, then numbered from 2 when taken.
+fn unique_cut(base: &str, max: usize, taken: &mut BTreeSet<String>) -> String {
+    let mut candidate = cut(base, max);
+    let mut k = 2;
+    while taken.contains(&candidate) {
+        let suffix = format!(" {k}");
+        candidate = format!("{}{suffix}", cut(base, max - suffix.chars().count()));
+        k += 1;
+    }
+    taken.insert(candidate.clone());
+    candidate
+}
+
+/// A word of an address or of a role as a person reads it: `cutoff-freq` → `Cutoff freq`.
+fn readable(word: &str) -> String {
+    let spaced: Vec<&str> = word.split(['_', '-', ' ']).filter(|w| !w.is_empty()).collect();
+    let text = spaced.join(" ");
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+/// The last segment of an address, made readable.
+fn last_segment(address: &str) -> String {
+    readable(address.rsplit('/').find(|s| !s.is_empty()).unwrap_or(""))
+}
+
+/// The type of control the descriptor's own words ask for (page, control `type`: fader, list, pad).
+fn look_of(e: &CcEntry) -> (Look, bool) {
+    let range = e.range.filter(|[lo, hi]| lo <= hi);
+    if let Some(values) = e.values.as_ref().filter(|v| !v.is_empty()) {
+        let mut items: Vec<(i64, String)> = values.iter().map(|(label, n)| (*n, label.clone())).collect();
+        items.sort_by_key(|(n, _)| *n);
+        return (Look::List(items), true);
+    }
+    match e.expects.as_deref() {
+        Some("switch" | "momentary" | "trigger") => (Look::Pad, true),
+        Some("discrete") => match range {
+            Some([lo, hi]) if hi - lo == 1 => (Look::Pad, true),
+            Some([lo, hi]) if hi - lo >= 2 => (Look::List((lo..=hi).map(|n| (n, n.to_string())).collect()), true),
+            _ => (Look::Fader, false),
+        },
+        _ => (Look::Fader, false),
+    }
 }
 
 fn text_remark(remarks: &osd::Remarks, key: &str, at: &str, losses: &mut Vec<Loss>) -> Option<String> {
@@ -396,16 +495,18 @@ fn address_text(a: &Address) -> String {
 
 fn entry_item(n: usize, e: &CcEntry, losses: &mut Vec<Loss>) -> Option<Item> {
     let at = format!("/cc_params/entries/{n}");
-    let name = text_remark(&e.remarks, "_name", &at, losses).unwrap_or_else(|| e.osc.clone());
+    let name = text_remark(&e.remarks, "_name", &at, losses)
+        .or_else(|| Some(readable(&e.role.as_ref()?.setting)).filter(|s| !s.is_empty()))
+        .unwrap_or_else(|| last_segment(&e.osc));
+    let (look, expects_read) = look_of(e);
     for (field, present, reason) in [
         ("orientation", e.orientation.is_some(), "the preset has no field for an orientation"),
         ("channel", e.channel.is_some(), "the channel of a preset belongs to its devices, which the export does not describe"),
-        ("expects", e.expects.is_some(), "the preset has no field for it"),
+        ("expects", e.expects.is_some() && !expects_read, "the preset has no field for it: only switch, momentary, trigger and discrete choose a pad or a list"),
         ("transform", e.transform.is_some(), "the preset has no field for it"),
         ("transform_reverse", e.transform_reverse.is_some(), "the preset has no field for it"),
         ("role", e.role.is_some(), "the preset has no field for it"),
         ("nrpn_lsb_range", e.nrpn_lsb_range.is_some(), "the preset has no field for it"),
-        ("also", e.also.is_some(), "the preset binds one message to a control: the ways after the first are not written"),
     ] {
         if present {
             loss(losses, format!("{at}/{field}"), reason);
@@ -414,38 +515,61 @@ fn entry_item(n: usize, e: &CcEntry, losses: &mut Vec<Loss>) -> Option<Item> {
     for key in e.remarks.keys().filter(|k| *k != "_name") {
         loss(losses, format!("{at}/{}", segment(key)), "the preset has no field for it");
     }
-    let mut bindings: Vec<(Message, &'static str)> = Vec::new();
-    match (e.cc, e.cc_lsb) {
-        (Some(cc), Some(lsb)) if cc <= 31 && lsb == cc + 32 => bindings.push((Message::Cc14(cc), "cc")),
+    // The ways in the order the descriptor wrote them: the first with a complete binding is
+    // written, with its own range; the export never reorders them.
+    let ways = e.ways();
+    let place = |k: usize| if k == 0 { at.clone() } else { format!("{at}/also/{}", k - 1) };
+    let bindings: Vec<Vec<(Message, &'static str, &'static str)>> = ways.iter().enumerate().map(|(k, w)| way_bindings(w, &place(k), losses)).collect();
+    let Some(chosen) = bindings.iter().position(|b| !b.is_empty()) else {
+        loss(losses, at, "the control has no complete MIDI binding to write");
+        return None;
+    };
+    let mut bindings = bindings;
+    let mut written = std::mem::take(&mut bindings[chosen]);
+    let (message, written_kind, _) = written.remove(0);
+    for (_, kind, field) in written {
+        loss(losses, format!("{}/{field}", place(chosen)), format!("a control of the preset sends one message: the {written_kind} way is written, the {kind} binding is not"));
+    }
+    for (k, b) in bindings.iter().enumerate().skip(chosen + 1) {
+        if !b.is_empty() {
+            let kinds: Vec<&str> = b.iter().map(|(_, kind, _)| *kind).collect();
+            loss(
+                losses,
+                place(k),
+                format!("a control of the preset sends one message: the {written_kind} way is written, the {} way is not", kinds.join(" and ")),
+            );
+        }
+    }
+    Some(Item { pointer: at, name, section: e.section.clone(), range: ways[chosen].range, message, look })
+}
+
+/// The complete bindings of one way, each with the kind the preset names it and its field; what
+/// is incomplete is a loss at the way's place.
+fn way_bindings(w: &osd::Way, at: &str, losses: &mut Vec<Loss>) -> Vec<(Message, &'static str, &'static str)> {
+    let mut bindings = Vec::new();
+    match (w.cc, w.cc_lsb) {
+        (Some(cc), Some(lsb)) if cc <= 31 && lsb == cc + 32 => bindings.push((Message::Cc14(cc), "cc14", "cc")),
         (Some(cc), lsb) => {
             if lsb.is_some() {
                 loss(losses, format!("{at}/cc_lsb"), "a 14-bit CC of the preset pairs a CC from 0 to 31 with the CC 32 above it");
             }
-            bindings.push((Message::Cc7(cc), "cc"));
+            bindings.push((Message::Cc7(cc), "cc7", "cc"));
         }
         (None, Some(_)) => loss(losses, format!("{at}/cc_lsb"), "an LSB without its CC"),
         (None, None) => {}
     }
     for (msb, lsb, field, make) in [
-        (e.nrpn_msb, e.nrpn_lsb, "nrpn", Message::Nrpn as fn(u16) -> Message),
-        (e.rpn_msb, e.rpn_lsb, "rpn", Message::Rpn as fn(u16) -> Message),
+        (w.nrpn_msb, w.nrpn_lsb, "nrpn", Message::Nrpn as fn(u16) -> Message),
+        (w.rpn_msb, w.rpn_lsb, "rpn", Message::Rpn as fn(u16) -> Message),
     ] {
         match (msb, lsb) {
-            (Some(m), Some(l)) => bindings.push((make(u16::from(m) << 7 | u16::from(l)), field)),
+            (Some(m), Some(l)) => bindings.push((make(u16::from(m) << 7 | u16::from(l)), field, field)),
             (None, None) => {}
             (Some(_), None) => loss(losses, format!("{at}/{field}_msb"), format!("an {field} needs its MSB and its LSB")),
             (None, Some(_)) => loss(losses, format!("{at}/{field}_lsb"), format!("an {field} needs its MSB and its LSB")),
         }
     }
-    if bindings.is_empty() {
-        loss(losses, at, "the control has no complete MIDI binding to write");
-        return None;
-    }
-    let (message, _) = bindings.remove(0);
-    for (_, field) in bindings {
-        loss(losses, format!("{at}/{field}"), "a control of the preset sends one message: the first binding is written");
-    }
-    Some(Item { pointer: at, name, section: e.section.clone(), range: e.range, message })
+    bindings
 }
 
 fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
@@ -454,7 +578,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
         loss(losses, at, "the command has no frame: it is no MIDI message to write");
         return None;
     };
-    let name = text_remark(&c.remarks, "_name", &at, losses).unwrap_or_else(|| address_text(&c.osc));
+    let name = text_remark(&c.remarks, "_name", &at, losses).unwrap_or_else(|| last_segment(&address_text(&c.osc)));
     let mut bytes = Vec::new();
     for t in frame {
         match t {
@@ -479,7 +603,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
     for key in c.remarks.keys().filter(|k| *k != "_name") {
         loss(losses, format!("{at}/{}", segment(key)), "the preset has no field for it");
     }
-    Some(Item { pointer: at, name, section: c.section.clone(), range: None, message: Message::Sysex(bytes) })
+    Some(Item { pointer: at, name, section: c.section.clone(), range: None, message: Message::Sysex(bytes), look: Look::Pad })
 }
 
 fn message_json(m: &Message) -> Value {
@@ -565,39 +689,94 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
     items.sort_by_key(|i| sections.iter().position(|s| *s == i.section));
-    for i in items.drain(CONTROLS.min(items.len())..) {
+    // Slots: 12 pots, 3 control sets, then the next page; a control 120 wide on a grid of 6. A
+    // group is a rectangle of whole cells: one that spreads over two rows or more begins on a new
+    // row, and the next group begins on a new row after it.
+    let mut slots: Vec<usize> = Vec::new();
+    let mut chunks: Vec<(usize, usize)> = Vec::new();
+    let mut cursor = 0usize;
+    let mut overflow = items.len();
+    let mut from = 0;
+    'runs: while from < items.len() {
+        let mut to = from;
+        while to < items.len() && items[to].section == items[from].section {
+            to += 1;
+        }
+        let mut k = from;
+        while k < to {
+            let (col, left) = (cursor % COLUMNS, to - k);
+            if col != 0 && left > COLUMNS - col {
+                cursor += COLUMNS - col;
+            }
+            if cursor >= CONTROLS {
+                overflow = k;
+                break 'runs;
+            }
+            let take = left.min(SLOTS_PER_PAGE - cursor % SLOTS_PER_PAGE);
+            slots.extend(cursor..cursor + take);
+            chunks.push((k, k + take));
+            let last = cursor + take - 1;
+            cursor = if (cursor % SLOTS_PER_PAGE) / COLUMNS == (last % SLOTS_PER_PAGE) / COLUMNS { cursor + take } else { (last / COLUMNS + 1) * COLUMNS };
+            k += take;
+        }
+        from = to;
+    }
+    for i in items.drain(overflow..) {
         loss(&mut losses, i.pointer, format!("a preset holds at most {CONTROLS} controls: this one comes after them"));
     }
-
-    // Slots: 12 pots, 3 control sets, then the next page; a control 120 wide on a grid of 6.
     let placed = items.len();
-    let mut controls = Vec::new();
+    let cell = |slot: usize| ((slot % COLUMNS) as i64 * 130, 24 + ((slot % SLOTS_PER_PAGE) / COLUMNS) as i64 * 70);
     let mut groups: Vec<(Option<String>, usize, [i64; 4])> = Vec::new();
+    let mut group_of: Vec<Option<usize>> = vec![None; placed];
+    for (a, b) in &chunks {
+        if items[*a].section.is_none() {
+            continue;
+        }
+        let mut bounds = [i64::MAX, i64::MAX, i64::MIN, i64::MIN];
+        for slot in &slots[*a..*b] {
+            let (x, y) = cell(*slot);
+            bounds = [bounds[0].min(x), bounds[1].min(y), bounds[2].max(x + 120), bounds[3].max(y + 56)];
+        }
+        groups.push((items[*a].section.clone(), slots[*a] / SLOTS_PER_PAGE, bounds));
+        for g in &mut group_of[*a..*b] {
+            *g = Some(placed + groups.len());
+        }
+    }
+    let mut controls = Vec::new();
+    let mut overlays: Vec<Value> = Vec::new();
+    let mut names: BTreeMap<Option<String>, BTreeSet<String>> = BTreeMap::new();
     for (i, item) in items.iter().enumerate() {
-        let (page, slot) = (i / SLOTS_PER_PAGE, i % SLOTS_PER_PAGE);
+        let (page, slot) = (slots[i] / SLOTS_PER_PAGE, slots[i] % SLOTS_PER_PAGE);
         let (set, pot) = (slot / POTS, slot % POTS);
-        let (x, y) = ((slot % 6) as i64 * 130, 24 + (slot / 6) as i64 * 70);
-        let group = item.section.as_ref().map(|s| {
-            let at = groups.iter().position(|(g, p, _)| g.as_deref() == Some(s) && *p == page);
-            let at = at.unwrap_or_else(|| {
-                groups.push((Some(s.clone()), page, [x, y, x + 120, y + 56]));
-                groups.len() - 1
-            });
-            let b = &mut groups[at].2;
-            *b = [b[0].min(x), b[1].min(y), b[2].max(x + 120), b[3].max(y + 56)];
-            placed + 1 + at
-        });
+        let (x, y) = cell(slots[i]);
+        let group = group_of[i];
         let mut value = Map::new();
         value.insert("id".to_string(), json!("value"));
-        if let Some([lo, hi]) = item.range {
+        let range = item.range.or_else(|| match &item.look {
+            Look::List(l) => Some([l.first()?.0, l.last()?.0]),
+            _ => None,
+        });
+        if let Some([lo, hi]) = range {
             value.insert("min".to_string(), json!(lo));
             value.insert("max".to_string(), json!(hi));
         }
         value.insert("message".to_string(), message_json(&item.message));
+        if let Look::List(list) = &item.look {
+            let mut taken = BTreeSet::new();
+            let items: Vec<Value> = list.iter().map(|(n, label)| json!({"value": n, "label": unique_cut(label, LABEL_MAX, &mut taken)})).collect();
+            overlays.push(json!({"id": overlays.len() + 1, "items": items}));
+            value.insert("overlayId".to_string(), json!(overlays.len()));
+        }
+        let name = unique_cut(&item.name, CONTROL_NAME_MAX, names.entry(item.section.clone()).or_default());
         let mut control = Map::new();
         control.insert("id".to_string(), json!(i + 1));
-        control.insert("type".to_string(), json!(if matches!(item.message, Message::Sysex(_)) { "pad" } else { "fader" }));
-        control.insert("name".to_string(), json!(item.name));
+        let kind = match &item.look {
+            Look::Fader => "fader",
+            Look::Pad => "pad",
+            Look::List(_) => "list",
+        };
+        control.insert("type".to_string(), json!(kind));
+        control.insert("name".to_string(), json!(name));
         control.insert("color".to_string(), json!("FFFFFF"));
         control.insert("bounds".to_string(), json!([x, y, 120, 56]));
         control.insert("pageId".to_string(), json!(page + 1));
@@ -609,23 +788,27 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         control.insert("values".to_string(), json!([Value::Object(value)]));
         controls.push(Value::Object(control));
     }
-    let pages = placed.div_ceil(SLOTS_PER_PAGE).clamp(1, PAGES);
+    let pages = slots.last().map_or(1, |s| s / SLOTS_PER_PAGE + 1).clamp(1, PAGES);
     let groups: Vec<Value> = groups
         .iter()
         .enumerate()
-        .map(|(k, (name, page, b))| json!({"id": placed + 1 + k, "pageId": page + 1, "name": name, "bounds": [b[0], b[1], b[2] - b[0], b[3] - b[1]]}))
+        .map(|(k, (name, page, b))| {
+            let name = name.as_deref().map(|n| cut(n, GROUP_NAME_MAX));
+            json!({"id": placed + 1 + k, "pageId": page + 1, "name": name, "bounds": [b[0], b[1], b[2] - b[0], b[3] - b[1]]})
+        })
         .collect();
+    let preset_name = cut(&info.name, PRESET_NAME_MAX);
     let id = match slug(&info.name) {
         s if s.is_empty() => "osd".to_string(),
         s => s,
     };
     let preset = json!({
         "version": 3,
-        "name": info.name,
+        "name": preset_name,
         "projectId": id,
         "pages": (1..=pages).map(|p| json!({"id": p, "name": format!("Page {p}")})).collect::<Vec<_>>(),
-        "devices": [{"id": 1, "name": info.name, "port": 1, "channel": 1}],
-        "overlays": [],
+        "devices": [{"id": 1, "name": preset_name, "port": 1, "channel": 1}],
+        "overlays": overlays,
         "groups": groups,
         "controls": controls,
     });

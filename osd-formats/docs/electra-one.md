@@ -41,4 +41,18 @@ The export fills the slots in order: the 12 pots of a control set, then the next
 | `controls` | 432 | presetformat, "Size limits": controls |
 | `devices` | 32 | presetformat, "Size limits": devices read |
 
+## What the export writes for a control
+
+The page declares no free text a person reads for a description or an author (its top-level fields are `version`, `name`, `projectId`, `pages`, `devices`, `overlays`, `groups`, `controls`; the maker's editor keeps them apart, tied by `projectId`): the credit stays in the losses.
+
+| Element | Rule | Piece |
+|---|---|---|
+| `control name` | The remark `_name`, else the setting of the `role`, else the last segment of the address made readable (`/oscillator_1/octave` → `Octave`); cut to 40 characters; two controls of one section never share a name (the second becomes `Octave 2`). A group name is cut to 40, a preset name to 20. | presetformat, Control, `name` (maxLength 40); Group, `name` (40); Preset, `name` (20) |
+| `list` | `values` name the positions, or `expects` is `discrete` with 3 positions or more in its `range`: a control of type `list` whose value refers (`overlayId`) to its own overlay, one item per position, the label a value name or the number, cut to 20 characters and kept apart. Named `values` win over `expects`. No limit on items. Import reads the labels back as `values`; an overlay no control refers to is lost. | presetformat, Overlay, `items` (no limit) and item `label` (maxLength 20); Control, `type` list |
+| `pad` | `expects` is `switch`, `momentary` or `trigger`, or `discrete` with 2 positions and no named `values`; a command is a pad. | presetformat, Control, `type` pad |
+| `fader` | Every other control. | presetformat, Control, `type` fader |
+| `group bounds` | A group is a rectangle of whole cells that frames its own controls only; a group spread over two rows begins on a new row, and the next group begins on a new row after it, so no two groups of a page overlap. | presetformat, Group, `bounds` |
+| `credit` | Not written: the preset shows no text for it; `/_sources` is in the losses, printed by the command. | presetformat, "Preset", the fields of the document |
+| `ways` | The first way of the descriptor with a complete binding is written, with its own range; the export never reorders the ways (the order is the writer's). Each way not written is in the losses at `/cc_params/entries/N/also/M`, naming the way written and the way lost. | presetformat, Message, `type` and `parameterNumber` |
+
 The export writes one device (id 1). Control ids and group ids share one id space (page, "How the controller reads a document"): controls take 1 to N, groups the numbers after. A group is written per section and page, its bounds those of its controls. What the descriptor holds and the preset cannot (credit and licence in `_sources`, orientation, channel, transforms, roles, other blocks) is in the losses by its JSON pointer.
