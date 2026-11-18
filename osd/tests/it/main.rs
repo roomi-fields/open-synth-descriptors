@@ -31,5 +31,6 @@ mod role_path_vocabulary;
 mod role_vocabulary;
 mod roles;
 mod sound_transfers;
+mod stands_for;
 mod version;
 mod vocabularies;

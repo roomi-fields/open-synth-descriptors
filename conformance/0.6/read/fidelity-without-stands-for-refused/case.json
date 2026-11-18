@@ -1,0 +1,9 @@
+{
+  "_about": "A fidelity without the device it stands for is refused at the fidelity. The schema states it as a dependency, reported at the device.",
+  "read": "device",
+  "schema_pointer": "/device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/device/fidelity"
+  }
+}

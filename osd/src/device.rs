@@ -521,6 +521,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     crate::sound_transfer::check_version(d)?;
     check_roles(d)?;
+    check_stands_for(d)?;
     check_defaults(d)?;
     check_precision(d)?;
     check_ways(d)?;
@@ -861,8 +862,48 @@ object! {
         /// Most messages a second the device takes; 0: no limit known.
         "rate_limit_hz" rate_limit_hz: Option<i64> = Opt(at_least(0)),
         "kind" kind: Option<DeviceKind> = Opt(closed()),
+        /// The catalogue address `maker/device` of the device a virtual instrument stands for (0.6).
+        "stands_for" stands_for: Option<String> = Opt(STRING),
+        /// How true a virtual instrument is to the device it stands for (0.6).
+        "fidelity" fidelity: Option<Fidelity> = Opt(closed()),
         "transport" transport: Option<Transport> = Opt(obj()),
     }
+}
+
+words! {
+    /// How true a virtual instrument is to the device it stands for: `faithful` (the real firmware,
+    /// emulated), `modelled` (the behaviour reproduced from study, without its firmware),
+    /// `principle` (a design that follows the device's principle without claiming its behaviour).
+    Fidelity { Faithful = "faithful", Modelled = "modelled", Principle = "principle", }
+}
+
+/// What a virtual instrument says of the device it stands for: from 0.6 only; a software device
+/// only; `fidelity` only beside `stands_for`; `stands_for` of the form `maker/device`.
+fn check_stands_for(d: &Device) -> Result<(), Fault> {
+    let info = &d.device;
+    let bad = |pointer: &str, kind: FaultKind, rule: &str| Err(Fault { kind, file: None, pointer: pointer.into(), rule: rule.into() });
+    if d.schema < Some(Version::V0_6) {
+        if info.stands_for.is_some() {
+            return bad("/device/stands_for", FaultKind::UnknownField, "stands_for is not a field before 0.6");
+        }
+        if info.fidelity.is_some() {
+            return bad("/device/fidelity", FaultKind::UnknownField, "fidelity is not a field before 0.6");
+        }
+        return Ok(());
+    }
+    if let Some(s) = &info.stands_for {
+        let parts: Vec<&str> = s.split('/').collect();
+        let word = |p: &&str| !p.is_empty() && !p.starts_with('.') && !p.chars().any(|c| c.is_whitespace() || c == '{' || c == '}');
+        if parts.len() != 2 || !parts.iter().all(word) {
+            return bad("/device/stands_for", FaultKind::BadValue, "not a catalogue address (maker/device)");
+        }
+        if info.kind != Some(DeviceKind::Software) {
+            return bad("/device/stands_for", FaultKind::BadValue, "only a software device stands for another (kind: software)");
+        }
+    } else if info.fidelity.is_some() {
+        return bad("/device/fidelity", FaultKind::BadValue, "a fidelity needs the device it stands for (stands_for)");
+    }
+    Ok(())
 }
 
 object! {

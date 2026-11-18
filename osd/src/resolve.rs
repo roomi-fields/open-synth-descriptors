@@ -98,6 +98,13 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
             Device::read(&doc, &At::Root).map_err(|f| f.in_file(id))?
         }
     };
+    // The device a virtual instrument stands for is a file of the catalogue.
+    if let Some(target) = &device.device.stands_for {
+        if files.get(target).is_none() {
+            let rule = format!("stands_for {target}: no file {target}");
+            return Err(Fault { kind: FaultKind::BadValue, file: Some(id.to_string()), pointer: "/device/stands_for".into(), rule });
+        }
+    }
     let capabilities = device.derived_capabilities();
     let inherited = capabilities.iter().copied().filter(|c| !own.contains(c)).collect();
     Ok(Resolved { device, files: read, capabilities, inherited })

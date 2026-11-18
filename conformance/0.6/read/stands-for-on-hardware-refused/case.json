@@ -1,0 +1,9 @@
+{
+  "_about": "A hardware device stands for nothing: `stands_for` is refused at the field. The schema states it as a dependency on `kind` being `software`, reported at the kind.",
+  "read": "device",
+  "schema_pointer": "/device/kind",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/device/stands_for"
+  }
+}

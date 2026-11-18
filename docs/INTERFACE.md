@@ -98,6 +98,22 @@ A known algorithm fixes the form of the value (names read without case): `md5` 3
 - `programs.banks[].writable` (0.6, boolean) says whether the bank can be written; absent, it can, so a descriptor that says nothing reads as before. `writable: false` is KnobKraft Orm's `isROM`, with the meaning turned to the positive word. A tool never offers to write into a bank that is not writable. OSD describes no sequence that stores a sound yet, so no reader refuses a bank as the target of one.
 - `osd::convert` from 0.5 invents none of these fields.
 
+## A virtual instrument and its fidelity (0.6)
+
+A virtual instrument is an entry like another: a software device (`device.kind` `software`) that stands for a device of the catalogue says so, and says how true it is to it. The decision is the owner's (2026-11-17). Two optional fields of `device`:
+
+- `stands_for` is the catalogue address `maker/device` of the device it stands for. The target may itself be a software device (an instrument may stand for another).
+- `fidelity` is one of three words, each a claim about the method, not a grade:
+  - `faithful`: the real firmware, emulated;
+  - `modelled`: the behaviour of the device reproduced from study, without its firmware;
+  - `principle`: a design that follows the device's principle without claiming its behaviour.
+
+`stands_for` may be given without `fidelity`; `fidelity` without `stands_for` is refused at `/device/fidelity`. Both need `kind` to be `software`: on a hardware device, or a device that gives no `kind`, they are refused at the field; the schema says it with a dependency on `kind`. A `stands_for` that is not of the form `maker/device`, and a `fidelity` outside the three words, are refused at the field (`BadValue`). `read` checks the form alone; resolving a device whose `stands_for` names an address absent from the catalogue is refused at `/device/stands_for`. A descriptor of 0.4 or 0.5 refuses both as unknown fields; `osd::convert` from 0.5 adds neither.
+
+A plugin or a DAW of its own, which stands for no other device, gives neither field and reads as in 0.5.
+
+MAME states for each driver how well the emulation works (good, imperfect, preliminary), a grade of the result. OSD departs from it: the fidelity states how true a virtual instrument is by its method, a fact its maker knows and a reader can check against the sources, where a grade of the result is a judgement that changes with each listener. The departure keeps the vocabulary of the claim honest, and the descriptor still names the device it shows, as a Hugging Face Space names the model it demonstrates.
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.

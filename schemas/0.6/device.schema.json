@@ -988,6 +988,19 @@
             "software"
           ]
         },
+        "stands_for": {
+          "type": "string",
+          "pattern": "^[^/\\s{}.][^/\\s{}]*/[^/\\s{}.][^/\\s{}]*$",
+          "description": "The catalogue address maker/device of the device a virtual instrument stands for; only a software device gives it."
+        },
+        "fidelity": {
+          "enum": [
+            "faithful",
+            "modelled",
+            "principle"
+          ],
+          "description": "How true a virtual instrument is to the device it stands for: faithful (the real firmware, emulated), modelled (the behaviour reproduced from study, without its firmware), principle (a design that follows the device's principle without claiming its behaviour). Needs stands_for."
+        },
         "transport": {
           "type": "object",
           "properties": {
@@ -1034,7 +1047,18 @@
       "required": [
         "name",
         "osc_prefix"
-      ]
+      ],
+      "dependentRequired": {
+        "fidelity": ["stands_for"]
+      },
+      "dependentSchemas": {
+        "stands_for": {
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "software" }
+          }
+        }
+      }
     },
     "identity": {
       "type": "object",

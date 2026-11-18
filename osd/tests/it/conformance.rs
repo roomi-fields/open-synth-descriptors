@@ -244,7 +244,14 @@ fn schema_errors(dir: &Path, schemas: &common::Schemas) -> Option<String> {
     // A refusal the reader owes to a rule no schema states (a declared list
     // that differs from the derived one) has a descriptor the schema accepts.
     let schema_accepts = case.get("schema_accepts").and_then(Value::as_bool) == Some(true);
-    let want: Vec<&str> = case.get("fault").filter(|_| !schema_accepts).map(|f| f["pointer"].as_str().unwrap()).into_iter().collect();
+    // `schema_pointer`, when the case states it, is where the schema reports a rule it states as a
+    // dependency between fields (at the object, or at the `kind` it requires), not at the field refused.
+    let want: Vec<&str> = case
+        .get("fault")
+        .filter(|_| !schema_accepts)
+        .map(|f| case.get("schema_pointer").unwrap_or(&f["pointer"]).as_str().unwrap())
+        .into_iter()
+        .collect();
     // One object may break two rules at once (the flat form of a role lacks `parts` and holds
     // keys the schema does not name): the schema reports it at that object, once.
     let mut got: Vec<&str> = errors.iter().map(|(at, _)| at.as_str()).collect();

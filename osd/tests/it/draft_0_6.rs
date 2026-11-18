@@ -244,6 +244,15 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             assert!(now["$defs"]["bank"]["properties"].as_object_mut().unwrap().remove("writable").is_some(), "bank has no writable");
             let dump = now["properties"]["programs"]["properties"]["dump"]["properties"].as_object_mut().unwrap();
             assert!(dump.remove("reply_timeout_ms").is_some(), "dump has no reply_timeout_ms");
+            // What a virtual instrument stands for, and how true it is, are 0.6's own.
+            let device = now["$defs"]["device"].as_object_mut().unwrap();
+            for key in ["dependentRequired", "dependentSchemas"] {
+                assert!(device.remove(key).is_some(), "device has no {key}");
+            }
+            let props = device["properties"].as_object_mut().unwrap();
+            for field in ["stands_for", "fidelity"] {
+                assert!(props.remove(field).is_some(), "device has no {field}");
+            }
             let defs = now["$defs"].as_object_mut().unwrap();
             for def in ["sound_transfer", "sound_elements", "sound_element", "sound_data_element"] {
                 assert!(defs.remove(def).is_some(), "no def {def}");

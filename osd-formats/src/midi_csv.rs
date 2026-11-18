@@ -162,6 +162,8 @@ pub(crate) fn blank_device(name: String, vendor: Option<String>, source: &Source
             rate_limit_hz: None,
             kind: None,
             transport: None,
+            stands_for: None,
+            fidelity: None,
             remarks: Default::default(),
         },
         capabilities: None,

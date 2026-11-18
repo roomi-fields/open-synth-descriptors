@@ -1,0 +1,8 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Tribe Emulation",
+    "osc_prefix": "/tribe",
+    "kind": "software"
+  }
+}
