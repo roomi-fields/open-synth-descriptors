@@ -7,6 +7,7 @@ use crate::midi_csv::check_source;
 use crate::{Fault, FaultKind, Loss, Translated};
 use osd::{Address, ArgType, Command, Device, Resolved, Segment, Source};
 use serde_json::{json, Map, Value};
+use std::collections::BTreeMap;
 
 const SCHEMA_URL: &str = "https://w3id.org/osd/0.6/device.schema.json";
 
@@ -141,6 +142,21 @@ fn whole(v: &Value) -> Option<i64> {
     v.as_i64().or_else(|| v.as_f64().filter(|f| f.fract() == 0.0 && f.abs() < 9e15).map(|f| f as i64))
 }
 
+/// Why a VALS is not carried: the descriptor's `values` are labels with their integers, and a VALS
+/// is the list of permitted values, with either the labels or the integers missing.
+fn vals_loss(vals: &Value) -> &'static str {
+    match vals.as_array() {
+        None => "VALS is a list of permitted values: this is not a list, nothing of it is carried",
+        Some(items) if !items.is_empty() && items.iter().all(|v| whole(v).is_some()) => {
+            "a list of permitted integers has no label: the descriptor's values are labels with their integers, none is invented"
+        }
+        Some(items) if !items.is_empty() && items.iter().all(Value::is_string) => {
+            "a list of permitted labels has no integer: the descriptor's values are labels with their integers, none is invented"
+        }
+        Some(_) => "the list holds neither integers alone nor labels alone: the descriptor's values are labels with their integers, nothing is carried",
+    }
+}
+
 /// The command a method makes, `None` when its type has no argument type in the descriptor.
 fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<Loss>) -> Option<Value> {
     let ty = o.get("TYPE").and_then(Value::as_str).unwrap_or("");
@@ -175,7 +191,8 @@ fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<L
         if let Some(entry) = o.get("RANGE").and_then(|r| r.get(i)).and_then(Value::as_object) {
             let at = format!("{ptr}/RANGE/{i}");
             for key in entry.keys().filter(|k| *k != "MIN" && *k != "MAX") {
-                loss(losses, format!("{at}/{}", segment(key)), if key == "VALS" { "the descriptor has no field for the named values of a range" } else { "the descriptor has no field for it" });
+                let reason = if key == "VALS" { vals_loss(&entry["VALS"]) } else { "the descriptor has no field for it" };
+                loss(losses, format!("{at}/{}", segment(key)), reason);
             }
             match (entry.get("MIN"), entry.get("MAX")) {
                 (Some(lo), Some(hi)) => match (whole(lo), whole(hi)) {
@@ -273,15 +290,79 @@ fn container(path: &str) -> Value {
     json!({"FULL_PATH": path, "ACCESS": 0, "CONTENTS": {}})
 }
 
+/// The RANGE entry of an argument: its bounds and the list of its permitted values.
+#[derive(Default)]
+struct Bounds {
+    range: Option<[i64; 2]>,
+    vals: Option<Vec<Value>>,
+}
+
+impl Bounds {
+    fn node(&self) -> Value {
+        let mut o = Map::new();
+        if let Some([lo, hi]) = self.range {
+            o.insert("MIN".into(), json!(lo));
+            o.insert("MAX".into(), json!(hi));
+        }
+        if let Some(v) = &self.vals {
+            o.insert("VALS".into(), Value::Array(v.clone()));
+        }
+        if o.is_empty() {
+            Value::Null
+        } else {
+            Value::Object(o)
+        }
+    }
+}
+
+/// The bounds a range gives, or else those MIDI fixes for the kind of controller; a lowest value
+/// above the highest is lost.
+fn bounds_of(range: Option<[i64; 2]>, fixed: Option<i64>, at: &str, losses: &mut Vec<Loss>) -> Option<[i64; 2]> {
+    match range {
+        Some([lo, hi]) if lo > hi => {
+            loss(losses, format!("{at}/range"), "the lowest value is above the highest");
+            None
+        }
+        Some(r) => Some(r),
+        None => fixed.map(|max| [0, max]),
+    }
+}
+
+/// The highest value MIDI fixes for the kind of a controller: 127 for a 7-bit controller, 16383
+/// for a 14-bit one, an NRPN or an RPN; none for an entry of no such kind.
+fn span_of(e: &osd::CcEntry) -> Option<i64> {
+    if e.cc.is_some() {
+        Some(if e.cc_lsb.is_some() { 16383 } else { 127 })
+    } else if e.cc_lsb.is_some() || e.nrpn_msb.is_some() || e.rpn_msb.is_some() {
+        Some(16383)
+    } else {
+        None
+    }
+}
+
+/// The VALS of the named values of an integer argument (its integers, ascending, each once) or of
+/// a text argument (its labels, ascending); the loss says what the list leaves out.
+fn vals_of(values: &BTreeMap<String, i64>, text: bool, at: &str, losses: &mut Vec<Loss>) -> Vec<Value> {
+    if text {
+        loss(losses, at, "the integers behind the labels have no place in a VALS of labels");
+        return values.keys().map(|l| json!(l)).collect();
+    }
+    loss(losses, at, "the labels have no place in a VALS of integers: it is the list of permitted values");
+    let mut numbers: Vec<i64> = values.values().copied().collect();
+    numbers.sort_unstable();
+    numbers.dedup();
+    numbers.into_iter().map(|n| json!(n)).collect()
+}
+
 /// A method node: ACCESS 2 (written), its tags, its ranges and the names of its arguments.
-fn method(path: &str, types: &str, ranges: &[Option<[i64; 2]>], names: Option<Vec<String>>) -> Value {
+fn method(path: &str, types: &str, ranges: &[Bounds], names: Option<Vec<String>>) -> Value {
     let mut m = Map::new();
     m.insert("FULL_PATH".into(), json!(path));
     m.insert("ACCESS".into(), json!(2));
     if !types.is_empty() {
         m.insert("TYPE".into(), json!(types));
-        if ranges.iter().any(Option::is_some) {
-            m.insert("RANGE".into(), Value::Array(ranges.iter().map(|r| r.map_or(Value::Null, |[lo, hi]| json!({"MIN": lo, "MAX": hi}))).collect()));
+        if ranges.iter().any(|b| b.range.is_some() || b.vals.is_some()) {
+            m.insert("RANGE".into(), Value::Array(ranges.iter().map(Bounds::node).collect()));
         }
         if let Some(n) = names {
             m.insert("EXTENDED_TYPE".into(), json!(n));
@@ -364,22 +445,21 @@ fn command_node(n: usize, c: &Command, prefix: &str, losses: &mut Vec<Loss>) -> 
     let mut ranges = Vec::new();
     for (m, a) in args.iter().enumerate() {
         let here = format!("{at}/args/{m}");
-        if a.values.is_some() {
-            loss(losses, format!("{here}/values"), "the named values of an argument are the VALS of a range, which the export does not write");
-        }
         if a.default.is_some() {
             loss(losses, format!("{here}/default"), "the namespace holds the current value, not a default");
         }
         for key in a.remarks.keys() {
             loss(losses, format!("{here}/{}", segment(key)), "the namespace has no attribute for it");
         }
-        ranges.push(match a.range {
-            Some([lo, hi]) if lo > hi => {
-                loss(losses, format!("{here}/range"), "the lowest value is above the highest");
+        let vals = match (&a.values, a.ty) {
+            (Some(_), ArgType::Float | ArgType::Bool) => {
+                loss(losses, format!("{here}/values"), "a VALS holds the integers of an integer argument or the labels of a text argument: this argument is neither");
                 None
             }
-            r => r,
-        });
+            (Some(v), ty) => Some(vals_of(v, matches!(ty, ArgType::String | ArgType::Enum), &format!("{here}/values"), losses)),
+            (None, _) => None,
+        };
+        ranges.push(Bounds { range: bounds_of(a.range, None, &here, losses), vals });
     }
     let types: String = args.iter().map(|a| tag_of(a.ty)).collect();
     let names = (!args.is_empty()).then(|| args.iter().map(|a| a.name.clone()).collect());
@@ -507,15 +587,10 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
             for key in e.remarks.keys() {
                 loss(&mut losses, format!("{at}/{}", segment(key)), "the namespace has no attribute for it");
             }
-            let range = match e.range {
-                Some([lo, hi]) if lo > hi => {
-                    loss(&mut losses, format!("{at}/range"), "the lowest value is above the highest");
-                    None
-                }
-                r => r,
-            };
+            let range = bounds_of(e.range, span_of(e), &at, &mut losses);
+            let vals = e.values.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
             let full = format!("{}{}", prefix.trim_end_matches('/'), e.osc);
-            put(device, &at, &e.osc, method(&full, "i", &[range], None), &mut losses);
+            put(device, &at, &e.osc, method(&full, "i", &[Bounds { range, vals }], None), &mut losses);
         }
     }
     if let Some(p) = &d.params {
@@ -531,7 +606,6 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
                 ("default", e.default.is_some()),
                 ("section", e.section.is_some()),
                 ("expects", e.expects.is_some()),
-                ("values", e.values.is_some()),
                 ("transform", e.transform.is_some()),
                 ("transform_reverse", e.transform_reverse.is_some()),
                 ("role", e.role.is_some()),
@@ -543,15 +617,10 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
             for key in e.remarks.keys() {
                 loss(&mut losses, format!("{at}/{}", segment(key)), "the namespace has no attribute for it");
             }
-            let range = match e.range {
-                Some([lo, hi]) if lo > hi => {
-                    loss(&mut losses, format!("{at}/range"), "the lowest value is above the highest");
-                    None
-                }
-                r => r,
-            };
+            let range = bounds_of(e.range, None, &at, &mut losses);
+            let vals = e.values.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
             let full = format!("{}{}", prefix.trim_end_matches('/'), e.osc);
-            put(device, &at, &e.osc, method(&full, "i", &[range], None), &mut losses);
+            put(device, &at, &e.osc, method(&full, "i", &[Bounds { range, vals }], None), &mut losses);
         }
     }
     for (n, c) in d.commands.iter().flatten().enumerate() {

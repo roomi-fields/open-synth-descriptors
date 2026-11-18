@@ -9,7 +9,7 @@ use crate::xml::{self, escape, Node};
 use crate::{Fault, FaultKind, Loss, Translated};
 use osd::{Device, Resolved, Source};
 use serde_json::{json, Map, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 const PUBLIC_ID: &str = "-//MIDI Manufacturers Association//DTD MIDINameDocument 1.0//EN";
 const SYSTEM_ID: &str = "http://www.midi.org/dtds/MIDINameDocument10.dtd";
@@ -175,7 +175,48 @@ fn patch_bank(n: usize, pb: &Node, patch_lists: &[&Node], losses: &mut Vec<Loss>
     Ok(Some(Bank { json: Value::Object(bank), pitched: first_pc.is_some() }))
 }
 
-fn control(c: &Node, used: &mut BTreeSet<String>, losses: &mut Vec<Loss>) -> Result<Value, Fault> {
+/// The highest value MIDI fixes for a control type: 127 for a 7-bit controller, 16383 for the others.
+fn span_of(kind: &str) -> i64 {
+    if kind == "7bit" {
+        127
+    } else {
+        16383
+    }
+}
+
+/// The lists of value names of a document, read once each, and which a control used.
+struct ValueLists<'a> {
+    named: Vec<&'a Node>,
+    read: BTreeMap<usize, Vec<(String, i64)>>,
+    used: BTreeSet<usize>,
+}
+
+impl<'a> ValueLists<'a> {
+    /// The (label, number) pairs of a list; a Value whose Number is not whole is lost, once.
+    fn pairs(&mut self, list: &Node, losses: &mut Vec<Loss>) -> Vec<(String, i64)> {
+        self.used.insert(list.line);
+        if let Some(done) = self.read.get(&list.line) {
+            return done.clone();
+        }
+        let mut pairs: Vec<(String, i64)> = Vec::new();
+        for v in list.kids("Value") {
+            let (text, label) = (v.attr("Number").unwrap_or(""), v.attr("Name").unwrap_or("").to_string());
+            let Some(number) = whole(text) else {
+                lost_element(losses, v, Some("Number"), &format!("{text:?} is not a whole number: the descriptor's values hold whole numbers"));
+                continue;
+            };
+            match pairs.iter().find(|(l, _)| *l == label) {
+                Some((_, n)) if *n == number => {}
+                Some(_) => lost_element(losses, v, Some("Name"), &format!("the label {label:?} is already on another number: a label has one integer in the descriptor")),
+                None => pairs.push((label, number)),
+            }
+        }
+        self.read.insert(list.line, pairs.clone());
+        pairs
+    }
+}
+
+fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses: &mut Vec<Loss>) -> Result<Value, Fault> {
     let kind = c.attr("Type").unwrap_or("7bit");
     let number_text = c.attr("Number").unwrap_or("");
     let number = whole(number_text).ok_or_else(|| invalid(at_attr(c, "Number"), format!("{number_text:?} is not a whole number")))?;
@@ -196,9 +237,14 @@ fn control(c: &Node, used: &mut BTreeSet<String>, losses: &mut Vec<Loss>) -> Res
             n
         };
         let (lo, hi) = (bound("Min", losses), bound("Max", losses));
+        let span = span_of(kind);
+        // The bounds MIDI fixes for the type are the range of a control that gives none.
         if let (Some(lo), Some(hi)) = (lo, hi) {
-            entry.insert("range".into(), json!([lo, hi]));
+            if (lo, hi) != (0, span) {
+                entry.insert("range".into(), json!([lo, hi]));
+            }
         }
+        let (low, high) = (lo.unwrap_or(0), hi.unwrap_or(span));
         if let Some(d) = bound("Default", losses) {
             entry.insert("default".into(), json!(d));
         }
@@ -207,8 +253,30 @@ fn control(c: &Node, used: &mut BTreeSet<String>, losses: &mut Vec<Loss>) -> Res
                 lost_element(losses, values, Some(attr), "the descriptor holds no unit or mapping of a control's value");
             }
         }
-        for child in &values.children {
-            lost_element(losses, child, None, "the descriptor holds no names for the values of a control");
+        let list = match (values.kid("ValueNameList"), values.kid("UsesValueNameList")) {
+            (Some(l), _) => Some(l),
+            (None, Some(u)) => {
+                let name = u.attr("Name").unwrap_or("");
+                let found = lists.named.iter().copied().find(|l| l.attr("Name") == Some(name));
+                if found.is_none() {
+                    lost_element(losses, u, None, "no list of value names of the document has this name: the control has no value names to read");
+                }
+                found
+            }
+            (None, None) => None,
+        };
+        if let Some(list) = list {
+            let mut map = Map::new();
+            for (label, number) in lists.pairs(list, losses) {
+                if (low..=high).contains(&number) {
+                    map.insert(label, json!(number));
+                } else {
+                    lost_element(losses, values, None, &format!("the value {number} named {label:?} is outside the range of the control {low} to {high}"));
+                }
+            }
+            if !map.is_empty() {
+                entry.insert("values".into(), Value::Object(map));
+            }
         }
     }
     if !name.is_empty() {
@@ -280,6 +348,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
     }
 
     let (mut control_lists, mut note_lists, mut patch_lists, mut banks_of): (Vec<&Node>, Vec<&Node>, Vec<&Node>, Vec<&Node>) = (vec![], vec![], vec![], vec![]);
+    let mut value_lists = ValueLists { named: vec![], read: BTreeMap::new(), used: BTreeSet::new() };
     for c in &master.children {
         match c.name.as_str() {
             "CustomDeviceMode" | "SupportsStandardDeviceMode" => {
@@ -302,7 +371,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
             "NoteNameList" => note_lists.push(c),
             "ControlNameList" => control_lists.push(c),
             "PatchNameList" => patch_lists.push(c),
-            "ValueNameList" => lost_element(&mut losses, c, None, "the descriptor holds no names for the values of a control"),
+            "ValueNameList" => value_lists.named.push(c),
             _ => {}
         }
     }
@@ -311,7 +380,12 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
     let mut entries = Vec::new();
     for list in &control_lists {
         for c in list.kids("Control") {
-            entries.push(control(c, &mut used, &mut losses)?);
+            entries.push(control(c, &mut used, &mut value_lists, &mut losses)?);
+        }
+    }
+    for l in &value_lists.named {
+        if !value_lists.used.contains(&l.line) {
+            lost_element(&mut losses, l, None, "no control uses this list of value names");
         }
     }
     let mut triggers = Vec::new();
@@ -436,6 +510,8 @@ struct Control {
     binding: Binding,
     range: Option<[i64; 2]>,
     default: Option<i64>,
+    /// The (number, label) pairs, by number then label.
+    values: Vec<(i64, String)>,
 }
 
 fn controls_of(d: &Device, losses: &mut Vec<Loss>) -> Vec<Control> {
@@ -505,7 +581,9 @@ fn controls_of(d: &Device, losses: &mut Vec<Loss>) -> Vec<Control> {
             }
             r => r,
         };
-        out.push(Control { name, binding, range, default: e.default });
+        let mut values: Vec<(i64, String)> = e.values.iter().flatten().map(|(label, n)| (*n, label.clone())).collect();
+        values.sort();
+        out.push(Control { name, binding, range, default: e.default, values });
     }
     out
 }
@@ -724,6 +802,14 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
         w.end("NoteNameList");
     }
+    // Equal lists of values are written once, in the order of their first control.
+    let mut value_lists: Vec<&Vec<(i64, String)>> = Vec::new();
+    for c in controls.iter().filter(|c| !c.values.is_empty()) {
+        if !value_lists.contains(&&c.values) {
+            value_lists.push(&c.values);
+        }
+    }
+    let list_name = |n: usize| format!("Values {}", n + 1);
     if !controls.is_empty() {
         w.open("ControlNameList", &[("Name", "Controls".into())]);
         for c in &controls {
@@ -733,10 +819,24 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             if let Some(default) = c.default {
                 values.push(("Default", default.to_string()));
             }
-            w.empty("Values", &values);
+            match value_lists.iter().position(|l| **l == c.values) {
+                Some(n) if !c.values.is_empty() => {
+                    w.open("Values", &values);
+                    w.empty("UsesValueNameList", &[("Name", list_name(n))]);
+                    w.end("Values");
+                }
+                _ => w.empty("Values", &values),
+            }
             w.end("Control");
         }
         w.end("ControlNameList");
+    }
+    for (n, list) in value_lists.iter().enumerate() {
+        w.open("ValueNameList", &[("Name", list_name(n))]);
+        for (number, label) in list.iter() {
+            w.empty("Value", &[("Number", number.to_string()), ("Name", label.clone())]);
+        }
+        w.end("ValueNameList");
     }
     w.end("MasterDeviceNames");
     w.end("MIDINameDocument");

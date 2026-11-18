@@ -55,6 +55,15 @@ fn the_fate_is_carried_for_the_address_the_types_the_ranges_and_the_names_and_lo
 }
 
 #[test]
+fn the_line_of_vals_says_the_list_of_permitted_values_is_written_and_what_has_no_place_in_it() {
+    let lines = doc_lines();
+    let line = lines.iter().find(|l| l[0] == "VALS").expect("a line for VALS");
+    let reason = line[2].to_lowercase();
+    assert!(reason.contains("label"), "the labels of the values have no place in a VALS: {reason:?}");
+    assert!(!reason.contains("no field for the named values"), "the line still says the export writes nothing: {reason:?}");
+}
+
+#[test]
 fn the_checker_accepts_a_namespace_of_the_proposal_and_refuses_each_kind_of_break() {
     let ok = namespace(vec![("a", method("/synth/a", "if", &[Some((0, 1)), None]))]);
     assert_eq!(violations(&ok.to_string()), Vec::<String>::new());
@@ -77,6 +86,11 @@ fn the_checker_accepts_a_namespace_of_the_proposal_and_refuses_each_kind_of_brea
     let mut bad = ok.clone();
     bad["CONTENTS"]["synth"]["TYPE"] = json!("i");
     cases.push(("a container with a type", bad));
+    let mut bad = ok.clone();
+    bad["CONTENTS"]["synth"]["CONTENTS"]["a"]["RANGE"] = json!([{"MIN": 0, "MAX": 1, "VALS": {"Off": 0}}, null]);
+    cases.push(("a VALS that is not a list", bad));
+    let with_vals = namespace(vec![("a", json!({"FULL_PATH": "/synth/a", "ACCESS": 2, "TYPE": "i", "RANGE": [{"MIN": 0, "MAX": 2, "VALS": [0, 2]}]}))]);
+    assert_eq!(violations(&with_vals.to_string()), Vec::<String>::new());
     for (what, ns) in cases {
         assert!(!violations(&ns.to_string()).is_empty(), "{what}");
     }

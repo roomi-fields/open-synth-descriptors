@@ -70,6 +70,9 @@ fn node_violations(node: &Value, path: &str, pointer: &str, out: &mut Vec<String
                             out.push(format!("{pointer}/RANGE/{i}/{k}: not MIN, MAX or VALS"));
                         }
                     }
+                    if e.get("VALS").is_some_and(|v| !v.is_array()) {
+                        out.push(format!("{pointer}/RANGE/{i}/VALS: a list of the permitted values"));
+                    }
                     if let (Some(lo), Some(hi)) = (e.get("MIN").and_then(Value::as_f64), e.get("MAX").and_then(Value::as_f64)) {
                         if lo > hi {
                             out.push(format!("{pointer}/RANGE/{i}: MIN above MAX"));

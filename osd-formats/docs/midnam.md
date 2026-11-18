@@ -8,9 +8,11 @@ The first behaviour is the one of SyntHub's service. Where the service departs f
 
 A device becomes one `MasterDeviceNames` with its `Manufacturer` and `Model`, one `CustomDeviceMode`, one `ChannelNameSet` and the lists the descriptor holds: its controls become a `ControlNameList` (a `Control` is a CC, a 14-bit CC, an NRPN or an RPN), its triggers a `NoteNameList`, its programs a `PatchBank` of `Patch` numbers. The name of a control is its remark `_name`, otherwise the words of its address; a patch with no name is named `<bank> <number>`. `osc_prefix` is lost: MIDNAM names, it does not address. The `Author` holds the credit and the licence of the sources; a device with no `_sources` is not exported (`NoSources`). What the DTD cannot hold of the descriptor is in the losses, by its JSON pointer, with its reason; nothing is invented for what the descriptor does not say.
 
+The `values` of a control are written as `ValueNameList` (one `Value` per label, its `Number` and its `Name`) that its `Values` uses by `UsesValueNameList`; equal lists are written once and shared. A control with no `range` is written with the bounds MIDI fixes for its type: 0 to 127 for a 7-bit controller, 0 to 16383 for a 14-bit one, an NRPN or an RPN.
+
 ## What the import reads
 
-Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence.
+Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The `ValueNameList` of a control, inline or by `UsesValueNameList`, becomes its `values`; two names on the same number are both read, and a `Value` whose number is not whole is lost while the others are carried. A `Values` that states the bounds MIDI fixes for the type of its control (0 to 127, or 0 to 16383) gives an entry without `range` and no loss: those bounds are the ones MIDI imposes. The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence.
 
 ## Elements and attributes
 
@@ -79,13 +81,13 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 | `Values@Default` | carried | the default value of a control | MIDINameDocument10.dtd, ATTLIST Values |
 | `Values@Units` | lost | the descriptor holds no unit or mapping of a control's value | MIDINameDocument10.dtd, ATTLIST Values |
 | `Values@Mapping` | lost | the descriptor holds no unit or mapping of a control's value | MIDINameDocument10.dtd, ATTLIST Values |
-| `UsesValueNameList` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ELEMENT UsesValueNameList |
-| `UsesValueNameList@Name` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ATTLIST UsesValueNameList |
-| `ValueNameList` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ELEMENT ValueNameList |
-| `ValueNameList@Name` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ATTLIST ValueNameList |
-| `Value` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ELEMENT Value |
-| `Value@Number` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ATTLIST Value |
-| `Value@Name` | lost | the descriptor holds no names for the values of a control | MIDINameDocument10.dtd, ATTLIST Value |
+| `UsesValueNameList` | lost | a list of value names shared by name has no field; the export writes one per list shared, the import reads the list it names | MIDINameDocument10.dtd, ELEMENT UsesValueNameList |
+| `UsesValueNameList@Name` | lost | the reference is resolved on import and not kept | MIDINameDocument10.dtd, ATTLIST UsesValueNameList |
+| `ValueNameList` | carried | the `values` of a control, equal lists written once; a list no control uses is lost | MIDINameDocument10.dtd, ELEMENT ValueNameList |
+| `ValueNameList@Name` | lost | the descriptor does not name a list of values; the export names it to share it | MIDINameDocument10.dtd, ATTLIST ValueNameList |
+| `Value` | carried | a label of the `values` of a control | MIDINameDocument10.dtd, ELEMENT Value |
+| `Value@Number` | carried | the integer of a label; a number that is not whole is lost with its Value | MIDINameDocument10.dtd, ATTLIST Value |
+| `Value@Name` | carried | the label of a value | MIDINameDocument10.dtd, ATTLIST Value |
 | `MIDICommands` | carried | the commands of a bank: its Bank Select | MIDINameDocument10.dtd, ELEMENT MIDICommands |
 | `PatchMIDICommands` | lost | what a patch adds to its bank is no field of the descriptor | MIDINameDocument10.dtd, ELEMENT PatchMIDICommands |
 | `MIDIDelay` | lost | a delay between commands has no field in the descriptor | MIDINameDocument10.dtd, ELEMENT MIDIDelay |

@@ -199,7 +199,7 @@ fn the_document_of_destiny_lists_no_element_or_attribute_the_dtd_does_not_declar
 fn the_fate_of_each_element_and_attribute_is_carried_for_what_the_descriptor_holds_and_lost_for_the_rest() {
     let carried: BTreeSet<&str> = [
         "MIDINameDocument", "MasterDeviceNames", "Manufacturer", "Model", "ControlNameList", "Control", "Control@Type", "Control@Number",
-        "Control@Name", "Values", "Values@Min", "Values@Max", "Values@Default", "NoteNameList", "Note", "Note@Number", "Note@Name",
+        "Control@Name", "Values", "Values@Min", "Values@Max", "Values@Default", "ValueNameList", "Value", "Value@Number", "Value@Name", "NoteNameList", "Note", "Note@Number", "Note@Name",
         "PatchBank", "PatchBank@Name", "PatchNameList", "Patch", "Patch@Number", "Patch@ProgramChange", "MIDICommands", "ControlChange",
         "ControlChange@Control", "ControlChange@Value",
     ]

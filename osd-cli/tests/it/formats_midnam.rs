@@ -72,10 +72,10 @@ fn import_prints_each_loss_on_the_error_output_one_per_line_by_its_line_in_the_f
     let (_dir, file) = with_file("d.midnam", SAMPLE);
     let run = osd(&import_args(&file, &[]));
     let lines: Vec<&str> = run.stderr.lines().collect();
-    assert!(!lines.is_empty(), "the value names and the units are lost");
+    assert!(!lines.is_empty(), "the units are lost");
     assert!(lines.iter().all(|l| l.starts_with("line ") && l.contains(": ")), "{lines:?}");
-    let value_names = SAMPLE.lines().position(|l| l.contains("<ValueNameList")).unwrap() + 1;
-    assert!(lines.iter().any(|l| l.starts_with(&format!("line {value_names}: "))), "{lines:?}");
+    let units = SAMPLE.lines().position(|l| l.contains("<Values ")).unwrap() + 1;
+    assert!(lines.iter().any(|l| l.starts_with(&format!("line {units}: "))), "{lines:?}");
     assert!(!run.stdout.contains("line "));
 }
 

@@ -235,7 +235,6 @@ fn each_element_the_format_carries_and_the_descriptor_cannot_hold_has_a_loss_at_
     let (_, lost) = imported(&text);
     let line_of = |needle: &str| text.lines().position(|l| l.contains(needle)).unwrap() + 1;
     for (what, needle) in [
-        ("a list of value names", "<ValueNameList"),
         ("the units and the mapping of the values", "Units=\"dB\""),
         ("a patch name", "Name=\"Warm Pad\""),
         ("the commands that enable a mode", "<DeviceModeEnable"),

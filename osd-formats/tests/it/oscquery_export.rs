@@ -64,7 +64,7 @@ fn a_control_is_a_writable_integer_method_at_its_address_with_its_range() {
     assert_eq!(cutoff["RANGE"], json!([{"MIN": 10, "MAX": 100}]));
     let resonance = node_at(&ns, "/trundler/filter/resonance").unwrap();
     assert_eq!(resonance["TYPE"], "i");
-    assert!(resonance.get("RANGE").is_none(), "a range the descriptor does not give is not invented: {resonance}");
+    assert_eq!(resonance["RANGE"], json!([{"MIN": 0, "MAX": 127}]), "the bounds MIDI fixes for a 7-bit controller");
 }
 
 #[test]

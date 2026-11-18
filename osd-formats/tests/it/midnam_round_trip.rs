@@ -22,7 +22,15 @@ fn carried(d: &Value) -> Value {
         .as_array()
         .into_iter()
         .flatten()
-        .map(|e| pick(e, &["cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb", "range", "default"]))
+        .map(|e| {
+            let mut c = pick(e, &["cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb", "range", "default", "values"]);
+            // The range of the span MIDI fixes for the kind is not written back.
+            let span = if e.get("cc").is_some() && e.get("cc_lsb").is_none() { 127 } else { 16383 };
+            if c.get("range") == Some(&json!([0, span])) {
+                c.as_object_mut().unwrap().remove("range");
+            }
+            c
+        })
         .collect();
     let notes: Vec<Value> = d["triggers"]["entries"].as_array().into_iter().flatten().map(|t| pick(t, &["sound", "note"])).collect();
     let banks: Vec<Value> =
@@ -71,11 +79,11 @@ fn the_remark_name_of_a_control_comes_back_and_the_name_built_from_the_address_t
 }
 
 #[test]
-fn a_control_without_a_range_comes_back_with_the_span_of_its_type() {
+fn a_control_without_a_range_comes_back_without_one() {
     let d = device_with(json!({"cc_params": {"entries": [{"osc": "/a", "cc": 1}, {"osc": "/b", "nrpn_msb": 1, "nrpn_lsb": 1}]}}));
     let (b, _) = back(&d);
-    assert_eq!(b["cc_params"]["entries"][0]["range"], json!([0, 127]));
-    assert_eq!(b["cc_params"]["entries"][1]["range"], json!([0, 16383]));
+    assert!(b["cc_params"]["entries"][0].get("range").is_none());
+    assert!(b["cc_params"]["entries"][1].get("range").is_none());
 }
 
 #[test]
@@ -83,19 +91,14 @@ fn the_devices_of_the_cases_and_the_examples_with_their_controls_come_back_as_th
     let mut with_controls = 0;
     for (name, d) in credited_devices() {
         let o = original(&d);
-        // Only a device whose every control has a range is compared whole: a missing range
-        // comes back as the span of the type.
-        let ranged = o["cc_params"]["entries"].as_array().into_iter().flatten().all(|e| e.get("range").is_some());
         let (b, _) = back(&d);
         if o["cc_params"]["entries"].as_array().is_some_and(|e| !e.is_empty()) {
             with_controls += 1;
         }
-        if ranged {
-            let (want, got) = (carried(&o), carried(&b));
-            assert_eq!(got["controls"], want["controls"], "{name}");
-            assert_eq!(got["vendor"], want["vendor"], "{name}");
-            assert_eq!(got["name"], want["name"], "{name}");
-        }
+        let (want, got) = (carried(&o), carried(&b));
+        assert_eq!(got["controls"], want["controls"], "{name}");
+        assert_eq!(got["vendor"], want["vendor"], "{name}");
+        assert_eq!(got["name"], want["name"], "{name}");
     }
     assert!(with_controls >= 2, "{with_controls} devices with controls");
 }

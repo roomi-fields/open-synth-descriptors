@@ -16,6 +16,18 @@ fn tag_of(ty: &str) -> &'static str {
     }
 }
 
+/// The highest value MIDI fixes for the kind of a controller entry: 127 for a 7-bit controller,
+/// 16383 for a 14-bit one, an NRPN or an RPN.
+fn kind_span(e: &Value) -> Option<i64> {
+    if e.get("cc").is_some() && e.get("cc_lsb").is_none() {
+        Some(127)
+    } else if ["cc_lsb", "nrpn_msb", "rpn_msb"].iter().any(|k| e.get(*k).is_some()) {
+        Some(16383)
+    } else {
+        None
+    }
+}
+
 /// What a namespace carries of a device: for each address, the tags and ranges of its arguments.
 /// A control or a parameter is a method of one integer.
 fn carried(d: &Value) -> Vec<(String, String, Vec<Value>)> {
@@ -23,7 +35,12 @@ fn carried(d: &Value) -> Vec<(String, String, Vec<Value>)> {
     let mut out = Vec::new();
     for key in ["cc_params", "params"] {
         for e in d[key]["entries"].as_array().into_iter().flatten() {
-            let range = e.get("range").map_or(Value::Null, |r| json!({"MIN": r[0], "MAX": r[1]}));
+            let span = if key == "cc_params" { kind_span(e) } else { None };
+            let range = match (e.get("range"), span) {
+                (Some(r), _) => json!({"MIN": r[0], "MAX": r[1]}),
+                (None, Some(max)) => json!({"MIN": 0, "MAX": max}),
+                (None, None) => Value::Null,
+            };
             out.push((format!("{prefix}{}", e["osc"].as_str().unwrap()), "i".to_string(), vec![range]));
         }
     }
