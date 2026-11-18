@@ -35,7 +35,8 @@
       "../open-synth-descriptors",
       "../synthhub"
     ],
-    "circuits": 2
+    "circuits": 2,
+    "outil": "0.45.0"
   },
   "workspaces": [
     "osd",
