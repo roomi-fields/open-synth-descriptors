@@ -6,6 +6,7 @@ mod common;
 
 mod convert;
 mod formats;
+mod formats_electra;
 mod init;
 mod program;
 mod validate;

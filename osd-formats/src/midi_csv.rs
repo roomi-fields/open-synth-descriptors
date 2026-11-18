@@ -66,7 +66,7 @@ fn cell_place(line: usize, column: usize) -> String {
 // ---- import -----------------------------------------------------------------------------
 
 /// The credit an import needs: a way to find the source and its licence.
-fn check_source(source: &Source) -> Result<(), Fault> {
+pub(crate) fn check_source(source: &Source) -> Result<(), Fault> {
     let named = |o: &Option<String>| o.as_deref().is_some_and(|s| !s.trim().is_empty());
     let mut missing = Vec::new();
     if !(named(&source.url) || named(&source.author) || named(&source.attribution)) {
@@ -109,7 +109,7 @@ fn bounds(cells: &[String], line: usize, min: usize, max: usize) -> Result<(Opti
 }
 
 /// The address of a control: its section and name as path segments.
-fn slug(text: &str) -> String {
+pub(crate) fn slug(text: &str) -> String {
     let mut out = String::new();
     for c in text.chars().flat_map(char::to_lowercase) {
         if c.is_alphanumeric() {
@@ -122,7 +122,7 @@ fn slug(text: &str) -> String {
 }
 
 /// An address not yet used: `base`, else `base-2`, `base-3`…
-fn unique(base: String, used: &mut BTreeSet<String>) -> String {
+pub(crate) fn unique(base: String, used: &mut BTreeSet<String>) -> String {
     let mut address = base.clone();
     let mut n = 2;
     while !used.insert(address.clone()) {

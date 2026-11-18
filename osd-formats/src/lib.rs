@@ -5,6 +5,7 @@
 //! opens a port.
 
 mod csv;
+mod electra_one;
 mod midi_csv;
 
 use std::fmt;
@@ -14,16 +15,19 @@ use std::fmt;
 pub enum Format {
     /// The pencilresearch/midi CSV (`template.csv`).
     MidiCsv,
+    /// The Electra One preset (JSON, versions 2 and 3).
+    ElectraOne,
 }
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 1] = [Format::MidiCsv];
+    pub const ALL: [Format; 2] = [Format::MidiCsv, Format::ElectraOne];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
         match self {
             Format::MidiCsv => "midi-csv",
+            Format::ElectraOne => "electra-one",
         }
     }
 
@@ -79,6 +83,7 @@ impl std::error::Error for Fault {}
 pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Translated<osd::Device>, Fault> {
     match format {
         Format::MidiCsv => midi_csv::import(text, source),
+        Format::ElectraOne => electra_one::import(text, source),
     }
 }
 
@@ -86,5 +91,6 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
 pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<String>, Fault> {
     match format {
         Format::MidiCsv => midi_csv::export(device),
+        Format::ElectraOne => electra_one::export(device),
     }
 }

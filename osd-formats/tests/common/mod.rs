@@ -3,6 +3,8 @@
 
 #![allow(dead_code)]
 
+pub mod electra;
+
 /// The first line of `template.csv` of github.com/pencilresearch/midi (commit 215c64e8d3b3).
 pub const HEADER: [&str; 18] = [
     "manufacturer",
