@@ -2,7 +2,7 @@
 
 ## Role
 
-- **R1** `osd-formats` is the one place where OSD meets the formats others already use: it reads a file of another format into an OSD descriptor, and writes a descriptor in another format.
+- **R1** `osd-formats` is the one place where OSD meets the formats others already use: it reads a file of another format into an OSD descriptor, and writes a descriptor in another format: the pencilresearch/midi CSV and its triggers CSV, Electra One presets, MIDNAM, OSCQuery and `midi2-controllers`, the controller resources of MIDI 2.0 Property Exchange.
 
 ## Receives
 

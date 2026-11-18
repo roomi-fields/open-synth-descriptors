@@ -7,6 +7,7 @@
 mod credit;
 mod csv;
 mod electra_one;
+mod midi2_controllers;
 mod midi_csv;
 mod midi_triggers_csv;
 mod midnam;
@@ -29,11 +30,13 @@ pub enum Format {
     Midnam,
     /// The OSCQuery namespace (JSON).
     OscQuery,
+    /// The controller resources of MIDI-CI Property Exchange (M2-117-UM): ChCtrlList and CtrlMapList (JSON).
+    Midi2Controllers,
 }
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 5] = [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery];
+    pub const ALL: [Format; 6] = [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery, Format::Midi2Controllers];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
@@ -43,6 +46,7 @@ impl Format {
             Format::ElectraOne => "electra-one",
             Format::Midnam => "midnam",
             Format::OscQuery => "oscquery",
+            Format::Midi2Controllers => "midi2-controllers",
         }
     }
 
@@ -102,6 +106,7 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
         Format::ElectraOne => electra_one::import(text, source),
         Format::Midnam => midnam::import(text, source),
         Format::OscQuery => oscquery::import(text, source),
+        Format::Midi2Controllers => midi2_controllers::import(text, source),
     }
 }
 
@@ -122,6 +127,7 @@ pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<Strin
         Format::ElectraOne => electra_one::export(device),
         Format::Midnam => midnam::export(device),
         Format::OscQuery => oscquery::export(device),
+        Format::Midi2Controllers => midi2_controllers::export(device),
     }
 }
 

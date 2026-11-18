@@ -4,7 +4,25 @@ use osd_formats::Format;
 
 #[test]
 fn midnam_and_oscquery_come_after_electra_one_in_the_list_of_formats() {
-    assert_eq!(Format::ALL, [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery]);
+    assert_eq!(&Format::ALL[..5], [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery]);
+}
+
+#[test]
+fn the_midi2_controller_list_comes_after_oscquery_and_is_named_midi2_controllers() {
+    assert_eq!(Format::ALL[5..], [Format::Midi2Controllers]);
+    assert_eq!(Format::ALL.len(), 6);
+    assert_eq!(Format::Midi2Controllers.name(), "midi2-controllers");
+    assert_eq!(Format::from_name("midi2-controllers"), Some(Format::Midi2Controllers));
+    assert_eq!(Format::from_name("midi2"), None);
+}
+
+#[test]
+fn the_interfaces_and_the_frame_list_midi2_controllers() {
+    for path in ["/docs/INTERFACE.md", "/docs/CADRE.md", "/../osd-cli/docs/INTERFACE.md"] {
+        let file = format!("{}{path}", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{file}: {e}"));
+        assert!(text.contains("midi2-controllers"), "{file} does not list midi2-controllers");
+    }
 }
 
 #[test]

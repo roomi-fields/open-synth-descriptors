@@ -4,6 +4,7 @@
 #![allow(dead_code)]
 
 pub mod electra;
+pub mod midi2;
 pub mod midnam;
 pub mod oscquery;
 pub mod xml;
