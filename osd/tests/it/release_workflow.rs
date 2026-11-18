@@ -105,7 +105,7 @@ fn the_workflow_starts_on_a_release_and_on_a_manual_dispatch_with_a_dry_run_inpu
 #[test]
 fn the_publication_jobs_chain_checks_crates_binaries_npm_and_registry_install_checks_by_needs() {
     let wf = workflow();
-    let (crates, _) = one(&wf, "cargo publish -p osd-cli");
+    let (crates, _) = crates_job(&wf);
     let (attach, _) = one(&wf, "gh release upload");
     let (npm, _) = one(&wf, "npm publish --access public");
     let checks_dry = with(&wf, "cargo publish --workspace --dry-run");
@@ -128,11 +128,135 @@ fn the_publication_jobs_chain_checks_crates_binaries_npm_and_registry_install_ch
 #[test]
 fn the_crates_publish_in_dependency_order() {
     let wf = workflow();
-    let (_, job) = one(&wf, "cargo publish -p osd-cli");
+    let (_, job) = crates_job(&wf);
     let t = job_text(job);
     let at = |s: &str| t.find(s).unwrap_or_else(|| panic!("{s} missing"));
-    assert!(at("cargo publish -p osd\n") < at("cargo publish -p osd-formats"));
-    assert!(at("cargo publish -p osd-formats") < at("cargo publish -p osd-cli"));
+    assert!(at("osd-formats") < at("osd-cli"), "osd-formats is handled before osd-cli");
+    let publish = t.find("cargo publish").expect("cargo publish");
+    assert!(
+        t[publish..].find("osd-formats").is_some() && t[publish..].find("osd-cli").is_some(),
+        "the publications name osd-formats then osd-cli"
+    );
+}
+
+/// The job that publishes the crates: the one that authenticates to crates.io.
+fn crates_job(wf: &Value) -> (String, &Value) {
+    one(wf, "crates-io-auth-action")
+}
+
+fn steps(job: &Value) -> Vec<&Value> {
+    key(job, "steps").and_then(|s| s.as_sequence()).expect("steps").iter().collect()
+}
+
+#[test]
+fn each_crate_is_published_only_when_the_crates_io_api_lacks_its_version() {
+    let wf = workflow();
+    let (_, job) = crates_job(&wf);
+    let t = job_text(job);
+    for name in ["osd", "osd-formats", "osd-cli"] {
+        assert!(t.contains(&format!("-p {name}")) || t.contains(name), "{name} is named in the crates job");
+    }
+    assert!(t.contains("api/v1/crates/"), "asks the crates.io version endpoint");
+    assert!(t.contains("404"), "only a 404 means absent");
+    assert!(t.to_lowercase().contains("already"), "the log says a version is already published");
+    assert!(t.contains("exit 1"), "any other answer fails the step");
+    assert!(t.contains("cargo publish -p"), "publishes crate by crate");
+    assert!(!t.contains("cargo publish -p osd\n          cargo publish -p osd-formats"), "no unconditional publication of all three");
+    assert!(t.contains("first publication"), "a name absent from crates.io is skipped, said in the log");
+}
+
+/// The `if` of a step, empty when it has none.
+fn condition(step: &Value) -> String {
+    key(step, "if").map(|v| v.as_str().map(String::from).unwrap_or_else(|| format!("{v:?}"))).unwrap_or_default()
+}
+
+fn runs_command(step: &Value, command: &str) -> bool {
+    key(step, "run").and_then(|r| r.as_str()).is_some_and(|r| r.lines().any(|l| l.trim() == command))
+}
+
+#[test]
+fn each_crate_publication_step_runs_only_on_the_output_of_its_own_version_check_in_dependency_order() {
+    let wf = workflow();
+    let (_, job) = crates_job(&wf);
+    let all = steps(job);
+    let mut last = None;
+    for name in ["osd", "osd-formats", "osd-cli"] {
+        let command = format!("cargo publish -p {name}");
+        let at = all
+            .iter()
+            .position(|s| runs_command(s, &command))
+            .unwrap_or_else(|| panic!("a step runs `{command}`"));
+        let cond = condition(all[at]);
+        let output = format!("publish_{}", name.replace('-', "_"));
+        assert!(
+            cond.contains(&format!("outputs.{output} == 'true'")),
+            "{name}: its publication depends on its own check output {output}: `{cond}`"
+        );
+        assert!(!cond.contains("always()"), "{name}: never forced: `{cond}`");
+        if let Some(previous) = last {
+            assert!(previous < at, "{name} is published after the crate it depends on");
+        }
+        last = Some(at);
+    }
+}
+
+#[test]
+fn the_crates_io_check_precedes_the_trusted_publishing_authentication_and_the_auth_is_conditional() {
+    let wf = workflow();
+    let (_, job) = crates_job(&wf);
+    let all = steps(job);
+    let auth = all.iter().position(|s| job_text(s).contains("crates-io-auth-action")).unwrap();
+    let check = all.iter().position(|s| job_text(s).contains("api/v1/crates/")).expect("a version check step");
+    assert!(check < auth, "the check runs before the authentication");
+    assert!(key(all[auth], "if").is_some(), "the authentication is skipped when all three crates are present");
+}
+
+#[test]
+fn the_binaries_run_when_the_crates_job_succeeded_and_are_skipped_otherwise() {
+    let wf = workflow();
+    let (crates, _) = crates_job(&wf);
+    let (_, attach) = one(&wf, "gh release upload");
+    assert!(needs(attach).contains(&crates), "binaries wait for the crates job");
+    let cond = key(attach, "if").and_then(|v| v.as_str()).expect("if");
+    assert!(cond.contains("needs.crates.result == 'success'"), "explicit success of the crates job: {cond}");
+    assert!(cond.contains("github.event_name == 'release'"), "release only: {cond}");
+}
+
+#[test]
+fn the_npm_publication_asks_the_registry_for_the_name_and_the_version_and_skips_when_absent_or_present() {
+    let wf = workflow();
+    let (_, job) = one(&wf, "npm publish --access public");
+    let t = job_text(job);
+    assert!(t.contains("npm view"), "asks npm");
+    assert!(t.contains("@roomi-fields/osd"), "names the package");
+    assert!(t.contains("E404"), "only E404 means absent");
+    assert!(t.to_lowercase().contains("already"), "the log says the version is already published");
+    assert!(t.contains("exit 1"), "any other error fails the step");
+    let view_name = t.matches("npm view").count();
+    assert!(view_name >= 2, "one question for the name, one for the version");
+    let all = steps(job);
+    let publish = all.iter().find(|s| job_text(s).contains("npm publish --access public")).unwrap();
+    let registry = all.iter().find(|s| job_text(s).contains("npm view")).expect("the registry question step");
+    let id = key(registry, "id").and_then(|v| v.as_str()).expect("the question step has an id");
+    let wanted = format!("steps.{id}.outputs.publish == 'true'");
+    assert!(condition(publish).contains(&wanted), "the publication runs on the answer of the registry: `{}`", condition(publish));
+    let version = all.iter().find(|s| job_text(s).contains("npm pkg set version")).expect("the version step");
+    assert!(condition(version).contains(&wanted), "the version is set only when publishing: `{}`", condition(version));
+}
+
+#[test]
+fn the_install_checks_still_run_when_the_npm_publication_is_skipped_and_npm_install_needs_the_package() {
+    let wf = workflow();
+    let (npm, _) = one(&wf, "npm publish --access public");
+    for name in ["install-cargo", "install-binary", "install-npm"] {
+        let (_, job) = jobs(&wf).into_iter().find(|(n, _)| n == name).unwrap_or_else(|| panic!("{name}"));
+        assert!(needs(job).contains(&npm), "{name} follows npm");
+        let cond = key(job, "if").and_then(|v| v.as_str()).unwrap();
+        assert!(cond.contains("github.event_name == 'release'"), "{name}");
+    }
+    let (_, install_npm) = jobs(&wf).into_iter().find(|(n, _)| n == "install-npm").unwrap();
+    let t = job_text(install_npm);
+    assert!(t.contains("npm view") || t.contains("needs.npm.outputs"), "install-npm runs only if the package is on the registry");
 }
 
 #[test]
@@ -154,7 +278,7 @@ fn every_publication_job_runs_only_on_a_release_event_and_never_on_a_dry_run() {
 #[test]
 fn the_checks_run_the_dry_runs_and_install_checks_on_the_artefacts_before_any_publication() {
     let wf = workflow();
-    let (crates, _) = one(&wf, "cargo publish -p osd-cli");
+    let (crates, _) = crates_job(&wf);
     let before: Vec<_> = jobs(&wf).into_iter().filter(|(n, _)| ancestors(&wf, &crates).contains(n)).collect();
     let text: String = before.iter().map(|(_, j)| job_text(j)).collect();
     assert!(text.contains("cargo build"), "builds the command");

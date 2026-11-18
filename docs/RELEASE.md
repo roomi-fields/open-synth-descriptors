@@ -20,15 +20,24 @@ Every publication runs only on a `release` event, never on a dry run.
 ## What a failure does
 
 - A failed check stops the workflow before anything is published.
-- A failed crates.io step stops the binaries and the npm package: none is published alone.
+- A failed crates.io step stops the binaries and the npm package: none is published alone. A release run again publishes only what is missing.
 - A failed install check after the publication leaves the workflow red and rolls nothing back. A published version is yanked only by the owner.
 
 ## Authentication
 
 Publication uses trusted publishing (OIDC): `id-token: write` on the crates and npm jobs only, and no access token is kept in the repository.
 
-## The first publication of each name
+## The first release
 
-The first publication of each new name (`osd`, `osd-formats` and `osd-cli` on crates.io, `@roomi-fields/osd` on npm) is done by hand by the owner: trusted publishing needs the name to exist. Then the repository `roomi-fields/open-synth-descriptors` is declared trusted publisher of each name (workflow `release.yml`), on crates.io and on npm. From the next release, the workflow publishes.
+Trusted publishing needs a name to exist, and the npm package installs the binaries of its release, so the first release goes in this order:
 
-The release workflow of this repository publishes nothing until a release is made: the first one is the owner's.
+1. The owner publishes the three crates by hand (`cargo publish -p osd`, `-p osd-formats`, `-p osd-cli`) and declares the repository `roomi-fields/open-synth-descriptors` trusted publisher of each (workflow `release.yml`).
+2. The release `v<version>` is made. The workflow finds the three crates on crates.io and skips their publication, saying so in the log; it attaches the binaries. The npm job finds no `@roomi-fields/osd` on npm and skips, saying so; the install checks run, the npm one only when the package is on the registry.
+3. Once the binaries are on the release, the owner publishes `@roomi-fields/osd` by hand from `npm/`, and declares the trusted publisher on npm.
+4. From the next release, the workflow publishes everything.
+
+## What a publication skips
+
+Each publication first asks its registry whether the version is there, and skips it when it is, saying so in the log. crates.io: `/api/v1/crates/<name>/<version>`; only a 404 means absent, and a yanked version counts as present. npm: `npm view <name>@<version>`; only an E404 means absent. Any other answer (network, 5xx, rate limit) fails the step: nothing is skipped on a doubt. A name absent from the registry skips its publication (the first one is by hand). So a release run again after a partial failure publishes only what is missing. The authentication to crates.io runs only when a crate is to be published, and the binaries run when the crates job succeeded, whether it published or skipped.
+
+A manual run publishes nothing.

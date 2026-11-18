@@ -95,7 +95,7 @@ jobs:
           OSD_RELEASE_BASE=http://127.0.0.1:8765 npm install -g "$RUNNER_TEMP"/roomi-fields-osd-*.tgz
           osd --version | grep -q "^osd $VERSION "
 
-  # 3. The crates, in dependency order.
+  # 3. The crates, in dependency order, each only when crates.io does not hold its version.
   crates:
     if: github.event_name == 'release'
     needs: [checks]
@@ -103,22 +103,71 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Ask crates.io which crates still need their publication
+        id: versions
+        run: |
+          version="${TAG#v}"
+          any=false
+          for name in osd osd-formats osd-cli; do
+            key="publish_${name//-/_}"
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -A "osd-release-workflow" "https://crates.io/api/v1/crates/$name/$version") || { echo "crates.io did not answer for $name $version"; exit 1; }
+            case "$code" in
+              200)
+                echo "$name $version is already published: skipped"
+                echo "$key=false" >> "$GITHUB_OUTPUT"
+                ;;
+              404)
+                code=$(curl -sS -o /dev/null -w '%{http_code}' -A "osd-release-workflow" "https://crates.io/api/v1/crates/$name") || { echo "crates.io did not answer for $name"; exit 1; }
+                case "$code" in
+                  200)
+                    echo "$name $version is absent: it is published"
+                    echo "$key=true" >> "$GITHUB_OUTPUT"
+                    any=true
+                    ;;
+                  404)
+                    echo "$name is not on crates.io: its first publication is made by hand by the owner, skipped"
+                    echo "$key=false" >> "$GITHUB_OUTPUT"
+                    ;;
+                  *)
+                    echo "crates.io answered $code for $name"
+                    exit 1
+                    ;;
+                esac
+                ;;
+              *)
+                echo "crates.io answered $code for $name $version"
+                exit 1
+                ;;
+            esac
+          done
+          echo "any=$any" >> "$GITHUB_OUTPUT"
       - uses: rust-lang/crates-io-auth-action@v1
         id: auth
-      - name: Publish the three crates
+        if: steps.versions.outputs.any == 'true'
+      - name: Publish osd
+        if: steps.versions.outputs.publish_osd == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: |
-          cargo publish -p osd
-          cargo publish -p osd-formats
-          cargo publish -p osd-cli
+        run: cargo publish -p osd
+      - name: Publish osd-formats
+        if: steps.versions.outputs.publish_osd_formats == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish -p osd-formats
+      - name: Publish osd-cli
+        if: steps.versions.outputs.publish_osd_cli == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish -p osd-cli
 
   # 4. The binaries and their checksums, attached to the release.
   binaries:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && needs.crates.result == 'success'
     needs: [crates]
     runs-on: ubuntu-latest
     permissions:
@@ -146,18 +195,50 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      on_registry: ${{ steps.registry.outputs.on_registry }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 26
           registry-url: https://registry.npmjs.org
+      - name: Ask npm whether the package and its version are there
+        id: registry
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          if out=$(npm view @roomi-fields/osd name 2>&1); then
+            :
+          elif echo "$out" | grep -q E404; then
+            echo "@roomi-fields/osd is not on npm: its first publication is made by hand by the owner, skipped"
+            echo "on_registry=false" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            echo "npm failed for @roomi-fields/osd: $out"
+            exit 1
+          fi
+          echo "on_registry=true" >> "$GITHUB_OUTPUT"
+          if out=$(npm view "@roomi-fields/osd@$version" version 2>&1); then
+            echo "@roomi-fields/osd $version is already published: skipped"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif echo "$out" | grep -q E404; then
+            echo "@roomi-fields/osd $version is absent: it is published"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm failed for @roomi-fields/osd@$version: $out"
+            exit 1
+          fi
       - name: Set the version of the package from the release tag
+        if: steps.registry.outputs.publish == 'true'
         working-directory: npm
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: npm pkg set version="${TAG#v}"
       - name: Publish the package
+        if: steps.registry.outputs.publish == 'true'
         working-directory: npm
         run: npm publish --access public
 
@@ -194,7 +275,7 @@ jobs:
           PATH="$PWD/bin:$PATH" osd --version | grep -q "^osd ${TAG#v} "
 
   install-npm:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && needs.npm.outputs.on_registry == 'true'
     needs: [npm]
     runs-on: ubuntu-latest
     steps:
