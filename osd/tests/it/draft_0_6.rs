@@ -235,6 +235,12 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             let values = now["$defs"]["param_entry"]["properties"]["values"].as_object_mut().unwrap();
             assert!(values["description"].as_str().unwrap().contains("range"));
             values.insert("description".into(), json!("Named values."));
+            // The sound transfers (the elements of a message that carries a sound) are 0.6's own.
+            assert!(now["properties"].as_object_mut().unwrap().remove("sound_transfers").is_some(), "device has no sound_transfers");
+            let defs = now["$defs"].as_object_mut().unwrap();
+            for def in ["sound_transfer", "sound_elements", "sound_element", "sound_data_element"] {
+                assert!(defs.remove(def).is_some(), "no def {def}");
+            }
         }
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {

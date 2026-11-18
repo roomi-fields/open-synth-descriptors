@@ -93,6 +93,13 @@
       },
       "description": "Devices (their address prefix without /) whose sounds this one loads as they are."
     },
+    "sound_transfers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sound_transfer"
+      },
+      "description": "What in a message is the sound: for each form a sound travels in (alone, in a bank), the elements of the message. The identity of a sound is the SHA-256 of its data element alone."
+    },
     "identity": {
       "$ref": "#/$defs/identity"
     },
@@ -462,6 +469,175 @@
     }
   },
   "$defs": {
+    "sound_transfer": {
+      "type": "object",
+      "required": ["id", "carries", "match_frame", "elements"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The name of this form of transfer, the one a reader is asked for."
+        },
+        "sound_id": {
+          "type": "string",
+          "description": "Declares that the data of this form is the same as that of every form of the device with the same sound_id: a sound alone and the same sound in a bank."
+        },
+        "carries": {
+          "enum": ["sound", "bank"],
+          "description": "One sound, or a bank of sounds."
+        },
+        "match_frame": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recognised_frame_token"
+          },
+          "description": "The message recognised, one element per byte: the message is as long as this list."
+        },
+        "elements": {
+          "$ref": "#/$defs/sound_elements"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A bank: the number of sounds it carries."
+        },
+        "stride": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A bank: the sound i has its elements shifted by i times stride bytes."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": { "carries": { "const": "bank" } },
+        "required": ["carries"]
+      },
+      "then": {
+        "required": ["count", "stride"]
+      },
+      "else": {
+        "not": { "anyOf": [{ "required": ["count"] }, { "required": ["stride"] }] }
+      }
+    },
+    "sound_elements": {
+      "type": "object",
+      "required": ["data"],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/sound_data_element"
+        },
+        "name": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "channel": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "device_number": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "header": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "checksum": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "bank_number": {
+          "$ref": "#/$defs/sound_element"
+        },
+        "program_number": {
+          "$ref": "#/$defs/sound_element"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "The data (what makes the sound), the name, and the transport parts (channel, device number, header, checksum, bank and program number); only the data enters the identity."
+    },
+    "sound_element": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The first byte of the element in the message (F0 is 0)."
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of bytes."
+        },
+        "script": {
+          "type": "string",
+          "description": "A Lua script that gives the element from the message. Requires the lua capability."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "dependentRequired": {
+        "from": ["length"],
+        "length": ["from"]
+      },
+      "anyOf": [
+        { "required": ["from"] },
+        { "required": ["script"] }
+      ],
+      "not": {
+        "required": ["from", "script"]
+      },
+      "description": "An element found by positions ({from, length}) or by a Lua script ({script}), never both."
+    },
+    "sound_data_element": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The first byte of the data in the message (F0 is 0)."
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of bytes in the message."
+        },
+        "packing": {
+          "enum": ["none", "msb_first_7in8"],
+          "description": "How the data is packed in 7 bits: none (default), or msb_first_7in8, a byte of the high bits then 7 bytes of 7 bits, as the KORG minilogue xd MIDI implementation (note 1, 7 bit data format conversion) writes it; the last group may be partial. Any other packing is given by a script."
+        },
+        "script": {
+          "type": "string",
+          "description": "A Lua script that gives the data from the message. Requires the lua capability."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "dependentRequired": {
+        "from": ["length"],
+        "length": ["from"]
+      },
+      "anyOf": [
+        { "required": ["from"] },
+        { "required": ["script"] }
+      ],
+      "not": {
+        "required": ["from", "script"]
+      },
+      "description": "The data of the sound, found by positions ({from, length}, with its packing) or by a Lua script ({script}), never both."
+    },
     "role": {
       "type": "object",
       "required": ["parts", "setting"],

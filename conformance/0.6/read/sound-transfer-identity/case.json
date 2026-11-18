@@ -1,0 +1,144 @@
+{
+  "_about": "A sound alone and the first sound of a bank share a sound_id; the message, the same sound renamed, on another channel, and the bank all give one identity, the SHA-256 of the data 05 06 07 08.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 11,
+            "length": 4
+          },
+          "name": {
+            "from": 7,
+            "length": 4
+          },
+          "channel": {
+            "from": 2,
+            "length": 1
+          },
+          "header": {
+            "from": 3,
+            "length": 4
+          },
+          "checksum": {
+            "from": 15,
+            "length": 1
+          }
+        }
+      },
+      {
+        "id": "bank",
+        "sound_id": "program",
+        "carries": "bank",
+        "count": 2,
+        "stride": 8,
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          76,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 11,
+            "length": 4
+          },
+          "name": {
+            "from": 7,
+            "length": 4
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    },
+    {
+      "pointer": "/sound_transfers/1",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    },
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    },
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3d 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    },
+    {
+      "transfer": "bank",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 4c 41 42 43 44 05 06 07 08 45 46 47 48 05 06 07 09 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    },
+    {
+      "transfer": "bank",
+      "index": 1,
+      "message": "f0 42 3c 00 01 51 4c 41 42 43 44 05 06 07 09 45 46 47 48 05 06 07 08 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    }
+  ]
+}

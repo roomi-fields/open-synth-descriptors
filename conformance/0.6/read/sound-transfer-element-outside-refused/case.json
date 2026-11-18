@@ -1,0 +1,9 @@
+{
+  "_about": "A data element that reaches past the message (17 bytes) is refused where it is.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/data"
+  }
+}

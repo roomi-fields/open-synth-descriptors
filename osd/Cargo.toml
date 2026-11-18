@@ -10,10 +10,10 @@ categories = ["multimedia::audio", "parser-implementations"]
 
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 jsonschema = { version = "0.60", default-features = false }
-sha2 = "0.10"
 tempfile = "3"
 
 [[bench]]

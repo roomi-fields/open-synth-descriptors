@@ -14,6 +14,12 @@ reader in any language runs them; `osd` runs them with `cargo test -p osd`.
   - `fault`: the refusal, by its `kind` and the JSON `pointer` of the value
     refused.
 
+A result case of a device with `sound_transfers` (0.6) adds `identity_support`
+(one `{pointer, without_lua}` per transfer: whether the reader computes the
+identity without Lua) and, when it computes, `identities`
+(`{transfer, index, message, identity}`: the `id` of a transfer, the index of
+the sound, the message in hexadecimal and the SHA-256 expected).
+
 A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
 one schema error, at the pointer the fault names. A case with

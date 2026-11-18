@@ -1,0 +1,63 @@
+{
+  "_about": "The name is a script, which is taken as outside the data; the data is given by positions: the identity stays computable without Lua, and the data is the 8 bytes taken as they are.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "capabilities": [
+      "lua"
+    ],
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 7,
+            "length": 8
+          },
+          "name": {
+            "script": "return string.char(msg[8], msg[9], msg[10], msg[11])"
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "identity": "96f74918418c8c271d7cd75df353037a05ba5e5af8eb1c6641889f03c1486e64"
+    }
+  ]
+}

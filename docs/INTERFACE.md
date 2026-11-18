@@ -60,6 +60,29 @@ The arguments of `forward.args` and `replies[].emit_args` are each a JSON litera
 
 `osd::convert` cuts each 0.4 address that holds `{name}` into segments and leaves one without brace as it is. In `forward.args` a `{name}` becomes `{"arg": name}`; a 0.4 `emit_osc` is cut at its first space, the address before it and each `{name}` after it a `{"capture": name}` of `emit_args`. A brace unclosed, empty, nested, stray or around anything but a name, an argument that mixes a brace with text, an argument of `emit_osc` that is not one `{name}`, and a `midi_in` template other than the canonical one of its type are conversion faults (`NotConvertible`) at the address of the element, which names the address or the template; no text is returned.
 
+## What in a message is the sound (0.6)
+
+From 0.6 a device may state, in `sound_transfers[]`, what in a message is the sound. It describes the structure (which bytes make the sound); how a device codes it stays the device's. One entry per form a sound travels in (alone, in a bank):
+
+| Key | Meaning |
+|---|---|
+| `id` | the name of the form; a reader is asked for the identity of a sound by it |
+| `carries` | `sound` (one sound) or `bank` |
+| `sound_id` | the same `sound_id` in two forms declares that their data is the same sound |
+| `match_frame` | the message recognised, one element per byte (the message is as long as the list); the bytes that a transport part covers are not compared |
+| `elements` | the elements below |
+| `count`, `stride` | a bank only, both required: the number of sounds, and the shift of each one: the sound `i` has its elements `i × stride` bytes further |
+
+An element is `{from, length}` in the message (`F0` is 0) when its place is fixed, or `{script}`, a Lua script, when positions cannot say it; a descriptor with a script declares the `lua` capability. `data` is the sound itself and is required; `name`, `channel`, `device_number`, `header`, `checksum`, `bank_number` and `program_number` are optional, the last six being the transport parts.
+
+`data` adds `packing`, a closed list: `none` (default), the bytes of the message are the data; `msb_first_7in8`, groups of 8 bytes, a first byte that carries the bits 7 of the seven that follow (its bit k is the bit 7 of the byte k) then those seven bytes with their bits 6 to 0, the last group possibly partial. Its piece is the KORG minilogue xd MIDI Implementation (revision 1.01, 2020.2.10), note 1 "7 bit data format conversion" (the NTS-1 note gives a partial last group: 11 bytes of MIDI for 9 of data). Any other packing is given by a script, and a word outside the list is refused.
+
+**The identity of a sound** is the SHA-256 of its data element alone, in 64 lowercase hexadecimal digits: the data unpacked, and, when the name lies inside the data, without the name's bytes. The name, the device number, the channel, the header, the checksum, the bank and the program number never enter it, so the same sound renamed, on another channel or in a bank has one identity. This follows KnobKraft Orm, which keeps a patch's fingerprint to its data and masks the channel, and departs from it by its hash (it hashes with MD5): SHA-256 is a named hash with no known collisions, the same on every tool; the identity another tool gives (the MD5 of an adaptation) is carried beside it, not in its place.
+
+A reader without Lua knows at load, per transfer, whether it computes the identity: it does not when `data` is a script; a script on a transport part or on the name leaves it computable, a name given by a script being taken as outside the data (a device whose name lies inside a data that positions cannot cut gives the data by a script that leaves the name out).
+
+Refused, at the address of the fault: an element outside the message (the name included, the last sound of a bank included), an empty data, a data that overlaps the header, the checksum or a transport part, two transport parts that overlap (at the later, in the order of the table above), an element given by positions and by a script, a name that straddles the end of the data or that lies inside a packed data, a `packing` word outside the list, a script without the `lua` capability and the capability without a script. A descriptor of 0.4 or 0.5 refuses `sound_transfers` as an unknown field; `osd::convert` from 0.5 adds none.
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.

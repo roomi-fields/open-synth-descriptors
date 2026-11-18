@@ -19,6 +19,7 @@ mod resolve;
 mod role;
 mod role_vocabulary;
 mod sound;
+mod sound_transfer;
 mod vocabulary;
 
 pub use address::{Address, Segment};
@@ -38,6 +39,9 @@ pub use role::{role_from_param_path, roles, Role, RoleEntry, RoleMeaning, RolePa
 pub use role_vocabulary::{
     read_vocabulary, vocabulary_state, Controller, DocumentSource, MakerWord, SharedDevice, Term, TermKind, TermSource, Vocabulary,
     VOCABULARY_STATES,
+};
+pub use sound_transfer::{
+    sound_identity, sound_identity_support, Carries, Element, Elements, IdentitySupport, Packing, SoundTransfer,
 };
 pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 

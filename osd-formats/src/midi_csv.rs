@@ -166,6 +166,7 @@ pub(crate) fn blank_device(name: String, vendor: Option<String>, source: &Source
         capabilities: None,
         midi_of: None,
         loads_sounds_of: None,
+        sound_transfers: None,
         identity: None,
         programs: None,
         sysex: None,

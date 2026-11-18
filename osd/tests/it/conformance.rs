@@ -58,6 +58,34 @@ fn kind(word: &str) -> osd::Kind {
     }
 }
 
+fn hex_bytes(text: &str) -> Vec<u8> {
+    text.split_whitespace().map(|b| u8::from_str_radix(b, 16).unwrap()).collect()
+}
+
+/// What a reading case states of the sound transfers of its descriptor, when it does:
+/// `identity_support` (each transfer by its pointer, whether its identity is computable without
+/// Lua) and `identities` (a transfer by its `id`, the index of the sound, a `message` in
+/// hexadecimal, the `identity` expected). Absent, the descriptor has none and says none.
+fn sound_transfer_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
+    let osd::Descriptor::Device(device) = d else { return None };
+    let support: Vec<Value> = osd::sound_identity_support(device)
+        .into_iter()
+        .map(|s| serde_json::json!({"pointer": s.pointer, "without_lua": s.without_lua}))
+        .collect();
+    let want_support = case.get("identity_support").and_then(Value::as_array).cloned().unwrap_or_default();
+    if support != want_support {
+        return Some(format!("identity_support {support:?}, the case states {want_support:?}"));
+    }
+    for want in case.get("identities").and_then(Value::as_array).into_iter().flatten() {
+        let message = hex_bytes(want["message"].as_str().unwrap());
+        let got = osd::sound_identity(device, want["transfer"].as_str().unwrap(), &message, want["index"].as_u64().unwrap() as usize);
+        if got.as_deref().ok() != want["identity"].as_str() {
+            return Some(format!("identity {got:?}, the case states {want}"));
+        }
+    }
+    None
+}
+
 /// What a reading case asked for that the reader did not return, if anything.
 fn run_read(dir: &Path) -> Option<String> {
     let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
@@ -78,7 +106,10 @@ fn run_read(dir: &Path) -> Option<String> {
                 })
                 .collect();
             let want_roles = case.get("roles").and_then(Value::as_array).cloned().unwrap_or_default();
-            (got != want_roles).then(|| format!("roles {got:?}, the case states {want_roles:?}"))
+            if got != want_roles {
+                return Some(format!("roles {got:?}, the case states {want_roles:?}"));
+            }
+            sound_transfer_claims(&d, &case)
         }
         (Err(f), None, Some(want)) => {
             let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});

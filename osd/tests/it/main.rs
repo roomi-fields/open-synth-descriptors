@@ -24,5 +24,6 @@ mod resolve_capabilities;
 mod role_path_vocabulary;
 mod role_vocabulary;
 mod roles;
+mod sound_transfers;
 mod version;
 mod vocabularies;

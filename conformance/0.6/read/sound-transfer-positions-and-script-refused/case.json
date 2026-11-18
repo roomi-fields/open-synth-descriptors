@@ -1,0 +1,8 @@
+{
+  "_about": "An element given by positions and by a script is refused where it is.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/data"
+  }
+}

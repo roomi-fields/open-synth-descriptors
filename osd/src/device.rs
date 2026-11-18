@@ -14,6 +14,7 @@ use crate::frame::{
     REPLY_TOKEN,
 };
 use crate::role::{check_roles, Role};
+use crate::sound_transfer::SoundTransfer;
 use crate::vocabulary;
 use crate::{Capability, Fault, FaultKind, SchemaUrlFrom05, Version};
 use serde_json::{Number, Value};
@@ -45,6 +46,8 @@ object! {
         /// Devices (their address prefix without `/`) whose sounds this one
         /// loads as they are.
         "loads_sounds_of" loads_sounds_of: Option<Vec<String>> = Opt(list(STRING)),
+        /// What in a message is the sound, per form of transfer (0.6).
+        "sound_transfers" sound_transfers: Option<Vec<SoundTransfer>> = Opt(list(obj())),
         "identity" identity: Option<Identity> = Opt(obj()),
         "programs" programs: Option<Programs> = Opt(obj()),
         "sysex" sysex: Option<Sysex> = Opt(obj()),
@@ -295,7 +298,8 @@ impl Device {
             i.script.is_some() || i.firmware.iter().flatten().any(|f| f.script.is_some() || f.decode == "lua")
         });
         let programs = d.programs.as_ref().is_some_and(|p| p.recall_script.is_some() || p.dump.as_ref().is_some_and(|x| x.script.is_some()));
-        if cc || params || commands || replies || custom || identity || programs { vec![Capability::Lua] } else { Vec::new() }
+        let sounds = d.sound_transfers_use_lua();
+        if cc || params || commands || replies || custom || identity || programs || sounds { vec![Capability::Lua] } else { Vec::new() }
     }
 }
 
@@ -430,6 +434,7 @@ fn check_precision(d: &Device) -> Result<(), Fault> {
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = crate::is_05_form(d.schema);
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
+    crate::sound_transfer::check_version(d)?;
     check_roles(d)?;
     check_defaults(d)?;
     check_precision(d)?;

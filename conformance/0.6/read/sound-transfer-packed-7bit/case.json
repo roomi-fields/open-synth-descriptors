@@ -1,0 +1,58 @@
+{
+  "_about": "A data packed in 7 bits (msb_first_7in8, KORG minilogue xd MIDI Implementation, note 1): 45 05 06 07 08 09 0a 0b is the data 85 06 87 08 09 0a 8b.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 7,
+            "length": 8,
+            "packing": "msb_first_7in8"
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 45 05 06 07 08 09 0a 0b 41 f7",
+      "identity": "6946b9a650125289f56fbe6e4a9f3858c4648696ed8a443abbeb1ff1bc70f805"
+    }
+  ]
+}
