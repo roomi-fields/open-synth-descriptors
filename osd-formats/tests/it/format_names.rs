@@ -4,7 +4,24 @@ use osd_formats::Format;
 
 #[test]
 fn midnam_and_oscquery_come_after_electra_one_in_the_list_of_formats() {
-    assert_eq!(Format::ALL, [Format::MidiCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery]);
+    assert_eq!(Format::ALL, [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery]);
+}
+
+#[test]
+fn the_triggers_csv_follows_the_controller_csv_and_is_named_midi_triggers_csv() {
+    assert_eq!(&Format::ALL[..2], [Format::MidiCsv, Format::MidiTriggersCsv]);
+    assert_eq!(Format::MidiTriggersCsv.name(), "midi-triggers-csv");
+    assert_eq!(Format::from_name("midi-triggers-csv"), Some(Format::MidiTriggersCsv));
+    assert_eq!(Format::from_name("midi-triggers"), None);
+}
+
+#[test]
+fn the_interfaces_of_the_crate_and_of_the_command_list_midi_triggers_csv() {
+    for path in ["/docs/INTERFACE.md", "/../osd-cli/docs/INTERFACE.md"] {
+        let file = format!("{}{path}", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{file}: {e}"));
+        assert!(text.contains("`midi-triggers-csv`"), "{file} does not list `midi-triggers-csv`");
+    }
 }
 
 #[test]

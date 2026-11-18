@@ -10,7 +10,7 @@ const VALIDATE_SHAPE: &str = "osd validate [--kind <kind>] <file>…";
 const CONVERT_SHAPE: &str = "osd convert [--kind <kind>] [--to <version>] <file> [-o <file>] [--force]";
 const INIT_SHAPE: &str = "osd init <kind> [-o <file>] [--force]";
 const IMPORT_SHAPE: &str =
-    "osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [-o <file>] [--force]";
+    "osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [--into <descriptor>] [-o <file>] [--force]";
 const EXPORT_SHAPE: &str = "osd export <format> <file> [-o <file>] [--force]";
 
 /// The kinds, with the template embedded for each.
@@ -73,6 +73,8 @@ fn word_help(word: &str) -> String {
              the file `-o` names; an existing file is replaced only with `--force`.\n\
              The descriptor carries the source given by `--source-url`, `--source-author` and `--license`:\n\
              one of the url or the author, and the license, are needed (exit 2 without them).\n\
+             `--into <descriptor>` (for midi-csv and midi-triggers-csv) adds the entries of the file to that\n\
+             descriptor, which keeps its identity and its other blocks, and its sources then name both files.\n\
              What the file could not say is printed on the error output, one line per loss.\n\
              Exit 1 when the file is not valid in its format, 2 when misused.\n",
             format_names()
@@ -108,10 +110,11 @@ struct Options {
     source_url: Option<String>,
     source_author: Option<String>,
     license: Option<String>,
+    into: Option<String>,
     positional: Vec<String>,
 }
 
-fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bool) -> Result<Options, String> {
+fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bool, takes_into: bool) -> Result<Options, String> {
     let mut o = Options::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -122,6 +125,7 @@ fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bo
             "--force" if takes_output => o.force = true,
             "--source-url" if takes_source => o.source_url = Some(it.next().ok_or("`--source-url` needs a url")?.clone()),
             "--source-author" if takes_source => o.source_author = Some(it.next().ok_or("`--source-author` needs a name")?.clone()),
+            "--into" if takes_into => o.into = Some(it.next().ok_or("`--into` needs a descriptor")?.clone()),
             "--license" if takes_source => o.license = Some(it.next().ok_or("`--license` needs an SPDX id")?.clone()),
             s if s.starts_with('-') && s.len() > 1 => return Err(format!("unknown option `{s}`")),
             _ => o.positional.push(a.clone()),
@@ -314,7 +318,27 @@ fn import(o: Options, help: &str) -> i32 {
         notes: None,
         extra: Default::default(),
     };
-    match osd_formats::import(&text, format, &source) {
+    let translated = match &o.into {
+        None => osd_formats::import(&text, format, &source),
+        Some(base_file) => {
+            let base_text = match read_input(base_file) {
+                Ok(t) => t,
+                Err(c) => return c,
+            };
+            match osd::read(&base_text, osd::Kind::Device) {
+                Ok(osd::Descriptor::Device(base)) => osd_formats::import_into(*base, &text, format, &source),
+                Ok(_) => {
+                    eprintln!("{base_file}: not a device descriptor");
+                    return 1;
+                }
+                Err(f) => {
+                    eprintln!("{}", fault_line(base_file, &f));
+                    return 1;
+                }
+            }
+        }
+    };
+    match translated {
         Ok(t) => {
             print_losses(&t.lost);
             emit(&osd::write(&osd::Descriptor::Device(Box::new(t.value))), &o)
@@ -419,10 +443,10 @@ pub fn run(args: Vec<String>) -> i32 {
             }
             let wh = word_help(w);
             let parsed = match w {
-                "validate" => parse(rest, true, false, false),
-                "convert" => parse(rest, true, true, false),
-                "import" => parse(rest, false, true, true),
-                _ => parse(rest, false, true, false),
+                "validate" => parse(rest, true, false, false, false),
+                "convert" => parse(rest, true, true, false, false),
+                "import" => parse(rest, false, true, true, true),
+                _ => parse(rest, false, true, false, false),
             };
             match parsed {
                 Err(m) => misuse(&m, &help),

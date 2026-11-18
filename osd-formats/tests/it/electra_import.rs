@@ -15,8 +15,8 @@ fn entries(d: &Value) -> Vec<Value> {
 }
 
 #[test]
-fn the_format_is_named_electra_one_and_comes_after_midi_csv() {
-    assert_eq!(&Format::ALL[..2], [Format::MidiCsv, Format::ElectraOne]);
+fn the_format_is_named_electra_one_and_comes_after_the_csv_formats() {
+    assert_eq!(&Format::ALL[..3], [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne]);
     assert_eq!(Format::ElectraOne.name(), "electra-one");
     assert_eq!(Format::from_name("electra-one"), Some(Format::ElectraOne));
 }

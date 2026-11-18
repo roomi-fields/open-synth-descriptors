@@ -138,6 +138,83 @@ fn lost(losses: &mut Vec<(usize, Loss)>, line: usize, column: usize, reason: &st
 
 pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
+    let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
+    let (entries, losses) = read(text, &mut identity, &mut used)?;
+    let (vendor, name) = identity;
+    let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
+    device.cc_params = Some(CcParams { channel: None, entries, remarks: Default::default() });
+    Ok(Translated { value: device, lost: losses })
+}
+
+/// The device of a first import: its identity and its one source, no block.
+pub(crate) fn blank_device(name: String, vendor: Option<String>, source: &Source) -> Device {
+    let prefix = format!("/{}", slug(&name));
+    Device {
+        schema: Some(Version::V0_6),
+        device: DeviceInfo {
+            name,
+            vendor,
+            revision: None,
+            osc_prefix: prefix,
+            manufacturer_id: None,
+            device_id: None,
+            rate_limit_hz: None,
+            kind: None,
+            transport: None,
+            remarks: Default::default(),
+        },
+        capabilities: None,
+        midi_of: None,
+        loads_sounds_of: None,
+        identity: None,
+        programs: None,
+        sysex: None,
+        cc_params: None,
+        params: None,
+        commands: None,
+        triggers: None,
+        midi_out: None,
+        midi_in: None,
+        replies: None,
+        subscriptions: None,
+        custom_commands: None,
+        sources: Some(vec![source.clone()]),
+        coverage: None,
+        role_vocabulary: None,
+        remarks: Default::default(),
+    }
+}
+
+/// The addresses a device already uses, controls and triggers.
+pub(crate) fn used_addresses(base: &Device) -> BTreeSet<String> {
+    let cc = base.cc_params.iter().flat_map(|c| c.entries.iter().map(|e| e.osc.clone()));
+    let tr = base.triggers.iter().flat_map(|t| t.entries.iter().map(|e| e.osc.clone()));
+    cc.chain(tr).collect()
+}
+
+/// Adds the controls of `text` to `base`, which keeps its identity and its other blocks.
+pub(crate) fn import_into(mut base: Device, text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+    check_source(source)?;
+    let mut identity = (base.device.vendor.clone().unwrap_or_default(), base.device.name.clone());
+    let mut used = used_addresses(&base);
+    let (entries, losses) = read(text, &mut identity, &mut used)?;
+    adopt_identity(&mut base, identity);
+    base.cc_params.get_or_insert_with(|| CcParams { channel: None, entries: Vec::new(), remarks: Default::default() }).entries.extend(entries);
+    base.sources.get_or_insert_with(Vec::new).push(source.clone());
+    Ok(Translated { value: base, lost: losses })
+}
+
+/// A base that names no vendor or no device takes the first the file gave.
+pub(crate) fn adopt_identity(base: &mut Device, identity: (String, String)) {
+    if base.device.vendor.is_none() {
+        base.device.vendor = Some(identity.0).filter(|v| !v.is_empty());
+    }
+    if base.device.name.is_empty() {
+        base.device.name = identity.1;
+    }
+}
+
+fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>) -> Result<(Vec<CcEntry>, Vec<Loss>), Fault> {
     let records = csv::parse(text).map_err(|u| invalid(format!("line {}", u.0), "a quoted cell is not closed"))?;
     let Some(head) = records.first() else {
         return Err(invalid("line 1", "the file is empty: the header of the format is missing"));
@@ -146,7 +223,6 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         return Err(invalid("line 1", format!("the header is not the format's: {}", HEADER.join(","))));
     }
 
-    let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
     let (mut entries, mut losses) = (Vec::new(), Vec::new());
     for record in &records[1..] {
         let (line, cells) = (record.line, &record.cells);
@@ -293,51 +369,15 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         };
         let suffix = if cc.is_some() && has_nrpn { "-nrpn" } else { "" };
         if let Some(n) = cc {
-            entries.push(control("", format!("cc-{n}"), cc, cc_lsb, (None, None), cc_range, cc_default, &mut used));
+            entries.push(control("", format!("cc-{n}"), cc, cc_lsb, (None, None), cc_range, cc_default, used));
         }
         if has_nrpn {
             let fallback = format!("nrpn-{}-{}", nrpn_msb.map_or(String::new(), |n| n.to_string()), nrpn_lsb.map_or(String::new(), |n| n.to_string()));
-            entries.push(control(suffix, fallback, None, None, (nrpn_msb, nrpn_lsb), nrpn_range, nrpn_default, &mut used));
+            entries.push(control(suffix, fallback, None, None, (nrpn_msb, nrpn_lsb), nrpn_range, nrpn_default, used));
         }
     }
 
-    let (vendor, name) = identity;
-    let prefix = format!("/{}", slug(&name));
-    let device = Device {
-        schema: Some(Version::V0_6),
-        device: DeviceInfo {
-            name,
-            vendor: Some(vendor).filter(|v| !v.is_empty()),
-            revision: None,
-            osc_prefix: prefix,
-            manufacturer_id: None,
-            device_id: None,
-            rate_limit_hz: None,
-            kind: None,
-            transport: None,
-            remarks: Default::default(),
-        },
-        capabilities: None,
-        midi_of: None,
-        loads_sounds_of: None,
-        identity: None,
-        programs: None,
-        sysex: None,
-        cc_params: Some(CcParams { channel: None, entries, remarks: Default::default() }),
-        params: None,
-        commands: None,
-        triggers: None,
-        midi_out: None,
-        midi_in: None,
-        replies: None,
-        subscriptions: None,
-        custom_commands: None,
-        sources: Some(vec![source.clone()]),
-        coverage: None,
-        role_vocabulary: None,
-        remarks: Default::default(),
-    };
-    Ok(Translated { value: device, lost: losses })
+    Ok((entries, losses))
 }
 
 // ---- export -----------------------------------------------------------------------------

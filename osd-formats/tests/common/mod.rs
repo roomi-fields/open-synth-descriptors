@@ -163,6 +163,52 @@ pub fn device_from(text: &str) -> osd::Device {
     }
 }
 
+/// The first line of `template.triggers.csv` of github.com/pencilresearch/midi (commit 215c64e8d3b3).
+pub const TRIGGER_HEADER: [&str; 11] = [
+    "manufacturer",
+    "device",
+    "section",
+    "sound_name",
+    "sound_description",
+    "midi_channel",
+    "note_number_min_value",
+    "note_number_max_value",
+    "note_number_default_value",
+    "comments",
+    "velocity_usage",
+];
+
+pub fn trigger_header_line() -> String {
+    line(&TRIGGER_HEADER)
+}
+
+/// A row of 11 cells, each empty but those named.
+pub fn trigger_row(cells: &[(&str, &str)]) -> Vec<String> {
+    let mut out = vec![String::new(); TRIGGER_HEADER.len()];
+    for (name, value) in cells {
+        let at = TRIGGER_HEADER.iter().position(|h| h == name).unwrap_or_else(|| panic!("{name} is not a trigger column"));
+        out[at] = value.to_string();
+    }
+    out
+}
+
+/// A triggers file: the header, then each row, one line each.
+pub fn trigger_csv(rows: &[Vec<String>]) -> String {
+    let mut text = trigger_header_line();
+    text.push('\n');
+    for r in rows {
+        let cells: Vec<&str> = r.iter().map(|c| c.as_str()).collect();
+        text.push_str(&line(&cells));
+        text.push('\n');
+    }
+    text
+}
+
+/// The trigger entries of a device.
+pub fn triggers(d: &osd::Device) -> Vec<osd::Trigger> {
+    d.triggers.as_ref().map(|t| t.entries.clone()).unwrap_or_default()
+}
+
 /// The controls of a device.
 pub fn entries(d: &osd::Device) -> Vec<osd::CcEntry> {
     d.cc_params.as_ref().map(|c| c.entries.clone()).unwrap_or_default()

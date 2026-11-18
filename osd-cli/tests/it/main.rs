@@ -9,6 +9,7 @@ mod formats;
 mod formats_electra;
 mod formats_midnam;
 mod formats_oscquery;
+mod formats_triggers;
 mod init;
 mod program;
 mod validate;

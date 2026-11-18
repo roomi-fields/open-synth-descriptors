@@ -8,6 +8,7 @@ mod credit;
 mod csv;
 mod electra_one;
 mod midi_csv;
+mod midi_triggers_csv;
 mod midnam;
 mod midnam_dtd;
 mod oscquery;
@@ -20,6 +21,8 @@ use std::fmt;
 pub enum Format {
     /// The pencilresearch/midi CSV (`template.csv`).
     MidiCsv,
+    /// The pencilresearch/midi triggers CSV (`template.triggers.csv`).
+    MidiTriggersCsv,
     /// The Electra One preset (JSON, versions 2 and 3).
     ElectraOne,
     /// The MIDNAM names document of the MIDI Association (MIDINameDocument 1.0).
@@ -30,12 +33,13 @@ pub enum Format {
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 4] = [Format::MidiCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery];
+    pub const ALL: [Format; 5] = [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
         match self {
             Format::MidiCsv => "midi-csv",
+            Format::MidiTriggersCsv => "midi-triggers-csv",
             Format::ElectraOne => "electra-one",
             Format::Midnam => "midnam",
             Format::OscQuery => "oscquery",
@@ -94,6 +98,7 @@ impl std::error::Error for Fault {}
 pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Translated<osd::Device>, Fault> {
     match format {
         Format::MidiCsv => midi_csv::import(text, source),
+        Format::MidiTriggersCsv => midi_triggers_csv::import(text, source),
         Format::ElectraOne => electra_one::import(text, source),
         Format::Midnam => midnam::import(text, source),
         Format::OscQuery => oscquery::import(text, source),
@@ -104,8 +109,23 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
 pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<String>, Fault> {
     match format {
         Format::MidiCsv => midi_csv::export(device),
+        Format::MidiTriggersCsv => midi_triggers_csv::export(device),
         Format::ElectraOne => electra_one::export(device),
         Format::Midnam => midnam::export(device),
         Format::OscQuery => oscquery::export(device),
+    }
+}
+
+/// Reads `text`, a controller or triggers CSV, into `base`: the entries come after those `base`
+/// holds, its identity and other blocks stay, and `source` follows its `_sources`.
+pub fn import_into(base: osd::Device, text: &str, format: Format, source: &osd::Source) -> Result<Translated<osd::Device>, Fault> {
+    match format {
+        Format::MidiCsv => midi_csv::import_into(base, text, source),
+        Format::MidiTriggersCsv => midi_triggers_csv::import_into(base, text, source),
+        other => Err(Fault {
+            kind: FaultKind::InvalidFile,
+            place: "format".to_string(),
+            rule: format!("{} cannot be added to a descriptor: only the two CSV formats can", other.name()),
+        }),
     }
 }

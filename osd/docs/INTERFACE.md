@@ -67,7 +67,7 @@ One table, read by `read` and written by `write`. `<kind>` is `device`, `profile
 ## Consumers
 
 - `synth-core` (osc-bridge): `read`, `resolve`, `Files`, `Device`, `Capability`, `Fault`
-- `osd-formats` (this repository): `resolve`, `Resolved`, `Device`, `Fault`
+- `osd-formats` (this repository): `resolve`, `Resolved`, `Device`, `Trigger`, `Triggers`, `Fault`
 - `osd-cli` (this repository): `read`, `convert`, `convert_to`, `declared_kind`, `write`, `Fault`, `Kind`, `Version`, `VERSIONS`, `PUBLISHED`
 - the SyntHub service: `read`, `resolve`, `convert`, `Files`, `Device`, `Sound`, `Fingerprint`, `Fault`
 - the SyntHub tools: `read`, `resolve`, `convert`, `Files`, `Device`, `Profile`, `Fault`
