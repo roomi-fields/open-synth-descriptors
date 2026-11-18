@@ -1,0 +1,32 @@
+//! The closed list of formats: MIDNAM and OSCQuery come after Electra One, each with its name.
+
+use osd_formats::Format;
+
+#[test]
+fn midnam_and_oscquery_come_after_electra_one_in_the_list_of_formats() {
+    assert_eq!(Format::ALL, [Format::MidiCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery]);
+}
+
+#[test]
+fn each_format_is_named_and_found_by_its_name() {
+    assert_eq!(Format::Midnam.name(), "midnam");
+    assert_eq!(Format::OscQuery.name(), "oscquery");
+    for f in Format::ALL {
+        assert_eq!(Format::from_name(f.name()), Some(f), "{}", f.name());
+    }
+    assert_eq!(Format::from_name("midnam"), Some(Format::Midnam));
+    assert_eq!(Format::from_name("oscquery"), Some(Format::OscQuery));
+    assert_eq!(Format::from_name("osc-query"), None);
+    assert_eq!(Format::from_name("MIDNAM"), None);
+}
+
+#[test]
+fn the_interfaces_of_the_crate_and_of_the_command_list_midnam_and_oscquery() {
+    for path in ["/docs/INTERFACE.md", "/../osd-cli/docs/INTERFACE.md"] {
+        let file = format!("{}{path}", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{file}: {e}"));
+        for word in ["`midnam`", "`oscquery`"] {
+            assert!(text.contains(word), "{file} does not list {word}");
+        }
+    }
+}

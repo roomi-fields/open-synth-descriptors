@@ -7,6 +7,8 @@ mod common;
 mod convert;
 mod formats;
 mod formats_electra;
+mod formats_midnam;
+mod formats_oscquery;
 mod init;
 mod program;
 mod validate;

@@ -4,9 +4,14 @@
 //! value with the list of what it could not carry. Nothing here reads a file, writes one or
 //! opens a port.
 
+mod credit;
 mod csv;
 mod electra_one;
 mod midi_csv;
+mod midnam;
+mod midnam_dtd;
+mod oscquery;
+mod xml;
 
 use std::fmt;
 
@@ -17,17 +22,23 @@ pub enum Format {
     MidiCsv,
     /// The Electra One preset (JSON, versions 2 and 3).
     ElectraOne,
+    /// The MIDNAM names document of the MIDI Association (MIDINameDocument 1.0).
+    Midnam,
+    /// The OSCQuery namespace (JSON).
+    OscQuery,
 }
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 2] = [Format::MidiCsv, Format::ElectraOne];
+    pub const ALL: [Format; 4] = [Format::MidiCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
         match self {
             Format::MidiCsv => "midi-csv",
             Format::ElectraOne => "electra-one",
+            Format::Midnam => "midnam",
+            Format::OscQuery => "oscquery",
         }
     }
 
@@ -84,6 +95,8 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
     match format {
         Format::MidiCsv => midi_csv::import(text, source),
         Format::ElectraOne => electra_one::import(text, source),
+        Format::Midnam => midnam::import(text, source),
+        Format::OscQuery => oscquery::import(text, source),
     }
 }
 
@@ -92,5 +105,7 @@ pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<Strin
     match format {
         Format::MidiCsv => midi_csv::export(device),
         Format::ElectraOne => electra_one::export(device),
+        Format::Midnam => midnam::export(device),
+        Format::OscQuery => oscquery::export(device),
     }
 }

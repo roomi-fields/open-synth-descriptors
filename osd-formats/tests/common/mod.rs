@@ -4,6 +4,43 @@
 #![allow(dead_code)]
 
 pub mod electra;
+pub mod midnam;
+pub mod oscquery;
+pub mod xml;
+
+/// The devices of this repository's conformance cases and examples, as (name, text): every
+/// device a reading case returns a result for, and the example devices.
+pub fn case_devices() -> Vec<(String, String)> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut out = Vec::new();
+    for version in ["0.5", "0.6"] {
+        let dir = root.join("conformance").join(version).join("read");
+        let mut cases: Vec<_> = std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())).map(|e| e.unwrap().path()).collect();
+        cases.sort();
+        for case in cases {
+            let meta: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+            if meta["read"] == "device" && meta.get("result").is_some() {
+                let text = std::fs::read_to_string(case.join("descriptor.json")).unwrap();
+                out.push((format!("{version}/{}", case.file_name().unwrap().to_string_lossy()), text));
+            }
+        }
+    }
+    for example in ["examples/0.5/synth.device.json", "examples/devices/test_synth.json"] {
+        out.push((example.to_string(), std::fs::read_to_string(root.join(example)).unwrap()));
+    }
+    out
+}
+
+/// The devices of `case_devices` that name a source, which an export needs.
+pub fn credited_devices() -> Vec<(String, osd::Resolved)> {
+    case_devices()
+        .into_iter()
+        .filter_map(|(name, text)| {
+            let d = device_from(&text);
+            d.sources.as_ref().is_some_and(|s| !s.is_empty()).then(|| (name, resolved(d)))
+        })
+        .collect()
+}
 
 /// The first line of `template.csv` of github.com/pencilresearch/midi (commit 215c64e8d3b3).
 pub const HEADER: [&str; 18] = [

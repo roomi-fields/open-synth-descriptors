@@ -4,6 +4,13 @@
   "dependencies": {
     "osd": "*"
   },
+  "grillhouse": {
+    "lit": [
+      "osd-formats/tests/data/**",
+      "conformance/**",
+      "examples/**"
+    ]
+  },
   "scripts": {
     "build": "cd .. && grillhouse construire osd-formats",
     "test:unit": "cd .. && grillhouse tests-du-paquet osd-formats",
