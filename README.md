@@ -65,6 +65,17 @@ name so that exporting stays a translation, not a guess.
   scripts) belong to [osc-bridge](https://github.com/roomi-fields/osc-bridge),
   the program that runs these descriptors; other programs may ignore them.
 
+## Installing the command
+
+Three ways, the same `osd`:
+
+```sh
+cargo install osd-cli                 # from crates.io
+npm install -g @roomi-fields/osd      # from npm
+```
+
+or download the binary of your platform (Linux x86_64, macOS arm64 or x86_64, Windows x86_64) from the [releases](https://github.com/roomi-fields/open-synth-descriptors/releases) page and check it against the `SHA256SUMS` file of the release. Then `osd --version`. How a release is published: [`docs/RELEASE.md`](docs/RELEASE.md).
+
 ## Checking a file
 
 The `osd` command checks, converts and starts a descriptor, without writing code:

@@ -9,6 +9,11 @@ all-features = true
 # A crate with a known vulnerability, or no longer maintained, is refused.
 version = 2
 yanked = "deny"
+ignore = [
+    # unsafe-libyaml, archived and unmaintained, comes only through serde_yaml_ng, a dev-dependency
+    # of osd that the tests use to read the release workflow's YAML; it ships in no published crate.
+    "RUSTSEC-2024-0449",
+]
 
 [licenses]
 version = 2

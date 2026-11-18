@@ -1,10 +1,11 @@
 [package]
 name = "osd-cli"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "The osd command: validate, convert and start an Open Synth Descriptors file."
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/roomi-fields/open-synth-descriptors"
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
 keywords = ["midi", "osc", "synthesizer", "descriptor"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
@@ -13,11 +14,11 @@ name = "osd"
 path = "src/main.rs"
 
 [dependencies]
-osd = { version = "0.1.0", path = "../osd" }
-osd-formats = { version = "0.1.0", path = "../osd-formats" }
+osd.workspace = true
+osd-formats.workspace = true
 
 [dev-dependencies]
-osd = { version = "0.1.0", path = "../osd" }
+osd.workspace = true
 serde_json = { version = "1", features = ["preserve_order"] }
 jsonschema = { version = "0.60", default-features = false }
 tempfile = "3"

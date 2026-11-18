@@ -23,6 +23,11 @@
     "flux": {
       ".github/workflows/check.yml": [
         "osd"
+      ],
+      ".github/workflows/release.yml": [
+        "osd",
+        "osd-formats",
+        "osd-cli"
       ]
     },
     "groupe": [

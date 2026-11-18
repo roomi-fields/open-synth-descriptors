@@ -1,0 +1,208 @@
+name: Release
+
+# A release event publishes; a manual run is always a dry run.
+# Publication is by trusted publishing (OIDC): no access token is kept.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run the checks only; nothing is published.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # 1. The command, built for the four platforms.
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, runner: ubuntu-latest, asset: osd-x86_64-unknown-linux-gnu }
+          - { target: aarch64-apple-darwin, runner: macos-latest, asset: osd-aarch64-apple-darwin }
+          - { target: x86_64-apple-darwin, runner: macos-15-intel, asset: osd-x86_64-apple-darwin }
+          - { target: x86_64-pc-windows-msvc, runner: windows-latest, asset: osd-x86_64-pc-windows-msvc.exe }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "${{ matrix.target }}" }
+      - run: cargo build --release --locked -p osd-cli --target ${{ matrix.target }}
+      - name: Name the binary as the release names it
+        shell: bash
+        run: |
+          mkdir dist
+          if [ "${{ runner.os }}" = "Windows" ]; then ext=.exe; else ext=; fi
+          cp "target/${{ matrix.target }}/release/osd$ext" "dist/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  # 2. The checks: the dry runs, and the three install checks on the artefacts.
+  checks:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 26 }
+      - name: Read the workspace version
+        run: echo "VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" >> "$GITHUB_ENV"
+      - name: Refuse a release tag that differs from the workspace version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "${TAG#v}" != "$VERSION" ]; then
+            echo "tag $TAG differs from the workspace version $VERSION"
+            exit 1
+          fi
+      - name: Dry run of the crates, in dependency order
+        run: cargo publish --workspace --dry-run --locked
+      - name: Set the version of the npm package
+        working-directory: npm
+        run: npm pkg set version="$VERSION"
+      - name: Dry run of the npm package
+        working-directory: npm
+        run: npm publish --dry-run --access public
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+          merge-multiple: true
+      - name: Check on the artefacts - the downloaded binary
+        run: |
+          mkdir "$RUNNER_TEMP/binary-bin"
+          cp artefacts/osd-x86_64-unknown-linux-gnu "$RUNNER_TEMP/binary-bin/osd"
+          chmod +x "$RUNNER_TEMP/binary-bin/osd"
+          PATH="$RUNNER_TEMP/binary-bin:$PATH" osd --version | grep -q "^osd $VERSION "
+      - name: Check on the artefacts - cargo install
+        run: |
+          cargo install --path osd-cli --locked --root "$RUNNER_TEMP/cargo-root"
+          PATH="$RUNNER_TEMP/cargo-root/bin:$PATH" osd --version | grep -q "^osd $VERSION "
+      - name: Check on the artefacts - the packed npm package
+        run: |
+          (cd artefacts && sha256sum osd-* > SHA256SUMS)
+          (cd artefacts && python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          (cd npm && npm pack --pack-destination "$RUNNER_TEMP")
+          OSD_RELEASE_BASE=http://127.0.0.1:8765 npm install -g "$RUNNER_TEMP"/roomi-fields-osd-*.tgz
+          osd --version | grep -q "^osd $VERSION "
+
+  # 3. The crates, in dependency order.
+  crates:
+    if: github.event_name == 'release'
+    needs: [checks]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: Publish the three crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          cargo publish -p osd
+          cargo publish -p osd-formats
+          cargo publish -p osd-cli
+
+  # 4. The binaries and their checksums, attached to the release.
+  binaries:
+    if: github.event_name == 'release'
+    needs: [crates]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+          merge-multiple: true
+      - name: Attach the binaries and one checksum file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd artefacts
+          sha256sum osd-* > SHA256SUMS
+          gh release upload "$TAG" osd-* SHA256SUMS --clobber
+
+  # 5. The npm package, its version set from the release tag.
+  npm:
+    if: github.event_name == 'release'
+    needs: [crates, binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+      - name: Set the version of the package from the release tag
+        working-directory: npm
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: npm pkg set version="${TAG#v}"
+      - name: Publish the package
+        working-directory: npm
+        run: npm publish --access public
+
+  # 6. The install checks again, from the registries.
+  install-cargo:
+    if: github.event_name == 'release'
+    needs: [npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install from crates.io
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cargo install osd-cli --version "${TAG#v}" --locked
+          osd --version | grep -q "^osd ${TAG#v} "
+
+  install-binary:
+    if: github.event_name == 'release'
+    needs: [npm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the binary of the release and check its checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" --pattern osd-x86_64-unknown-linux-gnu --pattern SHA256SUMS
+          sha256sum --check --ignore-missing SHA256SUMS
+          mkdir bin
+          cp osd-x86_64-unknown-linux-gnu bin/osd
+          chmod +x bin/osd
+          PATH="$PWD/bin:$PATH" osd --version | grep -q "^osd ${TAG#v} "
+
+  install-npm:
+    if: github.event_name == 'release'
+    needs: [npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 26 }
+      - name: Install from the npm registry
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          npm install -g @roomi-fields/osd@"${TAG#v}"
+          osd --version | grep -q "^osd ${TAG#v} "

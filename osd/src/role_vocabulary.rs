@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 /// `schemas/vocabulary/`.
 pub const VOCABULARY_STATES: &[&str] = &["1"];
 
-const STATE_1: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../schemas/vocabulary/1/terms.json"));
+const STATE_1: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/vocabulary-state-1.json"));
 
 /// The published state `state` of the vocabulary, or none when this crate
 /// does not hold it.
