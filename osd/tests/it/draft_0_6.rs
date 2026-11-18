@@ -224,7 +224,17 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             for entry in ["cc_entry", "param_entry"] {
                 let props = now["$defs"][entry]["properties"].as_object_mut().unwrap();
                 assert!(props.remove("default").is_some(), "{entry} has no default");
+                // The precision fields of a control (MIDI 2.0) are 0.6's own too.
+                for field in ["priority", "step_count", "transmit", "recognize"] {
+                    assert!(props.remove(field).is_some(), "{entry} has no {field}");
+                }
             }
+            let props = now["$defs"]["cc_entry"]["properties"].as_object_mut().unwrap();
+            assert!(props.remove("values").is_some(), "cc_entry has no values");
+            // The `values` of a param entry stays, its description saying the range check is 0.6's.
+            let values = now["$defs"]["param_entry"]["properties"]["values"].as_object_mut().unwrap();
+            assert!(values["description"].as_str().unwrap().contains("range"));
+            values.insert("description".into(), json!("Named values."));
         }
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {

@@ -389,6 +389,42 @@ fn check_defaults(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
+/// The precision of a control (0.6): `priority`, `step_count`, `transmit`, `recognize` and the `values`
+/// of a CC entry are not fields before 0.6; from 0.6 each named value lies inside the control's
+/// `range` (bounds included) when it has one, and is compared to nothing otherwise.
+fn check_precision(d: &Device) -> Result<(), Fault> {
+    let v06 = d.schema >= Some(Version::V0_6);
+    let unknown = |pointer: String, name: &str| Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: format!("{name} is not a field before 0.6") };
+    let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| {
+        (format!("/cc_params/entries/{n}"), [e.priority.is_some(), e.step_count.is_some(), e.transmit.is_some(), e.recognize.is_some()], e.values.as_ref(), e.range, true)
+    });
+    let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| {
+        (format!("/params/entries/{n}"), [e.priority.is_some(), e.step_count.is_some(), e.transmit.is_some(), e.recognize.is_some()], e.values.as_ref(), e.range, false)
+    });
+    for (at, given, values, range, cc) in cc.chain(params) {
+        if !v06 {
+            for (name, here) in ["priority", "step_count", "transmit", "recognize"].iter().zip(given) {
+                if here {
+                    return Err(unknown(format!("{at}/{name}"), name));
+                }
+            }
+            if cc && values.is_some() {
+                return Err(unknown(format!("{at}/values"), "values"));
+            }
+            continue;
+        }
+        if let (Some(values), Some([lo, hi])) = (values, range) {
+            for (label, value) in values {
+                if *value < lo || *value > hi {
+                    let pointer = format!("{at}/values/{}", label.replace('~', "~0").replace('/', "~1"));
+                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: format!("the value {value} is outside the range {lo}..{hi}") });
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
@@ -396,6 +432,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     check_roles(d)?;
     check_defaults(d)?;
+    check_precision(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
     }
@@ -872,6 +909,11 @@ words! {
     Orientation { ZeroBased = "0-based", Centered = "centered", }
 }
 
+words! {
+    /// Whether a control is sent or recognised as absolute values, relative values, both or neither.
+    Direction { Absolute = "absolute", Relative = "relative", Both = "both", None = "none", }
+}
+
 object! {
     /// A control set by Control Change, a 14-bit CC pair, NRPN or RPN.
     CcEntry {
@@ -888,6 +930,16 @@ object! {
         "range" range: Option<[i64; 2]> = Opt(Pair),
         /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
         "default" default: Option<i64> = Opt(INTEGER),
+        /// How important the control is, 1 (essential) to 5 (hidden), as in MIDI-CI Property Exchange (0.6).
+        "priority" priority: Option<u8> = Opt(int(1, 5)),
+        /// The number of distinct steps of the control, 2 or more (0.6).
+        "step_count" step_count: Option<i64> = Opt(at_least(2)),
+        /// Whether the control is sent as absolute, relative or both values (0.6).
+        "transmit" transmit: Option<Direction> = Opt(closed()),
+        /// Whether the control is recognised as absolute, relative or both values (0.6).
+        "recognize" recognize: Option<Direction> = Opt(closed()),
+        /// Named values: each label with its value, inside `range` (0.6).
+        "values" values: Option<BTreeMap<String, i64>> = Opt(Dict(INTEGER)),
         "orientation" orientation: Option<Orientation> = Opt(closed()),
         "channel" channel: Option<u8> = Opt(CHANNEL),
         "section" section: Option<String> = Opt(STRING),
@@ -915,6 +967,14 @@ object! {
         "range" range: Option<[i64; 2]> = Opt(Pair),
         /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
         "default" default: Option<i64> = Opt(INTEGER),
+        /// How important the control is, 1 (essential) to 5 (hidden), as in MIDI-CI Property Exchange (0.6).
+        "priority" priority: Option<u8> = Opt(int(1, 5)),
+        /// The number of distinct steps of the control, 2 or more (0.6).
+        "step_count" step_count: Option<i64> = Opt(at_least(2)),
+        /// Whether the control is sent as absolute, relative or both values (0.6).
+        "transmit" transmit: Option<Direction> = Opt(closed()),
+        /// Whether the control is recognised as absolute, relative or both values (0.6).
+        "recognize" recognize: Option<Direction> = Opt(closed()),
         "section" section: Option<String> = Opt(STRING),
         "expects" expects: Option<String> = Opt(STRING),
         /// Named values: each label with its value.

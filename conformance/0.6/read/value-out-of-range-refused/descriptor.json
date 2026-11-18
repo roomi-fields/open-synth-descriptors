@@ -1,0 +1,24 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/filter/type",
+        "cc": 75,
+        "range": [
+          0,
+          3
+        ],
+        "values": {
+          "lowpass": 0,
+          "wild": 9
+        }
+      }
+    ]
+  }
+}

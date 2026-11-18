@@ -1,0 +1,30 @@
+{
+  "_about": "A CC entry may name its values, each label with its integer inside the range; the reader returns them and writes them back.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/filter/type",
+          "cc": 75,
+          "range": [
+            0,
+            3
+          ],
+          "expects": "discrete",
+          "values": {
+            "lowpass": 0,
+            "highpass": 1,
+            "bandpass": 3
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1166,6 +1166,32 @@
           "type": "integer",
           "description": "The raw value of the control on an initialised sound, in the space of range (the 14 bits of a cc + cc_lsb pair; orientation does not recentre it). The reader refuses a default outside range, bounds included; without range it is compared to nothing."
         },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "How important the control is, from 1 (essential) to 5 (hidden), as priority of MIDI-CI Property Exchange (M2-117-UM)."
+        },
+        "step_count": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "The number of distinct steps of the control, 2 or more (stepCount of M2-117-UM)."
+        },
+        "transmit": {
+          "enum": ["absolute", "relative", "both", "none"],
+          "description": "Whether the control is sent as absolute values, relative values, both or none (transmit of M2-117-UM)."
+        },
+        "recognize": {
+          "enum": ["absolute", "relative", "both", "none"],
+          "description": "Whether the control is recognised as absolute values, relative values, both or none (recognize of M2-117-UM)."
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Named values, each label with its integer. The reader refuses a value outside range, bounds included; without range it is compared to nothing."
+        },
         "orientation": {
           "enum": [
             "0-based",
@@ -1268,6 +1294,25 @@
           "type": "integer",
           "description": "The raw value of the control on an initialised sound, in the space of range. The reader refuses a default outside range, bounds included; without range it is compared to nothing."
         },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "How important the control is, from 1 (essential) to 5 (hidden), as priority of MIDI-CI Property Exchange (M2-117-UM)."
+        },
+        "step_count": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "The number of distinct steps of the control, 2 or more (stepCount of M2-117-UM)."
+        },
+        "transmit": {
+          "enum": ["absolute", "relative", "both", "none"],
+          "description": "Whether the control is sent as absolute values, relative values, both or none (transmit of M2-117-UM)."
+        },
+        "recognize": {
+          "enum": ["absolute", "relative", "both", "none"],
+          "description": "Whether the control is recognised as absolute values, relative values, both or none (recognize of M2-117-UM)."
+        },
         "section": {
           "type": "string"
         },
@@ -1295,7 +1340,7 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "description": "Named values."
+          "description": "Named values, each label with its integer. The reader refuses a value outside range, bounds included; without range it is compared to nothing."
         },
         "transform": {
           "type": "string",
