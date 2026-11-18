@@ -1143,6 +1143,10 @@
           "maxItems": 2,
           "description": "Lowest and highest value."
         },
+        "default": {
+          "type": "integer",
+          "description": "The raw value of the control on an initialised sound, in the space of range (the 14 bits of a cc + cc_lsb pair; orientation does not recentre it). The reader refuses a default outside range, bounds included; without range it is compared to nothing."
+        },
         "orientation": {
           "enum": [
             "0-based",
@@ -1240,6 +1244,10 @@
           "minItems": 2,
           "maxItems": 2,
           "description": "Lowest and highest value."
+        },
+        "default": {
+          "type": "integer",
+          "description": "The raw value of the control on an initialised sound, in the space of range. The reader refuses a default outside range, bounds included; without range it is compared to nothing."
         },
         "section": {
           "type": "string"

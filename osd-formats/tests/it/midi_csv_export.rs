@@ -106,3 +106,64 @@ fn a_device_with_an_empty_list_of_sources_is_refused_too() {
     let f = export(&resolved(device_from(text)), Format::MidiCsv).expect_err("refused");
     assert_eq!(f.kind, FaultKind::NoSources);
 }
+
+/// A 0.6 device, the version that gives a control its default.
+fn device_06(body: &str) -> osd::Resolved {
+    let text = format!(
+        r#"{{"$schema": "https://w3id.org/osd/0.6/device.schema.json", {SOURCES}, "device": {{"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}}{body}}}"#
+    );
+    resolved(device_from(&text))
+}
+
+#[test]
+fn the_default_of_a_control_with_a_cc_goes_to_the_cc_default_cell() {
+    let d = device_06(
+        r#", "cc_params": {"entries": [
+        {"osc": "/a", "cc": 74, "range": [0, 127], "default": 64},
+        {"osc": "/b", "cc": 1, "cc_lsb": 33, "range": [0, 16383], "default": 8192},
+        {"osc": "/c", "cc": 5, "default": 0}]}"#,
+    );
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let records = parse(&t.value);
+    assert_eq!(cell(&records[1], "cc_default_value"), "64");
+    assert_eq!(cell(&records[2], "cc_default_value"), "8192");
+    assert_eq!(cell(&records[3], "cc_default_value"), "0");
+    assert!(records[1..].iter().all(|r| cell(r, "nrpn_default_value").is_empty()));
+    assert!(!t.lost.iter().any(|l| l.place.ends_with("/default")), "{:?}", t.lost);
+}
+
+#[test]
+fn the_default_of_a_control_with_only_an_nrpn_goes_to_the_nrpn_default_cell() {
+    let d = device_06(r#", "cc_params": {"entries": [{"osc": "/c", "nrpn_msb": 3, "nrpn_lsb": 9, "range": [10, 200], "default": 100}]}"#);
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let r = &parse(&t.value)[1];
+    assert_eq!((cell(r, "nrpn_default_value"), cell(r, "cc_default_value")), ("100".into(), "".into()));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+}
+
+#[test]
+fn the_default_of_a_control_with_a_cc_and_an_nrpn_goes_to_the_cc_cell_and_the_nrpn_cell_stays_empty() {
+    let d = device_06(r#", "cc_params": {"entries": [{"osc": "/c", "cc": 74, "nrpn_msb": 3, "nrpn_lsb": 9, "range": [0, 127], "default": 64}]}"#);
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let r = &parse(&t.value)[1];
+    assert_eq!((cell(r, "cc_default_value"), cell(r, "nrpn_default_value")), ("64".into(), "".into()));
+    assert!(!t.lost.iter().any(|l| l.place.ends_with("/default")), "{:?}", t.lost);
+}
+
+#[test]
+fn a_default_on_a_control_with_neither_a_cc_nor_an_nrpn_stays_in_the_losses() {
+    let d = device_06(r#", "cc_params": {"entries": [{"osc": "/c", "rpn_msb": 0, "rpn_lsb": 1, "default": 5}]}"#);
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let r = &parse(&t.value)[1];
+    assert_eq!((cell(r, "cc_default_value"), cell(r, "nrpn_default_value")), ("".into(), "".into()));
+    let lost: Vec<_> = t.lost.iter().filter(|l| l.place == "/cc_params/entries/0/default").collect();
+    assert_eq!(lost.len(), 1, "{:?}", t.lost);
+    assert!(!lost[0].reason.is_empty());
+}
+
+#[test]
+fn a_control_without_a_default_leaves_the_default_cells_empty() {
+    let d = device_06(r#", "cc_params": {"entries": [{"osc": "/a", "cc": 74, "range": [0, 127]}]}"#);
+    let r = &parse(&export(&d, Format::MidiCsv).unwrap().value)[1];
+    assert_eq!((cell(r, "cc_default_value"), cell(r, "nrpn_default_value")), ("".into(), "".into()));
+}

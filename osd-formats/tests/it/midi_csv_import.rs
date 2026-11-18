@@ -70,9 +70,9 @@ fn the_manufacturer_and_device_name_the_descriptor_device() {
 }
 
 #[test]
-fn the_descriptor_is_of_the_latest_version_and_reads_strictly() {
+fn the_descriptor_is_a_0_6_descriptor_and_reads_strictly() {
     let t = ok(&csv(&[glide()]));
-    assert_eq!(t.value.schema, Some(osd::Version::V0_5));
+    assert_eq!(t.value.schema, Some(osd::Version::V0_6));
     let text = osd::write(&osd::Descriptor::Device(Box::new(t.value.clone())));
     match osd::read(&text, osd::Kind::Device) {
         Ok(osd::Descriptor::Device(back)) => assert_eq!(*back, t.value),
@@ -248,19 +248,82 @@ fn a_row_with_neither_cc_nor_nrpn_is_no_control_and_is_in_the_losses_with_its_li
 }
 
 #[test]
-fn a_default_value_is_in_the_losses_by_its_line_and_column() {
+fn a_default_value_of_the_row_becomes_the_default_of_the_control_of_its_address() {
     let r = row(&[
         ("parameter_name", "Both"),
         ("cc_msb", "1"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
         ("cc_default_value", "64"),
         ("nrpn_msb", "2"),
         ("nrpn_lsb", "3"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
         ("nrpn_default_value", "10"),
+    ]);
+    let t = ok(&csv(&[glide(), r]));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    let list = entries(&t.value);
+    assert_eq!(list.len(), 3);
+    assert_eq!((list[0].default, list[1].default, list[2].default), (None, Some(64), Some(10)));
+    assert_eq!((list[1].cc, list[2].cc), (Some(1), None));
+}
+
+#[test]
+fn a_default_without_a_range_is_carried_and_one_equal_to_a_bound_too() {
+    let alone = row(&[("parameter_name", "Alone"), ("cc_msb", "1"), ("cc_default_value", "300")]);
+    let bound = row(&[("parameter_name", "Bound"), ("cc_msb", "2"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("cc_default_value", "127")]);
+    let t = ok(&csv(&[alone, bound]));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    let list = entries(&t.value);
+    assert_eq!((list[0].default, list[1].default), (Some(300), Some(127)));
+}
+
+#[test]
+fn a_14_bit_default_is_carried_in_the_range_of_the_14_bits() {
+    let r = row(&[("parameter_name", "Cutoff"), ("cc_msb", "1"), ("cc_lsb", "33"), ("cc_min_value", "0"), ("cc_max_value", "16383"), ("cc_default_value", "8192")]);
+    let t = ok(&csv(&[r]));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    assert_eq!(entries(&t.value)[0].default, Some(8192));
+}
+
+#[test]
+fn a_default_outside_the_range_of_its_control_is_not_written_and_stays_in_the_losses_with_its_cell_and_reason() {
+    let r = row(&[
+        ("parameter_name", "Both"),
+        ("cc_msb", "1"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("cc_default_value", "200"),
+        ("nrpn_msb", "2"),
+        ("nrpn_lsb", "3"),
+        ("nrpn_min_value", "10"),
+        ("nrpn_max_value", "20"),
+        ("nrpn_default_value", "9"),
     ]);
     let t = ok(&csv(&[glide(), r]));
     let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
     assert_eq!(places, ["line 3, column cc_default_value", "line 3, column nrpn_default_value"]);
     assert!(t.lost.iter().all(|l| !l.reason.is_empty()));
+    assert!(entries(&t.value).iter().all(|e| e.default.is_none()));
+    // The descriptor stays valid: it reads back strictly.
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value.clone())));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok());
+}
+
+#[test]
+fn a_default_of_an_address_the_row_does_not_have_is_in_the_losses_by_its_cell() {
+    let r = row(&[("parameter_name", "Cc only"), ("cc_msb", "1"), ("nrpn_default_value", "10")]);
+    let t = ok(&csv(&[r]));
+    let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
+    assert_eq!(places, ["line 2, column nrpn_default_value"]);
+    assert!(!t.lost[0].reason.is_empty());
+    assert_eq!(entries(&t.value)[0].default, None);
+}
+
+#[test]
+fn an_import_without_a_default_cell_gives_a_control_without_a_default() {
+    assert_eq!(entries(&ok(&csv(&[glide()])).value)[0].default, None);
 }
 
 #[test]
@@ -287,9 +350,9 @@ fn a_device_or_manufacturer_that_changes_between_rows_is_a_loss_at_its_cell() {
 
 #[test]
 fn the_losses_come_in_the_order_of_the_source_and_are_the_same_on_each_import() {
-    let a = row(&[("cc_msb", "1"), ("cc_default_value", "1")]);
+    let a = row(&[("cc_msb", "1"), ("cc_min_value", "0"), ("cc_max_value", "10"), ("cc_default_value", "11")]);
     let none = row(&[("parameter_name", "Nothing")]);
-    let b = row(&[("cc_msb", "2"), ("cc_default_value", "2"), ("orientation", "weird")]);
+    let b = row(&[("cc_msb", "2"), ("cc_min_value", "0"), ("cc_max_value", "10"), ("cc_default_value", "12"), ("orientation", "weird")]);
     let text = csv(&[a, none, b]);
     let first = ok(&text);
     let places: Vec<&str> = first.lost.iter().map(|l| l.place.as_str()).collect();

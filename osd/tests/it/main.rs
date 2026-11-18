@@ -5,6 +5,7 @@ mod addresses;
 mod capabilities;
 mod catalogue;
 mod conformance;
+mod control_default;
 mod convert;
 mod convert_midi_in_notes;
 mod draft_0_6;

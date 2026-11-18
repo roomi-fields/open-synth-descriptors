@@ -159,8 +159,8 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         let nrpn_lsb = midi_number(cells, line, NRPN_LSB)?;
         let (cc_lo, cc_hi) = bounds(cells, line, CC_MIN, CC_MAX)?;
         let (nrpn_lo, nrpn_hi) = bounds(cells, line, NRPN_MIN, NRPN_MAX)?;
-        number(cells, line, CC_DEFAULT)?;
-        number(cells, line, NRPN_DEFAULT)?;
+        let cc_default = number(cells, line, CC_DEFAULT)?;
+        let nrpn_default = number(cells, line, NRPN_DEFAULT)?;
         if cc.is_none() && cc_lsb.is_some() {
             return Err(invalid(cell_place(line, CC_LSB), "a CC LSB without its CC"));
         }
@@ -213,16 +213,6 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                 None
             }
         };
-        for (value, column) in [(CC_DEFAULT, cc.is_some()), (NRPN_DEFAULT, has_nrpn)] {
-            if !cells[value].trim().is_empty() {
-                let reason = if column {
-                    "a control has no field for a default value in 0.5"
-                } else {
-                    "no control carries this default: the row has no such address"
-                };
-                lost(&mut row_losses, line, value, reason);
-            }
-        }
         let cc_range = if cc.is_some() {
             range(cc_lo, cc_hi, CC_MIN, CC_MAX, &mut row_losses)
         } else {
@@ -243,6 +233,23 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
             }
             None
         };
+        // A default goes to the control of its address, when inside that control's range.
+        let mut default_of = |default: Option<i64>, column: usize, has: bool, range: Option<[i64; 2]>| {
+            let value = default?;
+            if !has {
+                lost(&mut row_losses, line, column, "no control carries this default: the row has no such address");
+                return None;
+            }
+            match range {
+                Some([lo, hi]) if value < lo || value > hi => {
+                    lost(&mut row_losses, line, column, "the default is outside the range of its control");
+                    None
+                }
+                _ => Some(value),
+            }
+        };
+        let cc_default = default_of(cc_default, CC_DEFAULT, cc.is_some(), cc_range);
+        let nrpn_default = default_of(nrpn_default, NRPN_DEFAULT, has_nrpn, nrpn_range);
         row_losses.sort_by_key(|(column, _)| *column);
         losses.extend(row_losses.into_iter().map(|(_, l)| l));
 
@@ -255,7 +262,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                 Some(joined.join("/"))
             }
         };
-        let control = |suffix: &str, fallback: String, cc, cc_lsb, nrpn: (Option<u8>, Option<u8>), range, used: &mut BTreeSet<String>| {
+        let control = |suffix: &str, fallback: String, cc, cc_lsb, nrpn: (Option<u8>, Option<u8>), range, default, used: &mut BTreeSet<String>| {
             let path = base.clone().unwrap_or(fallback);
             let mut entry = CcEntry {
                 osc: unique(format!("/{path}{suffix}"), used),
@@ -267,6 +274,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                 rpn_msb: None,
                 rpn_lsb: None,
                 range,
+                default,
                 orientation,
                 channel: None,
                 section: Some(cells[SECTION].clone()).filter(|s| !s.is_empty()),
@@ -285,18 +293,18 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         };
         let suffix = if cc.is_some() && has_nrpn { "-nrpn" } else { "" };
         if let Some(n) = cc {
-            entries.push(control("", format!("cc-{n}"), cc, cc_lsb, (None, None), cc_range, &mut used));
+            entries.push(control("", format!("cc-{n}"), cc, cc_lsb, (None, None), cc_range, cc_default, &mut used));
         }
         if has_nrpn {
             let fallback = format!("nrpn-{}-{}", nrpn_msb.map_or(String::new(), |n| n.to_string()), nrpn_lsb.map_or(String::new(), |n| n.to_string()));
-            entries.push(control(suffix, fallback, None, None, (nrpn_msb, nrpn_lsb), nrpn_range, &mut used));
+            entries.push(control(suffix, fallback, None, None, (nrpn_msb, nrpn_lsb), nrpn_range, nrpn_default, &mut used));
         }
     }
 
     let (vendor, name) = identity;
     let prefix = format!("/{}", slug(&name));
     let device = Device {
-        schema: Some(Version::V0_5),
+        schema: Some(Version::V0_6),
         device: DeviceInfo {
             name,
             vendor: Some(vendor).filter(|v| !v.is_empty()),
@@ -425,6 +433,15 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                     if e.cc.is_some() && (e.nrpn_msb.is_some() || e.nrpn_lsb.is_some()) {
                         gone(&mut losses, at("range"), "the one range goes to the CC columns; the NRPN columns stay empty");
                     }
+                }
+            }
+            if let Some(v) = e.default {
+                if e.cc.is_some() {
+                    row[CC_DEFAULT] = v.to_string();
+                } else if e.nrpn_msb.is_some() || e.nrpn_lsb.is_some() {
+                    row[NRPN_DEFAULT] = v.to_string();
+                } else {
+                    gone(&mut losses, at("default"), "the entry has neither a CC nor an NRPN to give the default to");
                 }
             }
             for (field, present) in [

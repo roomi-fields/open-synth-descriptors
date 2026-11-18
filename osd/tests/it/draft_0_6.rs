@@ -208,7 +208,7 @@ fn strip_roles(v: &mut Value) {
 }
 
 #[test]
-fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabilities_and_the_role() {
+fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabilities_the_role_and_the_default_value() {
     for (_, n) in KINDS {
         let read = |v: &str| std::fs::read_to_string(common::repo().join(format!("schemas/{v}/{n}.schema.json"))).unwrap();
         let mut now = value(&read("0.6"));
@@ -219,6 +219,13 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
         }
         // The role (`role` on an entry, `role_vocabulary`, and what requires it) is 0.6's own.
         strip_roles(&mut now);
+        // The default value of a control (`default` on a CC entry and on a param entry) is 0.6's own.
+        if n == "device" {
+            for entry in ["cc_entry", "param_entry"] {
+                let props = now["$defs"][entry]["properties"].as_object_mut().unwrap();
+                assert!(props.remove("default").is_some(), "{entry} has no default");
+            }
+        }
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {
             *v = value(&v.to_string().replace("osd/0.6/", "osd/0.5/").replace("0.6", "0.5"));

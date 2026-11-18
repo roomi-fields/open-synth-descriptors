@@ -1,0 +1,6 @@
+{
+  "_about": "A default outside the control's range is refused at the default. Comparing it to the range is the reader's, so the schema accepts it.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/default" }
+}

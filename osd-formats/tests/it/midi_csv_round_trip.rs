@@ -49,3 +49,24 @@ fn a_row_with_both_gives_two_rows_back_and_a_row_with_neither_is_dropped_into_th
     let nrpn_row = row(&[("manufacturer", "Lofty"), ("device", "Trundler"), ("section", "Filter"), ("parameter_name", "Cutoff"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_min_value", "0"), ("nrpn_max_value", "16383"), ("notes", "n")]);
     assert_eq!(out[1..].to_vec(), vec![alone, cc_row, nrpn_row]);
 }
+
+#[test]
+fn the_default_columns_come_back_in_the_same_cell_after_an_import_and_an_export() {
+    let rows = vec![
+        base(&[("parameter_name", "Cc"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("cc_default_value", "64")]),
+        base(&[("parameter_name", "Wide"), ("cc_msb", "1"), ("cc_lsb", "33"), ("cc_min_value", "0"), ("cc_max_value", "16383"), ("cc_default_value", "8192"), ("orientation", "centered")]),
+        base(&[("parameter_name", "Nrpn"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_min_value", "10"), ("nrpn_max_value", "200"), ("nrpn_default_value", "10")]),
+        base(&[("parameter_name", "No range"), ("cc_msb", "7"), ("cc_default_value", "0")]),
+        base(&[("parameter_name", "No range nrpn"), ("nrpn_msb", "7"), ("nrpn_lsb", "8"), ("nrpn_default_value", "300")]),
+    ];
+    assert_eq!(parse(&through(&csv(&rows))), parse(&csv(&rows)));
+}
+
+#[test]
+fn a_row_with_a_cc_and_an_nrpn_gives_its_cc_default_back_in_the_cc_cell() {
+    let both = base(&[("parameter_name", "Both"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("cc_default_value", "64"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
+    let out = parse(&through(&csv(&[both])));
+    let at = |name: &str| crate::common::HEADER.iter().position(|h| *h == name).unwrap();
+    assert_eq!(out[1][at("cc_default_value")], "64");
+    assert_eq!(out[2][at("nrpn_default_value")], "");
+}

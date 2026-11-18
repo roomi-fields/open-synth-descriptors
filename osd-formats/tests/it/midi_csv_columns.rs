@@ -38,6 +38,17 @@ fn every_column_of_the_header_has_a_line_saying_its_fate_and_its_reason_when_los
 }
 
 #[test]
+fn the_default_columns_go_to_the_default_of_the_control_and_are_no_longer_lost() {
+    let lines = table_lines();
+    for column in ["cc_default_value", "nrpn_default_value"] {
+        let line = lines.iter().find(|l| l[0] == column).unwrap_or_else(|| panic!("no line for {column}"));
+        assert!(line[1].contains("default"), "{column}: fate {:?}", line[1]);
+        assert_ne!(line[1], "lost", "{column}");
+        assert!(!line[2].contains("0.5"), "{column}: {:?}", line[2]);
+    }
+}
+
+#[test]
 fn the_table_lists_no_column_the_header_does_not_have() {
     let header = written_header();
     let names: Vec<String> = table_lines().into_iter().map(|l| l[0].clone()).collect();

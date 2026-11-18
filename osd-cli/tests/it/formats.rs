@@ -6,11 +6,11 @@ use serde_json::Value;
 
 const HEADER: &str = "manufacturer,device,section,parameter_name,parameter_description,cc_msb,cc_lsb,cc_min_value,cc_max_value,cc_default_value,nrpn_msb,nrpn_lsb,nrpn_min_value,nrpn_max_value,nrpn_default_value,orientation,notes,usage";
 
-/// A CSV with a CC row (with a default), a row with neither, and an NRPN row.
+/// A CSV with a CC row (whose default is out of its range, so it stays a loss), a row with neither, and an NRPN row.
 fn sample() -> String {
     format!(
         "{HEADER}\n\
-         Lofty,Trundler,Oscillators,Glide switch,Enables glide,65,,0,127,0,,,,,,0-based,a note,0-63: Off\n\
+         Lofty,Trundler,Oscillators,Glide switch,Enables glide,65,,0,127,200,,,,,,0-based,a note,0-63: Off\n\
          Lofty,Trundler,Misc,Sysex only,,,,,,,,,,,,,,\n\
          Lofty,Trundler,Filter,Resonance,,,,,,,1,2,0,16383,,,,\n"
     )

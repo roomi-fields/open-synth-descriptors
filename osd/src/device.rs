@@ -370,12 +370,32 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
+/// The default of each control: not a field before 0.6; from 0.6, inside the control's `range`
+/// (bounds included) when it has one, compared to nothing otherwise.
+fn check_defaults(d: &Device) -> Result<(), Fault> {
+    let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/cc_params/entries/{n}/default"), e.default, e.range));
+    let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/params/entries/{n}/default"), e.default, e.range));
+    for (pointer, default, range) in cc.chain(params) {
+        let Some(default) = default else { continue };
+        if d.schema < Some(Version::V0_6) {
+            return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: "default is not a field before 0.6".into() });
+        }
+        if let Some([lo, hi]) = range {
+            if default < lo || default > hi {
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: format!("the default {default} is outside the range {lo}..{hi}") });
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = crate::is_05_form(d.schema);
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     check_roles(d)?;
+    check_defaults(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
     }
@@ -866,6 +886,8 @@ object! {
         "rpn_lsb" rpn_lsb: Option<u8> = Opt(U7),
         /// Lowest and highest value.
         "range" range: Option<[i64; 2]> = Opt(Pair),
+        /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
+        "default" default: Option<i64> = Opt(INTEGER),
         "orientation" orientation: Option<Orientation> = Opt(closed()),
         "channel" channel: Option<u8> = Opt(CHANNEL),
         "section" section: Option<String> = Opt(STRING),
@@ -891,6 +913,8 @@ object! {
         "r" r: Option<u8> = Opt(BYTE),
         "id" id: Option<i64> = Opt(INTEGER),
         "range" range: Option<[i64; 2]> = Opt(Pair),
+        /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
+        "default" default: Option<i64> = Opt(INTEGER),
         "section" section: Option<String> = Opt(STRING),
         "expects" expects: Option<String> = Opt(STRING),
         /// Named values: each label with its value.
