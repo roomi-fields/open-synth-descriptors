@@ -91,6 +91,13 @@ The list never replaces the rule of the identity of a sound above: the identity 
 
 A known algorithm fixes the form of the value (names read without case): `md5` 32, `sha1` 40, `sha256` 64 lower-case hexadecimal digits; a tool that writes capitals leaves `algorithm` out. An unknown or absent algorithm only requires a non-empty value. Refused, at the address of the fault: an entry without `tool` or `value` (`Missing`), an unknown key of an entry (`UnknownField`), the tool `OSD`, an empty value, a value outside the form of its algorithm, and two entries of the same computation (same `tool`, `by` and `algorithm`, each compared without case, an absent one equal to an absent one) with different values, at the later one (`BadValue`). The md5 and the sha1 of one adaptation are not the same computation. A descriptor of 0.4 or 0.5 refuses `external_ids` as an unknown field; `osd::convert` from 0.5 adds none.
 
+## Pauses, reply time and banks that cannot be written (0.6)
+
+- `programs.delay_ms` (0.5) is the one pause, in milliseconds, between the messages of a recall. A device that needs different pauses after different messages takes the longest: that need (the Yamaha TG33 in KnobKraft Orm's `messageSendDelays`) is known and waits for a second device before the format carries a pause per message or a sequence of steps.
+- `programs.dump.reply_timeout_ms` (0.6, integer from 0) is how long the device may take to answer the request of the dump, in milliseconds (KnobKraft Orm's `replyTimeoutMs`). A reply time shorter than `programs.delay_ms` is refused at `/programs/dump/reply_timeout_ms` (`BadValue`): the schema cannot compare two fields, the reader does. This is a rule of meaning of OSD, not a fact KnobKraft Orm states; a missing pause counts as zero.
+- `programs.banks[].writable` (0.6, boolean) says whether the bank can be written; absent, it can, so a descriptor that says nothing reads as before. `writable: false` is KnobKraft Orm's `isROM`, with the meaning turned to the positive word. A tool never offers to write into a bank that is not writable. OSD describes no sequence that stores a sound yet, so no reader refuses a bank as the target of one.
+- `osd::convert` from 0.5 invents none of these fields.
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.

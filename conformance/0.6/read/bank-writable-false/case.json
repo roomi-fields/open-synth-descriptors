@@ -1,0 +1,14 @@
+{
+  "_about": "A bank says it cannot be written; a bank that says nothing can be, and is written back without the field.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "programs": {
+      "banks": [
+        { "name": "Internal", "size": 64, "writable": false },
+        { "name": "User", "size": 64 }
+      ]
+    }
+  }
+}

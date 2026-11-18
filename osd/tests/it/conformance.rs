@@ -461,7 +461,7 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
-    every_case(&common::repo().join("conformance/0.6/read"), 63, run_read);
+    every_case(&common::repo().join("conformance/0.6/read"), 66, run_read);
 }
 
 #[test]

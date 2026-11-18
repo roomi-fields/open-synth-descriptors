@@ -237,6 +237,10 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             values.insert("description".into(), json!("Named values."));
             // The sound transfers (the elements of a message that carries a sound) are 0.6's own.
             assert!(now["properties"].as_object_mut().unwrap().remove("sound_transfers").is_some(), "device has no sound_transfers");
+            // Whether a bank can be written, and the reply timeout of a dump, are 0.6's own.
+            assert!(now["$defs"]["bank"]["properties"].as_object_mut().unwrap().remove("writable").is_some(), "bank has no writable");
+            let dump = now["properties"]["programs"]["properties"]["dump"]["properties"].as_object_mut().unwrap();
+            assert!(dump.remove("reply_timeout_ms").is_some(), "dump has no reply_timeout_ms");
             let defs = now["$defs"].as_object_mut().unwrap();
             for def in ["sound_transfer", "sound_elements", "sound_element", "sound_data_element"] {
                 assert!(defs.remove(def).is_some(), "no def {def}");

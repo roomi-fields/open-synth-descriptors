@@ -2,6 +2,7 @@
 mod common;
 
 mod addresses;
+mod bank_writable_reply_timeout;
 mod capabilities;
 mod catalogue;
 mod conformance;

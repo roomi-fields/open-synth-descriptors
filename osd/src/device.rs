@@ -393,6 +393,37 @@ fn check_defaults(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
+/// `banks[].writable` and `dump.reply_timeout_ms` are not fields before 0.6; from 0.6 a reply time
+/// is never shorter than the pause `delay_ms` (a missing pause is zero).
+fn check_banks_and_reply_time(d: &Device) -> Result<(), Fault> {
+    let Some(p) = d.programs.as_ref() else { return Ok(()) };
+    let v06 = d.schema >= Some(Version::V0_6);
+    let unknown = |pointer: String, name: &str| Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: format!("{name} is not a field before 0.6") };
+    if !v06 {
+        for (n, b) in p.banks.iter().flatten().enumerate() {
+            if b.writable.is_some() {
+                return Err(unknown(format!("/programs/banks/{n}/writable"), "writable"));
+            }
+        }
+        if p.dump.as_ref().is_some_and(|k| k.reply_timeout_ms.is_some()) {
+            return Err(unknown("/programs/dump/reply_timeout_ms".into(), "reply_timeout_ms"));
+        }
+        return Ok(());
+    }
+    if let Some(timeout) = p.dump.as_ref().and_then(|k| k.reply_timeout_ms) {
+        let pause = p.delay_ms.unwrap_or(0);
+        if timeout < pause {
+            return Err(Fault {
+                kind: FaultKind::BadValue,
+                file: None,
+                pointer: "/programs/dump/reply_timeout_ms".into(),
+                rule: format!("the reply time {timeout} ms is shorter than the pause delay_ms {pause} ms"),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// The precision of a control (0.6): `priority`, `step_count`, `transmit`, `recognize` and the `values`
 /// of a CC entry are not fields before 0.6; from 0.6 each named value lies inside the control's
 /// `range` (bounds included) when it has one, and is compared to nothing otherwise.
@@ -438,6 +469,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     check_roles(d)?;
     check_defaults(d)?;
     check_precision(d)?;
+    check_banks_and_reply_time(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
     }
@@ -868,6 +900,8 @@ object! {
         "display" display: Option<String> = Opt(STRING),
         "channel" channel: Option<u8> = Opt(CHANNEL),
         "selects" selects: Option<String> = Opt(STRING),
+        /// Whether the bank can be written; absent, it can (0.6).
+        "writable" writable: Option<bool> = Opt(Bool),
     }
 }
 
@@ -906,6 +940,8 @@ object! {
         "request" request: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
         /// A Lua script that writes the request (0.5).
         "script" script: Option<String> = Opt(STRING),
+        /// How long the device may take to answer the request, in milliseconds (0.6).
+        "reply_timeout_ms" reply_timeout_ms: Option<i64> = Opt(at_least(0)),
     }
 }
 

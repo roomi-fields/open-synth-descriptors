@@ -191,6 +191,11 @@
             "script": {
               "type": "string",
               "description": "A Lua script that writes the request that reads a sound back: it reads ctx like recall_script and returns one list of bytes. Requires the lua capability."
+            },
+            "reply_timeout_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How long the device may take to answer the request, in milliseconds; never shorter than programs.delay_ms (the reader refuses it)."
             }
           },
           "patternProperties": {
@@ -1247,6 +1252,10 @@
           "minimum": 0,
           "maximum": 15,
           "description": "MIDI channel, 0-15 (channel 1 is 0)."
+        },
+        "writable": {
+          "type": "boolean",
+          "description": "Whether the bank can be written; absent, it can. false is a bank a tool reads and never writes."
         },
         "selects": {
           "anyOf": [
