@@ -5,7 +5,7 @@
   "cc_params": {
     "channel": 0,
     "entries": [
-      { "osc": "/filter/wobble", "cc": 20, "role": { "part": "filter", "setting": "x-acme-wobble" } }
+      { "osc": "/filter/ladder/cutoff", "cc": 20, "role": { "parts": [{ "part": "filter" }, { "part": "x-acme-ladder" }], "setting": "cutoff" } }
     ]
   }
 }

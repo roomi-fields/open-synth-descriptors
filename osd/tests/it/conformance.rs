@@ -69,12 +69,12 @@ fn run_read(dir: &Path) -> Option<String> {
             if doc != *want {
                 return Some(format!("read into {doc}"));
             }
-            // `roles`, when the case states it: each role's pointer and what it resolves to.
+            // `roles`, when the case states it: each role's pointer, what it resolves to and its paramPath.
             let got: Vec<Value> = osd::roles(&d)
                 .into_iter()
-                .map(|(pointer, m)| {
-                    let meaning = if m == osd::RoleMeaning::Known { "known" } else { "none" };
-                    serde_json::json!({"pointer": pointer, "meaning": meaning})
+                .map(|r| {
+                    let meaning = if r.meaning == osd::RoleMeaning::Known { "known" } else { "none" };
+                    serde_json::json!({"pointer": r.pointer, "meaning": meaning, "paramPath": r.param_path})
                 })
                 .collect();
             let want_roles = case.get("roles").and_then(Value::as_array).cloned().unwrap_or_default();
@@ -93,18 +93,31 @@ fn run_read(dir: &Path) -> Option<String> {
 /// The role cases of 0.6 (`conformance/0.6/read/<case>`): the descriptor's
 /// shape, then what the case states. `(case, fault kind and pointer, or the
 /// roles resolved, whether only the reader refuses it)`.
-const ROLE_CASES: [(&str, &str, &str, bool); 11] = [
+const ROLE_CASES: [(&str, &str, &str, bool); 16] = [
     ("role-known", "known", "", false),
+    ("role-two-envelopes", "known known", "", false),
     ("role-composed-index", "known known", "", false),
     ("role-extension", "none", "", false),
     ("role-string-refused", "BadValue", "/cc_params/entries/0/role", false),
     ("role-unknown-key-refused", "UnknownField", "/cc_params/entries/0/role/colour", false),
-    ("role-index-below-one-refused", "BadValue", "/cc_params/entries/0/role/index", false),
+    ("role-index-below-one-refused", "BadValue", "/cc_params/entries/0/role/parts/0/index", false),
     ("role-without-vocabulary-refused", "Missing", "/role_vocabulary", false),
     ("role-vocabulary-unknown-refused", "BadValue", "/role_vocabulary", true),
     ("role-setting-not-of-part-refused", "BadValue", "/cc_params/entries/0/role", true),
     ("role-unknown-term-refused", "BadValue", "/cc_params/entries/0/role/setting", true),
-    ("role-term-of-wrong-type-refused", "BadValue", "/cc_params/entries/0/role/part", true),
+    ("role-term-of-wrong-type-refused", "BadValue", "/cc_params/entries/0/role/parts/0/part", true),
+    ("role-part-not-under-refused", "BadValue", "/cc_params/entries/0/role/parts/1", true),
+    ("role-first-part-not-at-top-refused", "BadValue", "/cc_params/entries/0/role/parts/0", true),
+    ("role-flat-form-refused", "UnknownField", "/cc_params/entries/0/role/part", false),
+    ("role-parts-empty-refused", "BadValue", "/cc_params/entries/0/role/parts", false),
+];
+
+/// The `paramPath` each result case states for its roles, in order.
+const ROLE_PARAM_PATHS: [(&str, &[&str]); 4] = [
+    ("role-known", &["/Filter/Cutoff"]),
+    ("role-two-envelopes", &["/Filter/Envelope/AttackTime", "/Amplifier/Envelope/AttackTime"]),
+    ("role-composed-index", &["/Oscillator/2/Envelope/1/AttackTime", "/Output/Pan"]),
+    ("role-extension", &["/Filter/x-acme-ladder/Cutoff"]),
 ];
 
 #[test]
@@ -128,20 +141,43 @@ fn the_role_cases_of_0_6_show_a_known_role_a_composed_one_an_extension_and_each_
             if got != want || case.get("fault").is_some() {
                 failures.push(format!("{name}: states {got:?}, expected {want:?}"));
             }
+            // Each role states its paramPath.
+            let paths: Vec<&str> = case["roles"].as_array().map_or(vec![], |r| r.iter().filter_map(|x| x["paramPath"].as_str()).collect());
+            let want_paths = ROLE_PARAM_PATHS.iter().find(|(n, _)| *n == name).map(|(_, p)| p.to_vec());
+            if Some(paths.clone()) != want_paths {
+                failures.push(format!("{name}: states the paramPaths {paths:?}, expected {want_paths:?}"));
+            }
         } else if case["fault"] != serde_json::json!({"kind": outcome, "pointer": pointer}) {
             failures.push(format!("{name}: states {}", case["fault"]));
         }
         // The descriptor shows what the case is named for.
         let role = &doc["cc_params"]["entries"][0]["role"];
+        let parts = role["parts"].as_array().cloned().unwrap_or_default();
+        let part = |n: usize| parts.get(n).map(|p| p["part"].as_str().unwrap_or(""));
         let shows = match name {
-            "role-composed-index" => role["index"] == 2 && doc["params"]["entries"][0]["role"].is_object(),
-            "role-extension" => role["setting"].as_str().is_some_and(|s| s.starts_with("x-")),
+            "role-two-envelopes" => {
+                let second = doc["cc_params"]["entries"][1]["role"]["parts"].as_array().cloned().unwrap_or_default();
+                parts.len() == 2
+                    && part(0) == Some("filter")
+                    && part(1) == Some("envelope")
+                    && second.len() == 2
+                    && second[0]["part"] == "amplifier"
+                    && second[1]["part"] == "envelope"
+                    && role["setting"] == doc["cc_params"]["entries"][1]["role"]["setting"]
+            }
+            "role-composed-index" => parts.len() == 2 && parts.iter().all(|p| p["index"].is_u64()) && doc["params"]["entries"][0]["role"]["parts"].is_array(),
+            "role-extension" => part(1).is_some_and(|p| p.starts_with("x-")) && parts.len() >= 2,
             "role-string-refused" => role.is_string(),
-            "role-unknown-key-refused" => role.as_object().is_some_and(|o| o.keys().any(|k| !["part", "index", "setting"].contains(&k.as_str()))),
-            "role-index-below-one-refused" => role["index"].as_i64().is_some_and(|i| i < 1),
+            "role-unknown-key-refused" => role.as_object().is_some_and(|o| o.keys().any(|k| !["parts", "setting"].contains(&k.as_str()))),
+            "role-index-below-one-refused" => parts[0]["index"].as_i64().is_some_and(|i| i < 1),
             "role-without-vocabulary-refused" => role.is_object() && doc.get("role_vocabulary").is_none(),
             "role-vocabulary-unknown-refused" => doc["role_vocabulary"].is_string() && osd::vocabulary_state(doc["role_vocabulary"].as_str().unwrap()).is_none(),
-            "role-term-of-wrong-type-refused" => role["part"] == "cutoff",
+            "role-term-of-wrong-type-refused" => part(0) == Some("cutoff"),
+            "role-part-not-under-refused" => part(0) == Some("oscillator") && part(1) == Some("filter"),
+            "role-first-part-not-at-top-refused" => part(0) == Some("envelope"),
+            "role-flat-form-refused" => role.get("part").is_some() && role.get("parts").is_none(),
+            "role-parts-empty-refused" => role["parts"] == serde_json::json!([]),
+            "role-known" => parts.len() == 1 && doc["role_vocabulary"] == "1",
             _ => role.is_object() && doc["role_vocabulary"] == "1",
         };
         if !shows {
@@ -178,7 +214,10 @@ fn schema_errors(dir: &Path, schemas: &common::Schemas) -> Option<String> {
     // that differs from the derived one) has a descriptor the schema accepts.
     let schema_accepts = case.get("schema_accepts").and_then(Value::as_bool) == Some(true);
     let want: Vec<&str> = case.get("fault").filter(|_| !schema_accepts).map(|f| f["pointer"].as_str().unwrap()).into_iter().collect();
-    let got: Vec<&str> = errors.iter().map(|(at, _)| at.as_str()).collect();
+    // One object may break two rules at once (the flat form of a role lacks `parts` and holds
+    // keys the schema does not name): the schema reports it at that object, once.
+    let mut got: Vec<&str> = errors.iter().map(|(at, _)| at.as_str()).collect();
+    got.dedup();
     // A missing or an unknown field is reported by the schema at the object that lacks it or
     // holds it; the reader's pointer names the field itself.
     let of_field = matches!(case.get("fault").and_then(|f| f["kind"].as_str()), Some("Missing" | "UnknownField"));
@@ -391,7 +430,7 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
-    every_case(&common::repo().join("conformance/0.6/read"), 55, run_read);
+    every_case(&common::repo().join("conformance/0.6/read"), 63, run_read);
 }
 
 #[test]

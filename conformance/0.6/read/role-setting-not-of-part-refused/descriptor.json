@@ -5,7 +5,7 @@
   "cc_params": {
     "channel": 0,
     "entries": [
-      { "osc": "/filter/pan", "cc": 10, "role": { "part": "filter", "setting": "pan" } }
+      { "osc": "/filter/pan", "cc": 10, "role": { "parts": [{ "part": "filter" }], "setting": "pan" } }
     ]
   }
 }

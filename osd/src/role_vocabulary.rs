@@ -5,7 +5,7 @@
 //! a role is checked against the state its descriptor names. The README of the
 //! vocabulary (`docs/vocabulary.md`) states the rule of entry.
 
-use crate::json::{closed, int, list, list_of, matching, obj, object, words, At, Object, Opt, STRING};
+use crate::json::{closed, int, list, list_of, matching, obj, object, words, At, Bool, Codec, Object, Opt, STRING};
 use crate::{Fault, FaultKind};
 use serde_json::Value;
 use std::sync::OnceLock;
@@ -55,6 +55,54 @@ object! {
 }
 
 object! {
+    /// A row of a table of a published document (M2-104-UM table 22,
+    /// M2-117-UM table 5) a term is taken from.
+    DocumentSource {
+        "document" document: String = NOT_EMPTY,
+        "table" table: String = NOT_EMPTY,
+        /// The number of the row, when the table numbers its rows.
+        "number" number: Option<u8> = Opt(int(0, 127)),
+        "name" name: String = NOT_EMPTY,
+    }
+}
+
+/// Where a term comes from: a controller of the MIDI 1.0 table, or a row of
+/// a table of a published document.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TermSource {
+    Controller(Controller),
+    Document(DocumentSource),
+}
+
+/// A source is read by its form: an object with `document` cites a document.
+pub struct SourceCodec;
+
+impl Codec for SourceCodec {
+    type T = TermSource;
+    fn read(&self, v: &Value, at: &At) -> Result<TermSource, Fault> {
+        if v.as_object().is_some_and(|o| o.contains_key("document")) {
+            DocumentSource::read(v, at).map(TermSource::Document)
+        } else {
+            Controller::read(v, at).map(TermSource::Controller)
+        }
+    }
+    fn write(&self, t: &TermSource) -> Option<Value> {
+        Some(match t {
+            TermSource::Controller(c) => c.write(),
+            TermSource::Document(d) => d.write(),
+        })
+    }
+}
+
+object! {
+    /// A device that uses a term, with its maker.
+    SharedDevice {
+        "maker" maker: String = NOT_EMPTY,
+        "device" device: String = NOT_EMPTY,
+    }
+}
+
+object! {
     /// A term of the vocabulary.
     Term {
         "name" name: String = matching(is_name, "of lowercase letters, digits and hyphens, starting with a letter"),
@@ -62,9 +110,15 @@ object! {
         "definition" definition: String = matching(is_one_sentence, "of one sentence"),
         /// The parts a setting applies to.
         "applies_to" applies_to: Option<Vec<String>> = Opt(list(STRING)),
+        /// The parts a part may stand under in a path.
+        "stands_under" stands_under: Option<Vec<String>> = Opt(list_of(STRING, 1, usize::MAX)),
+        /// Whether a part may open a path; true when `stands_under` is absent, false when it is present.
+        "at_top" at_top: Option<bool> = Opt(Bool),
         "words" words: Vec<MakerWord> = list(obj()),
-        /// The controllers whose composition uses the term.
-        "source" source: Vec<Controller> = list_of(obj(), 1, usize::MAX),
+        /// Where the term comes from: MIDI 1.0 controllers whose composition uses it, rows of a published document.
+        "source" source: Option<Vec<TermSource>> = Opt(list_of(SourceCodec, 1, usize::MAX)),
+        /// Devices of two makers at least that share the term.
+        "shared_by" shared_by: Option<Vec<SharedDevice>> = Opt(list(obj())),
         /// The term of the same state that replaces this one.
         "replaced_by" replaced_by: Option<String> = Opt(STRING),
     }
@@ -106,13 +160,43 @@ fn fault(kind: FaultKind, pointer: String, rule: impl Into<String>) -> Fault {
 fn check_term(t: &Term, at: &At) -> Result<(), Fault> {
     let here = at.pointer();
     match (t.kind, &t.applies_to) {
-        (TermKind::Setting, None) => Err(fault(FaultKind::Missing, format!("{here}/applies_to"), "applies_to is required for a setting")),
+        (TermKind::Setting, None) => return Err(fault(FaultKind::Missing, format!("{here}/applies_to"), "applies_to is required for a setting")),
         (TermKind::Setting, Some(a)) if a.is_empty() => {
-            Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "at least one part"))
+            return Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "at least one part"))
         }
-        (TermKind::Part, Some(_)) => Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "a part applies to nothing")),
-        _ => Ok(()),
+        (TermKind::Part, Some(_)) => return Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "a part applies to nothing")),
+        _ => {}
     }
+    if t.kind == TermKind::Setting {
+        if t.stands_under.is_some() {
+            return Err(fault(FaultKind::BadValue, format!("{here}/stands_under"), "a setting stands under no part: it applies to parts"));
+        }
+        if t.at_top.is_some() {
+            return Err(fault(FaultKind::BadValue, format!("{here}/at_top"), "a setting does not open a path"));
+        }
+    }
+    if t.source.is_none() && t.shared_by.is_none() {
+        return Err(fault(FaultKind::Missing, format!("{here}/source"), "a term has a source or says where it is shared (shared_by)"));
+    }
+    if let Some(shared) = &t.shared_by {
+        let makers: std::collections::BTreeSet<&str> = shared.iter().map(|d| d.maker.as_str()).collect();
+        let devices: std::collections::BTreeSet<(&str, &str)> = shared.iter().map(|d| (d.maker.as_str(), d.device.as_str())).collect();
+        if makers.len() < 2 || devices.len() < 2 {
+            return Err(fault(FaultKind::BadValue, format!("{here}/shared_by"), "at least two devices of two makers"));
+        }
+    }
+    Ok(())
+}
+
+/// The segment of a term in a `paramPath` (M2-117-UM): each word between hyphens
+/// starts with a capital letter and the hyphens go (`attack-time` is `AttackTime`).
+pub(crate) fn segment(name: &str) -> String {
+    name.split('-')
+        .map(|w| {
+            let mut c = w.chars();
+            c.next().map(|f| f.to_ascii_uppercase().to_string() + c.as_str()).unwrap_or_default()
+        })
+        .collect()
 }
 
 /// A name or a word in the form compared: lowercase words joined by one space.
@@ -121,8 +205,41 @@ fn norm(s: &str) -> String {
 }
 
 impl Term {
+    /// The MIDI 1.0 controllers the term cites.
     fn controllers(&self) -> impl Iterator<Item = u8> + '_ {
-        self.source.iter().map(|c| c.number)
+        self.source.iter().flatten().filter_map(|s| match s {
+            TermSource::Controller(c) => Some(c.number),
+            TermSource::Document(_) => None,
+        })
+    }
+
+    /// Whether a path may open with this part: `at_top`, which is true when `stands_under`
+    /// is absent and false when it is present, unless the part writes it.
+    pub(crate) fn opens_a_path(&self) -> bool {
+        self.at_top.unwrap_or(self.stands_under.is_none())
+    }
+}
+
+impl Vocabulary {
+    /// The chains of parts that follow `stands_under`, from any part down: each part stands
+    /// under the one before it. A chain holds a part once.
+    fn chains(&self) -> Vec<Vec<usize>> {
+        let mut out = Vec::new();
+        let mut stack: Vec<Vec<usize>> = (0..self.terms.len()).filter(|i| self.terms[*i].kind == TermKind::Part).map(|i| vec![i]).collect();
+        while let Some(chain) = stack.pop() {
+            let last = &self.terms[*chain.last().expect("a chain holds a part")];
+            if chain.len() < 4 {
+                for (i, t) in self.terms.iter().enumerate() {
+                    if t.kind == TermKind::Part && !chain.contains(&i) && t.stands_under.iter().flatten().any(|u| *u == last.name) {
+                        let mut longer = chain.clone();
+                        longer.push(i);
+                        stack.push(longer);
+                    }
+                }
+            }
+            out.push(chain);
+        }
+        out
     }
 }
 
@@ -134,30 +251,35 @@ fn check_state(v: &Vocabulary, _: &At) -> Result<(), Fault> {
         }
     }
     let part = |name: &str| v.terms.iter().find(|t| t.name == name && t.kind == TermKind::Part);
-    // The compositions the state holds: a part and a setting that applies to it.
-    let compositions = |except: usize| -> Vec<(usize, usize)> {
+    // The compositions the state holds: a chain of parts, each under the one before, and a
+    // setting that applies to the last (a part alone is a chain of one).
+    let chains = v.chains();
+    let compositions = |except: usize| -> Vec<(String, String)> {
         let mut out = Vec::new();
-        for (p, tp) in v.terms.iter().enumerate().filter(|(p, t)| *p != except && t.kind == TermKind::Part) {
-            for (s, ts) in v.terms.iter().enumerate().filter(|(s, t)| *s != except && t.kind == TermKind::Setting) {
-                if ts.applies_to.iter().flatten().any(|a| *a == tp.name) {
-                    out.push((p, s));
-                }
+        for chain in chains.iter().filter(|c| !c.contains(&except)) {
+            let last = &v.terms[*chain.last().expect("a chain holds a part")].name;
+            for ts in v.terms.iter().enumerate().filter(|(s, t)| *s != except && t.kind == TermKind::Setting && t.applies_to.iter().flatten().any(|a| a == last)).map(|(_, t)| t) {
+                let names: Vec<&str> = chain.iter().map(|p| v.terms[*p].name.as_str()).chain(std::iter::once(ts.name.as_str())).collect();
+                out.push((names.iter().map(|n| norm(n)).collect::<Vec<_>>().join(" "), names.join(" + ")));
             }
         }
         out
     };
+    // Two terms are one segment of a path when their CamelCase segments are the same.
+    let segments: Vec<String> = v.terms.iter().map(|t| segment(&t.name)).collect();
     for (i, t) in v.terms.iter().enumerate() {
         let here = format!("/terms/{i}");
         // One name.
         if v.terms[..i].iter().any(|e| e.name == t.name) {
             return Err(fault(FaultKind::BadValue, format!("{here}/name"), format!("{} is the name of an earlier term", t.name)));
         }
-        // A function enters once: no term whose name or word is a part and a setting it holds,
+        // One segment: `x1` and `x-1` would both be `X1` in a path.
+        if let Some(e) = segments[..i].iter().position(|s| *s == segments[i]) {
+            return Err(fault(FaultKind::BadValue, format!("{here}/name"), format!("{} says the segment {} of {}", t.name, segments[i], v.terms[e].name)));
+        }
+        // A function enters once: no term whose name or word is a path of parts and a setting it holds,
         // nor a setting of a part whose controllers that part and another setting already compose.
-        let forms: Vec<(String, String)> = compositions(i)
-            .into_iter()
-            .map(|(p, s)| (format!("{} {}", norm(&v.terms[p].name), norm(&v.terms[s].name)), format!("{} + {}", v.terms[p].name, v.terms[s].name)))
-            .collect();
+        let forms = compositions(i);
         for form in std::iter::once(t.name.as_str()).chain(t.words.iter().map(|w| w.word.as_str())) {
             if let Some((_, what)) = forms.iter().find(|(f, _)| *f == norm(form)) {
                 return Err(fault(FaultKind::BadValue, here, format!("`{form}` is {what}, which the state already holds")));
@@ -171,7 +293,7 @@ fn check_state(v: &Vocabulary, _: &At) -> Result<(), Fault> {
                         continue;
                     }
                     let shared: Vec<u8> = tp.controllers().filter(|c| other.controllers().any(|o| o == *c)).collect();
-                    if t.controllers().all(|c| shared.contains(&c)) {
+                    if t.controllers().next().is_some() && t.controllers().all(|c| shared.contains(&c)) {
                         return Err(fault(
                             FaultKind::BadValue,
                             here,
@@ -197,6 +319,11 @@ fn check_state(v: &Vocabulary, _: &At) -> Result<(), Fault> {
         for (k, a) in t.applies_to.iter().flatten().enumerate() {
             if part(a).is_none() {
                 return Err(fault(FaultKind::BadValue, format!("{here}/applies_to/{k}"), format!("{a} is not a part of the state")));
+            }
+        }
+        for (k, a) in t.stands_under.iter().flatten().enumerate() {
+            if part(a).is_none() {
+                return Err(fault(FaultKind::BadValue, format!("{here}/stands_under/{k}"), format!("{a} is not a part of the state")));
             }
         }
         if let Some(r) = &t.replaced_by {

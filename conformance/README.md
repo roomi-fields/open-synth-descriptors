@@ -54,10 +54,18 @@ file `acme/_profile.keys`.
 
 ## Roles (0.6)
 
-A reading case that expects a result may state `roles`: each role of the
-descriptor by the JSON `pointer` of the role, with its `meaning`, `known` (every
-term is a term of the state named by `role_vocabulary`) or `none` (the role
-holds an extension: no known role). A case that states none has no role.
+A role is a path: `{parts: [{part, index?}…], setting}`, one part or more and
+one setting. A reading case that expects a result may state `roles`: each role
+of the descriptor by the JSON `pointer` of the role, with its `meaning`, `known`
+(every term is a term of the state named by `role_vocabulary`) or `none` (the
+role holds an extension: no known role), and its `paramPath`, the text of the
+path as the `paramPath` of MIDI-CI Property Exchange (M2-117-UM): each term as
+its CamelCase segment (`attack-time` is `AttackTime`), the index of a part as a
+number after it, the setting last, an extension as written
+(`/Filter/Envelope/AttackTime`, `/Oscillator/2/Pitch`). A case that states none
+has no role. The refusals of a role are at the part or the setting that breaks
+a rule: a part that does not stand under the one before it, or cannot open a
+path, at that part; a setting that does not apply to the last part, at the role.
 
 ## Vocabulary states (`0.6/vocabulary/<case>/`)
 

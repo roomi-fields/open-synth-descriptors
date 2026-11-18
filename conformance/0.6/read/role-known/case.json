@@ -1,5 +1,5 @@
 {
-  "_about": "A control names its role with terms of the vocabulary state the descriptor names: the part filter and the setting cutoff are a known role.",
+  "_about": "A role is a path: the part filter, then the setting cutoff, from the terms of the vocabulary state the descriptor names. Its paramPath, the path of Property Exchange (M2-117-UM), is /Filter/Cutoff.",
   "read": "device",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/device.schema.json",
@@ -8,9 +8,9 @@
     "cc_params": {
       "channel": 0,
       "entries": [
-        { "osc": "/filter/cutoff", "cc": 74, "role": { "part": "filter", "setting": "cutoff" } }
+        { "osc": "/filter/cutoff", "cc": 74, "role": { "parts": [{ "part": "filter" }], "setting": "cutoff" } }
       ]
     }
   },
-  "roles": [{ "pointer": "/cc_params/entries/0/role", "meaning": "known" }]
+  "roles": [{ "pointer": "/cc_params/entries/0/role", "meaning": "known", "paramPath": "/Filter/Cutoff" }]
 }

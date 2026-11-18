@@ -464,17 +464,13 @@
   "$defs": {
     "role": {
       "type": "object",
-      "required": ["part", "setting"],
+      "required": ["parts", "setting"],
       "properties": {
-        "part": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*$",
-          "description": "A part of the instrument: a term of type part of the vocabulary state the descriptor names, or an extension x-<registrant>-<term>."
-        },
-        "index": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "The number of the part, from 1, when the instrument has several."
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/role_part" },
+          "description": "The path of the role: the parts from the outermost to the innermost, each with its number when the instrument has several. The text of this path, in the CamelCase segments of a Property Exchange paramPath (M2-117-UM), is what osd gives and reads back."
         },
         "setting": {
           "type": "string",
@@ -488,7 +484,30 @@
         }
       },
       "additionalProperties": false,
-      "description": "What a control does, in the words every device shares. The reader checks each term against the state named by role_vocabulary, and that the setting applies to the part."
+      "description": "What a control does, in the words every device shares: a path of parts ending in a setting. The reader checks each term against the state named by role_vocabulary, that each part stands under the one before it (stands_under, at_top) and that the setting applies to the last part."
+    },
+    "role_part": {
+      "type": "object",
+      "required": ["part"],
+      "properties": {
+        "part": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "A part of the instrument: a term of type part of the vocabulary state the descriptor names, or an extension x-<registrant>-<term>."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of the part, from 1, when the instrument has several."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "A part in the path of a role, with its number when the instrument has several."
     },
     "capture_segment": {
       "type": "object",

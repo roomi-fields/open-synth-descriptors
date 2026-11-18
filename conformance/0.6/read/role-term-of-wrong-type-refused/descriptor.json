@@ -5,7 +5,7 @@
   "cc_params": {
     "channel": 0,
     "entries": [
-      { "osc": "/filter/cutoff", "cc": 74, "role": { "part": "cutoff", "setting": "cutoff" } }
+      { "osc": "/filter/cutoff", "cc": 74, "role": { "parts": [{ "part": "cutoff" }], "setting": "cutoff" } }
     ]
   }
 }

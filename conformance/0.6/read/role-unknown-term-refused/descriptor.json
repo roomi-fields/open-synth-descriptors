@@ -5,7 +5,7 @@
   "cc_params": {
     "channel": 0,
     "entries": [
-      { "osc": "/filter/wobble", "cc": 20, "role": { "part": "filter", "setting": "wobble" } }
+      { "osc": "/filter/wobble", "cc": 20, "role": { "parts": [{ "part": "filter" }], "setting": "wobble" } }
     ]
   }
 }

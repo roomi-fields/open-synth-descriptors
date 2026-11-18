@@ -1,9 +1,11 @@
-//! The role of a control (0.6): an optional object `role {part, index?, setting}`
-//! on a CC, NRPN or RPN entry and on a param entry, each of `part` and `setting` a
-//! term of the vocabulary state the descriptor names in `role_vocabulary`, or an
-//! extension `x-<registrant>-<term>`. `osd::roles` resolves each role of a
-//! descriptor to `RoleMeaning::Known` (every term known) or
-//! `RoleMeaning::NoKnownRole` (an extension); nothing is written per role.
+//! The role of a control (0.6): an optional object `role {parts: [{part, index?}…],
+//! setting}` on a CC, NRPN or RPN entry and on a param entry: a path of one part or more
+//! (each a term of the vocabulary state the descriptor names in `role_vocabulary`, with
+//! its number when the instrument has several) ending in one setting. A term may be an
+//! extension `x-<registrant>-<term>`. `osd::roles` resolves each role of a descriptor to
+//! `RoleMeaning::Known` (every term known) or `RoleMeaning::NoKnownRole` (an extension);
+//! a part says under which parts it may stand (`stands_under`, `at_top`), a setting on
+//! which parts it applies (`applies_to`); nothing is written per role.
 
 use crate::common;
 
@@ -14,7 +16,19 @@ const SCHEMA: &str = "https://w3id.org/osd/0.6/device.schema.json";
 const ROLE: &str = "/cc_params/entries/0/role";
 
 fn cutoff() -> Value {
-    json!({"part": "filter", "setting": "cutoff"})
+    json!({"parts": [{"part": "filter"}], "setting": "cutoff"})
+}
+
+/// A role written as a path: the parts (each with an optional index) and the setting.
+fn path(parts: &[(&str, Option<i64>)], setting: &str) -> Value {
+    let parts: Vec<Value> = parts
+        .iter()
+        .map(|(p, i)| match i {
+            Some(i) => json!({"part": p, "index": i}),
+            None => json!({"part": p}),
+        })
+        .collect();
+    json!({"parts": parts, "setting": setting})
 }
 
 /// A 0.6 device whose one CC entry carries `role`, naming the state `vocab`.
@@ -35,12 +49,20 @@ fn read(doc: &Value) -> Result<Descriptor, osd::Fault> {
 }
 
 fn refused(doc: &Value, kind: FaultKind, pointer: &str) {
-    let f = read(doc).expect_err("refused");
+    let f = read(doc).err().unwrap_or_else(|| panic!("accepted: {doc}"));
     assert_eq!((f.kind, f.pointer.as_str()), (kind, pointer), "{f}");
 }
 
+fn refused_role(role: Value, kind: FaultKind, pointer: &str) {
+    refused(&with_cc_role(role, Some("1")), kind, pointer);
+}
+
 fn meanings(doc: &Value) -> Vec<(String, RoleMeaning)> {
-    osd::roles(&read(doc).unwrap_or_else(|f| panic!("{f}")))
+    osd::roles(&read(doc).unwrap_or_else(|f| panic!("{f}"))).into_iter().map(|r| (r.pointer, r.meaning)).collect()
+}
+
+fn known(role: Value) -> bool {
+    meanings(&with_cc_role(role, Some("1"))) == vec![(ROLE.to_string(), RoleMeaning::Known)]
 }
 
 #[test]
@@ -50,8 +72,6 @@ fn a_descriptor_without_any_role_reads_as_before_and_has_no_role_to_resolve() {
         .replace("https://w3id.org/osd/0.5/", "https://w3id.org/osd/0.6/");
     let d = osd::read(&text, Kind::Device).unwrap();
     assert!(osd::roles(&d).is_empty());
-    let v: Value = serde_json::from_str(&osd::write(&d)).unwrap();
-    assert!(v.get("role_vocabulary").is_none());
 }
 
 #[test]
@@ -61,27 +81,60 @@ fn a_descriptor_may_name_a_vocabulary_state_without_carrying_any_role() {
 }
 
 #[test]
-fn a_role_of_known_terms_resolves_to_a_known_role_and_writes_back_as_read() {
-    let doc = with_cc_role(cutoff(), Some("1"));
-    assert_eq!(meanings(&doc), vec![(ROLE.to_string(), RoleMeaning::Known)]);
-    let d = read(&doc).unwrap();
-    let back: Value = serde_json::from_str(&osd::write(&d)).unwrap();
-    assert_eq!(back, doc);
-}
-
-#[test]
-fn a_role_with_an_index_is_known_when_its_terms_are() {
-    for index in [1, 2, 16] {
-        let doc = with_cc_role(json!({"part": "filter", "index": index, "setting": "cutoff"}), Some("1"));
-        assert_eq!(meanings(&doc), vec![(ROLE.to_string(), RoleMeaning::Known)], "index {index}");
+fn a_role_that_is_a_path_of_known_terms_resolves_to_a_known_role_and_writes_back_as_read() {
+    for role in [
+        cutoff(),
+        path(&[("filter", None), ("envelope", None)], "attack-time"),
+        path(&[("amplifier", None), ("envelope", None)], "attack-time"),
+        path(&[("oscillator", Some(2))], "pitch"),
+    ] {
+        let doc = with_cc_role(role.clone(), Some("1"));
+        assert_eq!(meanings(&doc), vec![(ROLE.to_string(), RoleMeaning::Known)], "{role}");
+        let back: Value = serde_json::from_str(&osd::write(&read(&doc).unwrap())).unwrap();
+        assert_eq!(back, doc, "{role}");
     }
 }
 
 #[test]
-fn other_known_terms_compose_as_well() {
-    for (part, setting) in [("voice", "portamento-time"), ("output", "pan")] {
-        let doc = with_cc_role(json!({"part": part, "setting": setting}), Some("1"));
-        assert_eq!(meanings(&doc), vec![(ROLE.to_string(), RoleMeaning::Known)], "{part} {setting}");
+fn the_attack_of_the_filters_envelope_and_the_attack_of_the_amplifiers_are_two_distinct_roles() {
+    let filter = path(&[("filter", None), ("envelope", None)], "attack-time");
+    let amplifier = path(&[("amplifier", None), ("envelope", None)], "attack-time");
+    assert_ne!(filter, amplifier);
+    let doc = json!({
+        "$schema": SCHEMA,
+        "role_vocabulary": "1",
+        "device": {"name": "T", "osc_prefix": "/t"},
+        "cc_params": {"channel": 0, "entries": [
+            {"osc": "/fenv/attack", "cc": 20, "role": filter},
+            {"osc": "/aenv/attack", "cc": 21, "role": amplifier}
+        ]}
+    });
+    let paths: Vec<String> = osd::roles(&read(&doc).unwrap()).into_iter().map(|r| r.param_path).collect();
+    assert_eq!(paths, ["/Filter/Envelope/AttackTime", "/Amplifier/Envelope/AttackTime"]);
+}
+
+#[test]
+fn each_part_of_a_path_carries_its_own_index() {
+    assert!(known(path(&[("oscillator", Some(2)), ("envelope", Some(1))], "attack-time")));
+    assert!(known(path(&[("oscillator", Some(2)), ("envelope", None)], "attack-time")));
+    for index in [1, 2, 16] {
+        assert!(known(path(&[("filter", Some(index))], "cutoff")), "index {index}");
+        assert!(known(path(&[("effect", Some(index))], "depth")), "index {index}");
+    }
+    let back: Value =
+        serde_json::from_str(&osd::write(&read(&with_cc_role(path(&[("oscillator", Some(2)), ("envelope", Some(1))], "attack-time"), Some("1"))).unwrap())).unwrap();
+    assert_eq!(back["cc_params"]["entries"][0]["role"]["parts"][1]["index"], json!(1));
+}
+
+#[test]
+fn other_known_paths_compose_as_well() {
+    for (parts, setting) in [
+        (vec![("voice", None)], "portamento-time"),
+        (vec![("output", None)], "pan"),
+        (vec![("voice", None), ("envelope", None)], "release-time"),
+        (vec![("oscillator", Some(2))], "pitch"),
+    ] {
+        assert!(known(path(&parts, setting)), "{parts:?} {setting}");
     }
 }
 
@@ -121,10 +174,14 @@ fn an_entry_of_each_control_form_accepts_a_role() {
 #[test]
 fn a_role_with_an_extension_is_valid_and_reads_as_no_known_role() {
     for role in [
-        json!({"part": "filter", "setting": "x-acme-wobble"}),
-        json!({"part": "x-acme-ladder", "setting": "x-acme-drive-2"}),
+        path(&[("filter", None)], "x-acme-wobble"),
+        path(&[("x-acme-ladder", None)], "x-acme-drive-2"),
         // The extension stands in for a term, so the part/setting match is not checked.
-        json!({"part": "x-acme-ladder", "setting": "cutoff"}),
+        path(&[("x-acme-ladder", None)], "cutoff"),
+        // An extension in the middle of a path.
+        path(&[("filter", None), ("x-acme-ladder", None), ("envelope", None)], "attack-time"),
+        path(&[("x-acme-ladder", Some(2)), ("envelope", None)], "attack-time"),
+        path(&[("filter", None), ("x-acme-ladder", None)], "cutoff"),
     ] {
         let doc = with_cc_role(role.clone(), Some("1"));
         assert_eq!(meanings(&doc), vec![(ROLE.to_string(), RoleMeaning::NoKnownRole)], "{role}");
@@ -134,42 +191,96 @@ fn a_role_with_an_extension_is_valid_and_reads_as_no_known_role() {
 #[test]
 fn an_extension_that_does_not_follow_the_registered_form_is_refused_at_its_term() {
     for bad in ["x-acme", "X-acme-wobble", "x--wobble", "x-acme-Wobble", "x-a_b-c"] {
-        refused(&with_cc_role(json!({"part": "filter", "setting": bad}), Some("1")), FaultKind::BadValue, &format!("{ROLE}/setting"));
+        refused_role(path(&[("filter", None)], bad), FaultKind::BadValue, &format!("{ROLE}/setting"));
+        refused_role(path(&[("filter", None), (bad, None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/1/part"));
     }
 }
 
 #[test]
 fn a_term_neither_known_nor_an_extension_is_refused_at_its_term() {
-    refused(&with_cc_role(json!({"part": "filter", "setting": "wobble"}), Some("1")), FaultKind::BadValue, &format!("{ROLE}/setting"));
-    refused(&with_cc_role(json!({"part": "gizmo", "setting": "cutoff"}), Some("1")), FaultKind::BadValue, &format!("{ROLE}/part"));
+    refused_role(path(&[("filter", None)], "wobble"), FaultKind::BadValue, &format!("{ROLE}/setting"));
+    refused_role(path(&[("gizmo", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/0/part"));
+    refused_role(path(&[("filter", None), ("gizmo", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/1/part"));
 }
 
 #[test]
 fn a_term_used_in_the_wrong_slot_is_refused_at_the_faulty_field() {
     // `cutoff` is a setting, `filter` a part.
-    refused(&with_cc_role(json!({"part": "cutoff", "setting": "cutoff"}), Some("1")), FaultKind::BadValue, &format!("{ROLE}/part"));
-    refused(&with_cc_role(json!({"part": "filter", "setting": "filter"}), Some("1")), FaultKind::BadValue, &format!("{ROLE}/setting"));
+    refused_role(path(&[("cutoff", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/0/part"));
+    refused_role(path(&[("filter", None), ("cutoff", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/1/part"));
+    refused_role(path(&[("filter", None)], "filter"), FaultKind::BadValue, &format!("{ROLE}/setting"));
 }
 
 #[test]
-fn a_setting_that_does_not_apply_to_the_part_is_refused_at_the_role() {
-    refused(&with_cc_role(json!({"part": "filter", "setting": "pan"}), Some("1")), FaultKind::BadValue, ROLE);
-    refused(&with_cc_role(json!({"part": "output", "setting": "cutoff"}), Some("1")), FaultKind::BadValue, ROLE);
+fn a_path_whose_first_part_cannot_open_a_path_is_refused_at_that_part() {
+    // `envelope` stands under other parts: it does not open a path.
+    refused_role(path(&[("envelope", None)], "attack-time"), FaultKind::BadValue, &format!("{ROLE}/parts/0"));
+    // An index does not change where a part may stand.
+    refused_role(path(&[("envelope", Some(1))], "attack-time"), FaultKind::BadValue, &format!("{ROLE}/parts/0"));
+    // `lfo` opens a path and stands under others: both are written, both hold.
+    assert!(known(path(&[("lfo", None)], "rate")));
+}
+
+#[test]
+fn a_part_that_does_not_stand_under_the_one_before_it_is_refused_at_that_part() {
+    // `filter` stands under no part, `envelope` stands under filter, amplifier, oscillator, voice.
+    refused_role(path(&[("oscillator", None), ("filter", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/1"));
+    refused_role(path(&[("noise", None), ("envelope", None)], "attack-time"), FaultKind::BadValue, &format!("{ROLE}/parts/1"));
+    refused_role(path(&[("output", None), ("envelope", None)], "attack-time"), FaultKind::BadValue, &format!("{ROLE}/parts/1"));
+    // The fault names the first part that breaks the rule.
+    refused_role(path(&[("filter", None), ("envelope", None), ("filter", None)], "cutoff"), FaultKind::BadValue, &format!("{ROLE}/parts/2"));
+    // A part may stand under a part that itself stands under another.
+    assert!(known(path(&[("filter", None), ("lfo", None)], "rate")));
+    assert!(known(path(&[("oscillator", Some(2)), ("lfo", Some(1))], "rate")));
+    // `lfo` stands under oscillator, filter and amplifier only.
+    refused_role(path(&[("output", None), ("lfo", None)], "rate"), FaultKind::BadValue, &format!("{ROLE}/parts/1"));
+}
+
+#[test]
+fn a_setting_that_does_not_apply_to_the_last_part_is_refused_at_the_role() {
+    refused_role(path(&[("filter", None)], "pan"), FaultKind::BadValue, ROLE);
+    refused_role(path(&[("output", None)], "cutoff"), FaultKind::BadValue, ROLE);
+    // Only the last part is held against `applies_to`: cutoff applies to the filter, not to its envelope.
+    refused_role(path(&[("filter", None), ("envelope", None)], "cutoff"), FaultKind::BadValue, ROLE);
+    // Attack time applies to the envelope, not to the filter that carries it.
+    refused_role(path(&[("filter", None)], "attack-time"), FaultKind::BadValue, ROLE);
 }
 
 #[test]
 fn a_malformed_role_is_refused_at_the_faulty_value() {
     let v = Some("1");
-    refused(&with_cc_role(json!("filter-cutoff"), v), FaultKind::BadValue, ROLE);
-    refused(&with_cc_role(json!(["filter", "cutoff"]), v), FaultKind::BadValue, ROLE);
-    refused(&with_cc_role(json!({"part": "filter", "setting": "cutoff", "colour": "red"}), v), FaultKind::UnknownField, &format!("{ROLE}/colour"));
-    refused(&with_cc_role(json!({"part": "filter", "index": 0, "setting": "cutoff"}), v), FaultKind::BadValue, &format!("{ROLE}/index"));
-    refused(&with_cc_role(json!({"part": "filter", "index": -1, "setting": "cutoff"}), v), FaultKind::BadValue, &format!("{ROLE}/index"));
-    refused(&with_cc_role(json!({"part": "filter", "index": 1.5, "setting": "cutoff"}), v), FaultKind::BadValue, &format!("{ROLE}/index"));
-    refused(&with_cc_role(json!({"part": "filter", "index": "2", "setting": "cutoff"}), v), FaultKind::BadValue, &format!("{ROLE}/index"));
-    refused(&with_cc_role(json!({"part": "filter"}), v), FaultKind::Missing, &format!("{ROLE}/setting"));
-    refused(&with_cc_role(json!({"setting": "cutoff"}), v), FaultKind::Missing, &format!("{ROLE}/part"));
-    refused(&with_cc_role(json!({"part": 3, "setting": "cutoff"}), v), FaultKind::BadValue, &format!("{ROLE}/part"));
+    let r = |role: Value, kind: FaultKind, pointer: &str| refused(&with_cc_role(role, v), kind, pointer);
+    r(json!("filter-cutoff"), FaultKind::BadValue, ROLE);
+    r(json!("/Filter/Cutoff"), FaultKind::BadValue, ROLE);
+    r(json!(["filter", "cutoff"]), FaultKind::BadValue, ROLE);
+    r(json!({"parts": [{"part": "filter"}], "setting": "cutoff", "colour": "red"}), FaultKind::UnknownField, &format!("{ROLE}/colour"));
+    r(json!({"parts": [{"part": "filter", "colour": "red"}], "setting": "cutoff"}), FaultKind::UnknownField, &format!("{ROLE}/parts/0/colour"));
+    for bad in [json!(0), json!(-1), json!(1.5), json!("2")] {
+        r(json!({"parts": [{"part": "filter", "index": bad}], "setting": "cutoff"}), FaultKind::BadValue, &format!("{ROLE}/parts/0/index"));
+        r(
+            json!({"parts": [{"part": "filter"}, {"part": "envelope", "index": bad}], "setting": "attack-time"}),
+            FaultKind::BadValue,
+            &format!("{ROLE}/parts/1/index"),
+        );
+    }
+    r(json!({"parts": [{"part": "filter"}]}), FaultKind::Missing, &format!("{ROLE}/setting"));
+    r(json!({"setting": "cutoff"}), FaultKind::Missing, &format!("{ROLE}/parts"));
+    r(json!({"parts": [{"index": 1}], "setting": "cutoff"}), FaultKind::Missing, &format!("{ROLE}/parts/0/part"));
+    r(json!({"parts": [{"part": 3}], "setting": "cutoff"}), FaultKind::BadValue, &format!("{ROLE}/parts/0/part"));
+    r(json!({"parts": "filter", "setting": "cutoff"}), FaultKind::BadValue, &format!("{ROLE}/parts"));
+    r(json!({"parts": ["filter"], "setting": "cutoff"}), FaultKind::BadValue, &format!("{ROLE}/parts/0"));
+    r(json!({"parts": [{"part": "filter"}], "setting": 4}), FaultKind::BadValue, &format!("{ROLE}/setting"));
+}
+
+#[test]
+fn a_role_with_no_part_is_refused_at_its_list_of_parts() {
+    refused_role(json!({"parts": [], "setting": "cutoff"}), FaultKind::BadValue, &format!("{ROLE}/parts"));
+}
+
+#[test]
+fn the_flat_form_of_a_part_an_index_and_a_setting_is_no_longer_a_role() {
+    refused_role(json!({"part": "filter", "setting": "cutoff"}), FaultKind::UnknownField, &format!("{ROLE}/part"));
+    refused_role(json!({"part": "filter", "index": 2, "setting": "cutoff"}), FaultKind::UnknownField, &format!("{ROLE}/part"));
 }
 
 #[test]
@@ -214,17 +325,27 @@ fn a_role_written_elsewhere_than_on_a_control_is_refused_where_it_stands() {
 }
 
 #[test]
-fn the_0_6_device_schema_states_the_role_and_requires_its_vocabulary_state() {
+fn the_0_6_device_schema_states_the_role_as_a_path_and_requires_its_vocabulary_state() {
     let schemas = common::Schemas::load("0.6");
     let errors = |doc: &Value| schemas.errors(Kind::Device, doc);
+    let at = |doc: &Value| -> Vec<String> {
+        let mut paths: Vec<String> = errors(doc).into_iter().map(|(p, _)| p).collect();
+        paths.dedup();
+        paths
+    };
     assert!(errors(&with_cc_role(cutoff(), Some("1"))).is_empty());
-    assert!(errors(&with_cc_role(json!({"part": "filter", "index": 2, "setting": "x-acme-wobble"}), Some("1"))).is_empty());
+    assert!(errors(&with_cc_role(path(&[("oscillator", Some(2)), ("envelope", None)], "x-acme-wobble"), Some("1"))).is_empty());
     // A role the reader refuses for the vocabulary alone is a descriptor the schema accepts.
-    assert!(errors(&with_cc_role(json!({"part": "filter", "setting": "pan"}), Some("1"))).is_empty());
-    let at = |doc: &Value| -> Vec<String> { errors(doc).into_iter().map(|(p, _)| p).collect() };
+    assert!(errors(&with_cc_role(path(&[("filter", None)], "pan"), Some("1"))).is_empty());
+    assert!(errors(&with_cc_role(path(&[("envelope", None)], "attack-time"), Some("1"))).is_empty());
+    assert!(errors(&with_cc_role(path(&[("oscillator", None), ("filter", None)], "cutoff"), Some("1"))).is_empty());
     assert_eq!(at(&with_cc_role(json!("filter-cutoff"), Some("1"))), [ROLE]);
-    assert_eq!(at(&with_cc_role(json!({"part": "filter", "index": 0, "setting": "cutoff"}), Some("1"))), [format!("{ROLE}/index")]);
+    assert_eq!(at(&with_cc_role(path(&[("filter", Some(0))], "cutoff"), Some("1"))), [format!("{ROLE}/parts/0/index")]);
     assert_eq!(at(&with_cc_role(cutoff(), None)), [""], "the missing field is reported at the object that lacks it");
+    // The flat form and an empty list of parts are refused.
+    assert_eq!(at(&with_cc_role(json!({"part": "filter", "setting": "cutoff"}), Some("1"))), [ROLE]);
+    assert_eq!(at(&with_cc_role(json!({"part": "filter", "index": 2, "setting": "cutoff"}), Some("1"))), [ROLE]);
+    assert_eq!(at(&with_cc_role(json!({"parts": [], "setting": "cutoff"}), Some("1"))), [format!("{ROLE}/parts")]);
     let mut doc = with_cc_role(cutoff(), Some("1"));
     doc["cc_params"]["entries"][0]["role"]["colour"] = json!("red");
     assert_eq!(at(&doc), [ROLE]);
@@ -249,12 +370,13 @@ fn files(driver: &Value) -> std::collections::BTreeMap<String, String> {
 
 #[test]
 fn resolving_keeps_each_role_as_written_and_the_state_the_descriptor_names() {
-    let doc = with_cc_role(json!({"part": "filter", "index": 2, "setting": "cutoff"}), Some("1"));
+    let role = path(&[("oscillator", Some(2)), ("envelope", None)], "attack-time");
+    let doc = with_cc_role(role.clone(), Some("1"));
     let r = osd::resolve("acme/synth", &files(&doc)).unwrap();
     let out: Value = serde_json::from_str(&osd::write(&Descriptor::Device(Box::new(r.device.clone())))).unwrap();
     assert_eq!(out["role_vocabulary"], json!("1"));
-    assert_eq!(out["cc_params"]["entries"][0]["role"], json!({"part": "filter", "index": 2, "setting": "cutoff"}));
-    let got = osd::roles(&Descriptor::Device(Box::new(r.device)));
+    assert_eq!(out["cc_params"]["entries"][0]["role"], role);
+    let got: Vec<(String, RoleMeaning)> = osd::roles(&Descriptor::Device(Box::new(r.device))).into_iter().map(|r| (r.pointer, r.meaning)).collect();
     assert_eq!(got, vec![(ROLE.to_string(), RoleMeaning::Known)]);
 }
 
@@ -263,6 +385,9 @@ fn resolving_a_driver_whose_role_is_refused_is_refused_with_its_file() {
     let doc = with_cc_role(cutoff(), Some("999"));
     let f = osd::resolve("acme/synth", &files(&doc)).unwrap_err();
     assert_eq!((f.kind, f.pointer.as_str(), f.file.as_deref()), (FaultKind::BadValue, "/role_vocabulary", Some("acme/synth")), "{f}");
+    let doc = with_cc_role(path(&[("envelope", None)], "attack-time"), Some("1"));
+    let f = osd::resolve("acme/synth", &files(&doc)).unwrap_err();
+    assert_eq!((f.kind, f.pointer.as_str(), f.file.as_deref()), (FaultKind::BadValue, "/cc_params/entries/0/role/parts/0", Some("acme/synth")), "{f}");
 }
 
 #[test]

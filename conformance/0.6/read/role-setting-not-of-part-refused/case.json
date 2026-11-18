@@ -1,5 +1,5 @@
 {
-  "_about": "A setting that does not apply to the part (pan on a filter) is refused, at the role. The vocabulary lists the parts each setting applies to, which the schema cannot see.",
+  "_about": "A setting that does not apply to the last part of the path (pan on a filter) is refused, at the role. The vocabulary lists the parts each setting applies to, which the schema cannot see.",
   "read": "device",
   "schema_accepts": true,
   "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role" }

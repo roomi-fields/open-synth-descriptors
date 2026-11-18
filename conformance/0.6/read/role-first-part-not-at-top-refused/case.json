@@ -1,0 +1,6 @@
+{
+  "_about": "A path opens with a part that may open one (at_top): an envelope stands under the part it shapes, so it cannot be the first part. The refusal is at that part.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/parts/0" }
+}

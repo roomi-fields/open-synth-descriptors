@@ -24,7 +24,8 @@
   "$defs": {
     "term": {
       "type": "object",
-      "required": ["name", "type", "definition", "words", "source"],
+      "required": ["name", "type", "definition", "words"],
+      "anyOf": [{ "required": ["source"] }, { "required": ["shared_by"] }],
       "patternProperties": {
         "^_": { "description": "A note for people; never read by a program." }
       },
@@ -51,6 +52,17 @@
           "uniqueItems": true,
           "description": "The parts, terms of type part of the same state, a setting applies to."
         },
+        "stands_under": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "The parts, terms of type part of the same state, a part may stand under in a path of a role."
+        },
+        "at_top": {
+          "type": "boolean",
+          "description": "Whether a part may open a path of a role. True when stands_under is absent, false when it is present, unless the part writes it."
+        },
         "words": {
           "type": "array",
           "items": { "$ref": "#/$defs/word" },
@@ -59,8 +71,16 @@
         "source": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/controller" },
-          "description": "The controllers of the MIDI 1.0 table of defined controllers whose composition uses this term."
+          "items": {
+            "oneOf": [{ "$ref": "#/$defs/controller" }, { "$ref": "#/$defs/document_source" }]
+          },
+          "description": "Where the term comes from: the controllers of the MIDI 1.0 table of defined controllers whose composition uses it, and the rows of a published document (M2-104-UM table 22, M2-117-UM table 5) that name it."
+        },
+        "shared_by": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/shared_device" },
+          "description": "Devices of two makers at least that share the term, by name. The reader refuses a list whose devices are all of one maker."
         },
         "replaced_by": {
           "type": "string",
@@ -68,8 +88,34 @@
         }
       },
       "if": { "properties": { "type": { "const": "setting" } }, "required": ["type"] },
-      "then": { "required": ["applies_to"] },
+      "then": { "required": ["applies_to"], "properties": { "stands_under": false, "at_top": false } },
       "else": { "properties": { "applies_to": false } }
+    },
+    "document_source": {
+      "type": "object",
+      "required": ["document", "table", "name"],
+      "patternProperties": {
+        "^_": { "description": "A note for people; never read by a program." }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "document": { "type": "string", "minLength": 1, "description": "The published document and its version: M2-104-UM v1.1.2." },
+        "table": { "type": "string", "minLength": 1, "description": "The table of the document: 22." },
+        "number": { "type": "integer", "minimum": 0, "maximum": 127, "description": "The number of the row, when the table numbers its rows." },
+        "name": { "type": "string", "minLength": 1, "description": "The name of the row in the table." }
+      }
+    },
+    "shared_device": {
+      "type": "object",
+      "required": ["maker", "device"],
+      "patternProperties": {
+        "^_": { "description": "A note for people; never read by a program." }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "maker": { "type": "string", "minLength": 1 },
+        "device": { "type": "string", "minLength": 1 }
+      }
     },
     "word": {
       "type": "object",

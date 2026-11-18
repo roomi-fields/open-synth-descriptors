@@ -1,0 +1,12 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "role_vocabulary": "1",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      { "osc": "/filter/env/attack", "cc": 20, "role": { "parts": [{ "part": "filter" }, { "part": "envelope" }], "setting": "attack-time" } },
+      { "osc": "/amp/env/attack", "cc": 21, "role": { "parts": [{ "part": "amplifier" }, { "part": "envelope" }], "setting": "attack-time" } }
+    ]
+  }
+}

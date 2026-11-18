@@ -34,9 +34,10 @@ pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports,
 pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
-pub use role::{roles, Role, RoleMeaning};
+pub use role::{role_from_param_path, roles, Role, RoleEntry, RoleMeaning, RolePart};
 pub use role_vocabulary::{
-    read_vocabulary, vocabulary_state, Controller, MakerWord, Term, TermKind, Vocabulary, VOCABULARY_STATES,
+    read_vocabulary, vocabulary_state, Controller, DocumentSource, MakerWord, SharedDevice, Term, TermKind, TermSource, Vocabulary,
+    VOCABULARY_STATES,
 };
 pub use sound::{Attached, Author, Content, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 

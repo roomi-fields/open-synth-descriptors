@@ -407,13 +407,20 @@ fn each_term_of_the_first_state_cites_a_controller_of_the_midi_1_0_table_and_eac
     let mut failures = Vec::new();
     for t in terms_1() {
         let name = t["name"].as_str().unwrap().to_string();
-        let source = t["source"].as_array().unwrap();
-        if source.is_empty() {
-            failures.push(format!("{name}: no source"));
+        let source = t.get("source").and_then(Value::as_array).cloned().unwrap_or_default();
+        if source.is_empty() && t.get("shared_by").is_none() {
+            failures.push(format!("{name}: no source and no shared_by"));
         }
-        for s in source {
+        // A source by controller is a row of the MIDI 1.0 table; one by document cites its document and table.
+        for s in source.iter().filter(|s| s.get("document").is_none()) {
             if !common::midi1::is_defined(s["controller"].as_u64().unwrap(), s["name"].as_str().unwrap()) {
                 failures.push(format!("{name}: {s} is not a row of the MIDI 1.0 table"));
+            }
+        }
+        for s in source.iter().filter(|s| s.get("document").is_some()) {
+            let ok = ["document", "table", "name"].iter().all(|k| s[*k].as_str().is_some_and(|v| !v.is_empty()));
+            if !ok {
+                failures.push(format!("{name}: {s} is not a document and a table with its row"));
             }
         }
         for w in t["words"].as_array().unwrap() {
@@ -430,7 +437,12 @@ fn the_first_state_covers_the_defined_controllers_that_set_a_sound() {
     // Portamento time, volume, balance, pan, expression, portamento on/off,
     // the sound controllers 1 to 5, portamento control and the effects depths.
     let sets_a_sound = [5, 7, 8, 10, 11, 65, 70, 71, 72, 73, 74, 84, 91, 92, 93, 94, 95];
-    let cited: BTreeSet<u64> = terms_1().iter().flat_map(|t| t["source"].as_array().unwrap().iter().map(|s| s["controller"].as_u64().unwrap()).collect::<Vec<_>>()).collect();
+    let cited: BTreeSet<u64> = terms_1()
+        .iter()
+        .flat_map(|t| t.get("source").and_then(Value::as_array).cloned().unwrap_or_default())
+        .filter(|s| s.get("document").is_none())
+        .map(|s| s["controller"].as_u64().unwrap())
+        .collect();
     let missing: Vec<u64> = sets_a_sound.into_iter().filter(|n| !cited.contains(n)).collect();
     assert!(missing.is_empty(), "controllers no term cites: {missing:?}");
 }
@@ -439,17 +451,34 @@ fn the_first_state_covers_the_defined_controllers_that_set_a_sound() {
 fn a_role_of_each_setting_on_each_part_it_applies_to_resolves_to_a_known_role_from_the_embedded_state() {
     let mut failures = Vec::new();
     let mut checked = 0;
-    for t in terms_1().iter().filter(|t| t["type"] == "setting") {
+    let all = terms_1();
+    // The parts from a part that opens a path down to `part`, following `stands_under`.
+    let chain = |part: &Value| -> Vec<Value> {
+        let mut parts = vec![part.clone()];
+        loop {
+            let t = all.iter().find(|t| t["name"] == *parts.last().unwrap()).unwrap();
+            match t.get("stands_under").and_then(Value::as_array).and_then(|u| u.first()) {
+                Some(above) if parts.len() < 8 => parts.push(above.clone()),
+                _ => break,
+            }
+        }
+        parts.reverse();
+        parts
+    };
+    for t in all.iter().filter(|t| t["type"] == "setting") {
         for part in t["applies_to"].as_array().unwrap() {
+            let parts: Vec<Value> = chain(part).into_iter().map(|p| json!({"part": p})).collect();
             let doc = json!({
                 "$schema": "https://w3id.org/osd/0.6/device.schema.json",
                 "role_vocabulary": "1",
                 "device": {"name": "T", "osc_prefix": "/t"},
-                "cc_params": {"entries": [{"osc": "/a", "cc": 1, "role": {"part": part, "setting": t["name"]}}]}
+                "cc_params": {"entries": [{"osc": "/a", "cc": 1, "role": {"parts": parts, "setting": t["name"]}}]}
             });
             match osd::read(&doc.to_string(), Kind::Device) {
-                Ok(d) if osd::roles(&d) == vec![("/cc_params/entries/0/role".to_string(), RoleMeaning::Known)] => checked += 1,
-                other => failures.push(format!("{part} {}: {:?}", t["name"], other.map(|d: Descriptor| osd::roles(&d)))),
+                Ok(d) if osd::roles(&d).iter().map(|r| (r.pointer.as_str(), r.meaning)).collect::<Vec<_>>() == vec![("/cc_params/entries/0/role", RoleMeaning::Known)] => {
+                    checked += 1
+                }
+                other => failures.push(format!("{part} {}: {:?}", t["name"], other.map(|d: Descriptor| osd::roles(&d).len()))),
             }
         }
     }

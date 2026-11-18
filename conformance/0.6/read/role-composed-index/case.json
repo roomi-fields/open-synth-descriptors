@@ -1,5 +1,5 @@
 {
-  "_about": "A role composes a part, its number when there are several (index, from 1) and a setting; a CC entry and a param entry each carry one.",
+  "_about": "Each part of a path carries its own number when the instrument has several (index, from 1): the attack of the first envelope of the second oscillator is /Oscillator/2/Envelope/1/AttackTime. A CC entry and a param entry each carry a role.",
   "read": "device",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/device.schema.json",
@@ -8,7 +8,7 @@
     "cc_params": {
       "channel": 0,
       "entries": [
-        { "osc": "/fx2/depth", "cc": 92, "role": { "part": "effect", "index": 2, "setting": "depth" } }
+        { "osc": "/osc2/env1/attack", "cc": 22, "role": { "parts": [{ "part": "oscillator", "index": 2 }, { "part": "envelope", "index": 1 }], "setting": "attack-time" } }
       ]
     },
     "params": {
@@ -16,12 +16,12 @@
       "set_frame": [240, 247],
       "value_type": "u7",
       "entries": [
-        { "osc": "/out/pan", "id": 3, "role": { "part": "output", "setting": "pan" } }
+        { "osc": "/out/pan", "id": 3, "role": { "parts": [{ "part": "output" }], "setting": "pan" } }
       ]
     }
   },
   "roles": [
-    { "pointer": "/cc_params/entries/0/role", "meaning": "known" },
-    { "pointer": "/params/entries/0/role", "meaning": "known" }
+    { "pointer": "/cc_params/entries/0/role", "meaning": "known", "paramPath": "/Oscillator/2/Envelope/1/AttackTime" },
+    { "pointer": "/params/entries/0/role", "meaning": "known", "paramPath": "/Output/Pan" }
   ]
 }

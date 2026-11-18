@@ -1,6 +1,6 @@
 {
-  "_about": "A term of type setting written as the part (cutoff) is refused, at the faulty field.",
+  "_about": "A term of type setting written as a part (cutoff) is refused, at the faulty field.",
   "read": "device",
   "schema_accepts": true,
-  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/part" }
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/parts/0/part" }
 }
