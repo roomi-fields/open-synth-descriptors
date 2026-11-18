@@ -1,0 +1,6 @@
+{
+  "_about": "Two controls that claim the same message (kind, channel, numbers) are refused at the later control, and the fault names the earlier. Comparing them is the reader's, so the schema accepts it.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/1" }
+}

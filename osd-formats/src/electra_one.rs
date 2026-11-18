@@ -217,6 +217,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                         rpn_msb: rpn.0,
                         rpn_lsb: rpn.1,
                         range,
+                        also: None,
                         default: None,
                         priority: None,
                         step_count: None,
@@ -402,6 +403,7 @@ fn entry_item(n: usize, e: &CcEntry, losses: &mut Vec<Loss>) -> Option<Item> {
         ("transform_reverse", e.transform_reverse.is_some(), "the preset has no field for it"),
         ("role", e.role.is_some(), "the preset has no field for it"),
         ("nrpn_lsb_range", e.nrpn_lsb_range.is_some(), "the preset has no field for it"),
+        ("also", e.also.is_some(), "the preset binds one message to a control: the ways after the first are not written"),
     ] {
         if present {
             loss(losses, format!("{at}/{field}"), reason);

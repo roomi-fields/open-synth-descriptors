@@ -20,6 +20,16 @@ A control entry of 0.6 (CC, 14-bit CC, NRPN, RPN, and the param entry) says what
 | `stepCount` | `step_count` | The number of steps, 2 or more. |
 | `minMax` | `range` | Lowest and highest value. |
 
+## A control reached by several ways
+
+A setting that a device accepts by several messages (a CC and an NRPN, say) is one control, with one address. The flat fields of the entry (`cc`, `cc_lsb`, `nrpn_msb`, `nrpn_lsb`, `rpn_msb`, `rpn_lsb`, `range`) are its first way, exactly as in 0.5; the optional `also`, a list, gives the ways after it, each with one message kind (a CC, a 14-bit CC with its `cc_lsb`, an NRPN or an RPN) and its own `range`. A way that mixes two kinds, or names none, is refused at its pointer.
+
+- **Order.** The ways are in the order of preference the writer gave them: the flat way first, then `also` in order. A reader gives them as written (`CcEntry::ways`) and never reorders them.
+- **Sender.** A sender picks the first way it can send: a descriptor that writes a 14-bit CC or an NRPN before a 7-bit CC serves a sender that does both.
+- **Receiver.** A receiver recognises every way as the same control.
+- **One claim.** Two messages are the same when they share kind, channel and numbers; a 14-bit CC claims its CC number and its LSB number, so it collides with a simple CC on either. A message is claimed once, across the ways as across the controls, inside one control as between two. The reader refuses the later claim and names both places.
+- **Conversion.** `convert` from 0.5 keeps each control as it is: it never joins two controls.
+
 ## `expects` and `typeHint`
 
 | `expects` | `typeHint` | Reason |

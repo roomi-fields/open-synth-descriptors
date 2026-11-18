@@ -113,7 +113,7 @@ fn an_nrpn_becomes_nrpn_msb_and_lsb_with_the_range_of_the_nrpn_columns() {
 }
 
 #[test]
-fn a_row_with_a_cc_and_an_nrpn_gives_two_controls_with_their_own_ranges() {
+fn a_row_with_a_cc_and_an_nrpn_gives_one_control_with_the_cc_first_and_the_nrpn_in_also_each_with_its_own_range() {
     let r = row(&[
         ("section", "Filter"),
         ("parameter_name", "Cutoff"),
@@ -126,24 +126,88 @@ fn a_row_with_a_cc_and_an_nrpn_gives_two_controls_with_their_own_ranges() {
         ("nrpn_max_value", "16383"),
     ]);
     let list = entries(&ok(&csv(&[r])).value);
-    assert_eq!(list.len(), 2);
-    assert_eq!((list[0].cc, list[0].nrpn_msb, list[0].range), (Some(74), None, Some([0, 127])));
-    assert_eq!((list[1].cc, list[1].nrpn_msb, list[1].nrpn_lsb, list[1].range), (None, Some(1), Some(2), Some([0, 16383])));
-    for e in &list {
-        assert_eq!(remark(e, "_name").as_deref(), Some("Cutoff"));
-        assert_eq!(e.section.as_deref(), Some("Filter"));
-    }
+    assert_eq!(list.len(), 1);
+    let e = &list[0];
+    assert_eq!((e.cc, e.nrpn_msb, e.range), (Some(74), None, Some([0, 127])));
+    let also = e.also.as_ref().expect("the nrpn is a further way");
+    assert_eq!(also.len(), 1);
+    assert_eq!((also[0].cc, also[0].nrpn_msb, also[0].nrpn_lsb, also[0].range), (None, Some(1), Some(2), Some([0, 16383])));
+    let ways = e.ways();
+    assert_eq!((ways.len(), ways[0].cc, ways[1].nrpn_msb), (2, Some(74), Some(1)));
+    assert_eq!(remark(e, "_name").as_deref(), Some("Cutoff"));
+    assert_eq!(e.section.as_deref(), Some("Filter"));
+    assert_eq!(e.osc, "/filter/cutoff");
+}
+
+#[test]
+fn a_row_with_a_cc_and_an_nrpn_and_one_range_gives_that_range_to_both_ways() {
+    let r = row(&[("parameter_name", "Cutoff"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
+    let t = ok(&csv(&[r]));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    let ways = entries(&t.value)[0].ways();
+    assert_eq!((ways.len(), ways[0].range, ways[1].range), (2, Some([0, 127]), Some([0, 127])));
+}
+
+#[test]
+fn a_row_with_a_14_bit_cc_and_an_nrpn_keeps_the_pair_in_the_first_way() {
+    let r = row(&[("parameter_name", "Cutoff"), ("cc_msb", "1"), ("cc_lsb", "33"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
+    let t = ok(&csv(&[r]));
+    let list = entries(&t.value);
+    assert_eq!(list.len(), 1);
+    let ways = list[0].ways();
+    assert_eq!((ways[0].cc, ways[0].cc_lsb, ways[1].nrpn_msb, ways[1].nrpn_lsb), (Some(1), Some(33), Some(1), Some(2)));
+    // The imported descriptor stays valid: it reads back strictly.
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok());
 }
 
 #[test]
 fn each_control_address_is_unique_even_for_rows_of_the_same_name() {
-    let same = |cc: &str| row(&[("section", "Filter"), ("parameter_name", "Cutoff"), ("cc_msb", cc), ("nrpn_msb", "5"), ("nrpn_lsb", "6")]);
-    let list = entries(&ok(&csv(&[same("1"), same("2"), same("3")])).value);
-    assert_eq!(list.len(), 6);
+    let same = |n: &str| row(&[("section", "Filter"), ("parameter_name", "Cutoff"), ("cc_msb", n), ("nrpn_msb", n), ("nrpn_lsb", "6")]);
+    let t = ok(&csv(&[same("1"), same("2"), same("3")]));
+    let list = entries(&t.value);
+    assert_eq!(list.len(), 3);
     let mut seen: Vec<&str> = list.iter().map(|e| e.osc.as_str()).collect();
     seen.sort();
     seen.dedup();
-    assert_eq!(seen.len(), 6, "addresses repeat: {:?}", list.iter().map(|e| &e.osc).collect::<Vec<_>>());
+    assert_eq!(seen.len(), 3, "addresses repeat: {:?}", list.iter().map(|e| &e.osc).collect::<Vec<_>>());
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok());
+}
+
+#[test]
+fn rows_that_claim_the_same_cc_give_a_descriptor_that_reads_and_name_the_loss() {
+    let same = |name: &str| row(&[("parameter_name", name), ("cc_msb", "74")]);
+    let t = ok(&csv(&[same("Cutoff"), same("Brightness")]));
+    assert!(!t.lost.is_empty(), "the claimed message is dropped without a word");
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok(), "the import does not read in 0.6");
+}
+
+#[test]
+fn rows_that_claim_the_same_nrpn_give_a_descriptor_that_reads_and_name_the_loss() {
+    let same = |name: &str| row(&[("parameter_name", name), ("nrpn_msb", "5"), ("nrpn_lsb", "6")]);
+    let t = ok(&csv(&[same("Cutoff"), same("Brightness"), same("Drive")]));
+    assert!(!t.lost.is_empty(), "the claimed message is dropped without a word");
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok(), "the import does not read in 0.6");
+}
+
+#[test]
+fn rows_with_a_cc_and_the_same_nrpn_give_a_descriptor_that_reads() {
+    let r = |cc: &str| row(&[("parameter_name", "Cutoff"), ("cc_msb", cc), ("nrpn_msb", "5"), ("nrpn_lsb", "6")]);
+    let t = ok(&csv(&[r("1"), r("2")]));
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok(), "the import does not read in 0.6");
+}
+
+#[test]
+fn rows_claiming_a_message_already_in_the_base_give_a_descriptor_that_reads() {
+    let base = ok(&csv(&[row(&[("parameter_name", "Cutoff"), ("cc_msb", "74")])])).value;
+    let more = csv(&[row(&[("parameter_name", "Brightness"), ("cc_msb", "74")])]);
+    let t = osd_formats::import_into(base, &more, Format::MidiCsv, &source()).unwrap();
+    let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
+    assert!(osd::read(&text, osd::Kind::Device).is_ok(), "the import does not read in 0.6");
 }
 
 #[test]
@@ -259,9 +323,9 @@ fn a_default_value_of_the_row_becomes_the_default_of_the_control_of_its_address(
         ("nrpn_lsb", "3"),
         ("nrpn_min_value", "0"),
         ("nrpn_max_value", "16383"),
-        ("nrpn_default_value", "10"),
     ]);
-    let t = ok(&csv(&[glide(), r]));
+    let nrpn = row(&[("parameter_name", "Depth"), ("nrpn_msb", "4"), ("nrpn_lsb", "5"), ("nrpn_min_value", "0"), ("nrpn_max_value", "200"), ("nrpn_default_value", "10")]);
+    let t = ok(&csv(&[glide(), r, nrpn]));
     assert!(t.lost.is_empty(), "{:?}", t.lost);
     let list = entries(&t.value);
     assert_eq!(list.len(), 3);
@@ -343,6 +407,8 @@ fn an_orientation_the_format_does_not_hold_is_a_loss_not_a_value() {
 fn a_device_or_manufacturer_that_changes_between_rows_is_a_loss_at_its_cell() {
     let mut other = glide();
     other[1] = "Other".into();
+    let cc = other.iter().position(|c| c == "65").unwrap();
+    other[cc] = "66".into();
     let t = ok(&csv(&[glide(), other]));
     assert_eq!(t.value.device.name, "Trundler");
     assert_eq!(t.lost.iter().map(|l| l.place.as_str()).collect::<Vec<_>>(), ["line 3, column device"]);

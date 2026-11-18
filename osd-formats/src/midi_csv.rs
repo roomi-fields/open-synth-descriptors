@@ -3,7 +3,8 @@
 
 use crate::csv;
 use crate::{Fault, FaultKind, Loss, Translated};
-use osd::{CcEntry, CcParams, Device, DeviceInfo, Orientation, Resolved, Source, Version};
+use osd::{CcEntry, CcParams, Device, DeviceInfo, Orientation, Resolved, Source, Version, Way};
+
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -139,7 +140,7 @@ fn lost(losses: &mut Vec<(usize, Loss)>, line: usize, column: usize, reason: &st
 pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
-    let (entries, losses) = read(text, &mut identity, &mut used)?;
+    let (entries, losses) = read(text, &mut identity, &mut used, &mut BTreeSet::new(), None)?;
     let (vendor, name) = identity;
     let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
     device.cc_params = Some(CcParams { channel: None, entries, remarks: Default::default() });
@@ -198,11 +199,41 @@ pub(crate) fn import_into(mut base: Device, text: &str, source: &Source) -> Resu
     check_source(source)?;
     let mut identity = (base.device.vendor.clone().unwrap_or_default(), base.device.name.clone());
     let mut used = used_addresses(&base);
-    let (entries, losses) = read(text, &mut identity, &mut used)?;
+    let channel = base.cc_params.as_ref().and_then(|c| c.channel);
+    let mut taken = claimed_by(&base);
+    let (entries, losses) = read(text, &mut identity, &mut used, &mut taken, channel)?;
     adopt_identity(&mut base, identity);
     base.cc_params.get_or_insert_with(|| CcParams { channel: None, entries: Vec::new(), remarks: Default::default() }).entries.extend(entries);
     base.sources.get_or_insert_with(Vec::new).push(source.clone());
     Ok(Translated { value: base, lost: losses })
+}
+
+/// A message: its kind (CC, NRPN, RPN), its channel and its numbers. A 14-bit CC claims its CC
+/// number and its LSB number, one message each.
+pub(crate) type Claim = (u8, Option<u8>, Option<u8>, Option<u8>);
+
+fn claims(cc: Option<u8>, cc_lsb: Option<u8>, nrpn: Option<(Option<u8>, Option<u8>)>, channel: Option<u8>) -> Vec<Claim> {
+    let mut out: Vec<Claim> = [cc, cc_lsb].into_iter().flatten().map(|v| (0, channel, Some(v), None)).collect();
+    if let Some((msb, lsb)) = nrpn {
+        out.push((1, channel, msb, lsb));
+    }
+    out
+}
+
+/// The messages the controls of a device already claim.
+pub(crate) fn claimed_by(base: &Device) -> BTreeSet<Claim> {
+    let Some(c) = &base.cc_params else { return BTreeSet::new() };
+    let mut out = BTreeSet::new();
+    for e in &c.entries {
+        let channel = e.channel.or(c.channel);
+        for w in e.ways() {
+            out.extend(claims(w.cc, w.cc_lsb, (w.nrpn_msb.is_some() || w.nrpn_lsb.is_some()).then_some((w.nrpn_msb, w.nrpn_lsb)), channel));
+            if w.rpn_msb.is_some() || w.rpn_lsb.is_some() {
+                out.insert((2, channel, w.rpn_msb, w.rpn_lsb));
+            }
+        }
+    }
+    out
 }
 
 /// A base that names no vendor or no device takes the first the file gave.
@@ -215,7 +246,7 @@ pub(crate) fn adopt_identity(base: &mut Device, identity: (String, String)) {
     }
 }
 
-fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>) -> Result<(Vec<CcEntry>, Vec<Loss>), Fault> {
+fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>, taken: &mut BTreeSet<Claim>, channel: Option<u8>) -> Result<(Vec<CcEntry>, Vec<Loss>), Fault> {
     let records = csv::parse(text).map_err(|u| invalid(format!("line {}", u.0), "a quoted cell is not closed"))?;
     let Some(head) = records.first() else {
         return Err(invalid("line 1", "the file is empty: the header of the format is missing"));
@@ -230,8 +261,8 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         if cells.len() != HEADER.len() {
             return Err(invalid(format!("line {line}"), format!("{} cells, the header has {}", cells.len(), HEADER.len())));
         }
-        let cc = midi_number(cells, line, CC_MSB)?;
-        let cc_lsb = midi_number(cells, line, CC_LSB)?;
+        let mut cc = midi_number(cells, line, CC_MSB)?;
+        let mut cc_lsb = midi_number(cells, line, CC_LSB)?;
         let nrpn_msb = midi_number(cells, line, NRPN_MSB)?;
         let nrpn_lsb = midi_number(cells, line, NRPN_LSB)?;
         let (cc_lo, cc_hi) = bounds(cells, line, CC_MIN, CC_MAX)?;
@@ -241,7 +272,7 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         if cc.is_none() && cc_lsb.is_some() {
             return Err(invalid(cell_place(line, CC_LSB), "a CC LSB without its CC"));
         }
-        let has_nrpn = nrpn_msb.is_some() || nrpn_lsb.is_some();
+        let mut has_nrpn = nrpn_msb.is_some() || nrpn_lsb.is_some();
         if cc.is_none() && !has_nrpn {
             losses.push(Loss {
                 place: format!("line {line}"),
@@ -251,6 +282,24 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         }
 
         let mut row_losses = Vec::new();
+        // A message is claimed once: a way whose message an earlier control holds is left out.
+        let cc_claims = claims(cc, cc_lsb, None, channel);
+        let nrpn_claims = claims(None, None, has_nrpn.then_some((nrpn_msb, nrpn_lsb)), channel);
+        if cc_claims.iter().any(|c| taken.contains(c)) {
+            lost(&mut row_losses, line, CC_MSB, "the CC is already claimed by an earlier control: this way is left out");
+            (cc, cc_lsb) = (None, None);
+        }
+        if nrpn_claims.iter().any(|c| taken.contains(c)) {
+            lost(&mut row_losses, line, NRPN_MSB, "the NRPN is already claimed by an earlier control: this way is left out");
+            has_nrpn = false;
+        }
+        if cc.is_none() && !has_nrpn {
+            row_losses.sort_by_key(|(column, _)| *column);
+            losses.extend(row_losses.into_iter().map(|(_, l)| l));
+            continue;
+        }
+        taken.extend(if cc.is_some() { cc_claims } else { Vec::new() });
+        taken.extend(if has_nrpn { nrpn_claims } else { Vec::new() });
         // An empty cell names nothing; the first name a row gives is the descriptor's.
         for (column, known, reason) in [
             (MANUFACTURER, &mut identity.0, "the descriptor names one manufacturer: the first row's"),
@@ -310,6 +359,9 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             }
             None
         };
+        // A row with a CC and an NRPN is one control with two ways; the one range a row gives
+        // goes to both ways.
+        let (cc_range, nrpn_range) = if cc.is_some() && has_nrpn { (cc_range.or(nrpn_range), nrpn_range.or(cc_range)) } else { (cc_range, nrpn_range) };
         // A default goes to the control of its address, when inside that control's range.
         let mut default_of = |default: Option<i64>, column: usize, has: bool, range: Option<[i64; 2]>| {
             let value = default?;
@@ -327,6 +379,15 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         };
         let cc_default = default_of(cc_default, CC_DEFAULT, cc.is_some(), cc_range);
         let nrpn_default = default_of(nrpn_default, NRPN_DEFAULT, has_nrpn, nrpn_range);
+        // One control has one default, in the space of its first way's range.
+        let (cc_default, nrpn_default) = match (cc.is_some() && has_nrpn, cc_default, nrpn_default) {
+            (true, None, Some(v)) if cc_range == nrpn_range => (Some(v), None),
+            (true, _, Some(_)) => {
+                lost(&mut row_losses, line, NRPN_DEFAULT, "a control has one default, in the space of its CC: the NRPN's is left");
+                (cc_default, None)
+            }
+            _ => (cc_default, nrpn_default),
+        };
         row_losses.sort_by_key(|(column, _)| *column);
         losses.extend(row_losses.into_iter().map(|(_, l)| l));
 
@@ -339,18 +400,29 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
                 Some(joined.join("/"))
             }
         };
-        let control = |suffix: &str, fallback: String, cc, cc_lsb, nrpn: (Option<u8>, Option<u8>), range, default, used: &mut BTreeSet<String>| {
+        // The CC is the first way, the NRPN the way after it; a row with an NRPN alone has it first.
+        let nrpn_way = Way { cc: None, cc_lsb: None, nrpn_msb, nrpn_lsb, rpn_msb: None, rpn_lsb: None, range: nrpn_range, remarks: Default::default() };
+        let (first, also) = match cc {
+            Some(_) => (Way { cc, cc_lsb, nrpn_msb: None, nrpn_lsb: None, rpn_msb: None, rpn_lsb: None, range: cc_range, remarks: Default::default() }, has_nrpn.then_some(vec![nrpn_way])),
+            None => (nrpn_way, None),
+        };
+        let fallback = match cc {
+            Some(n) => format!("cc-{n}"),
+            None => format!("nrpn-{}-{}", nrpn_msb.map_or(String::new(), |n| n.to_string()), nrpn_lsb.map_or(String::new(), |n| n.to_string())),
+        };
+        let control = |first: Way, also: Option<Vec<Way>>, default, used: &mut BTreeSet<String>| {
             let path = base.clone().unwrap_or(fallback);
             let mut entry = CcEntry {
-                osc: unique(format!("/{path}{suffix}"), used),
-                cc,
-                cc_lsb,
-                nrpn_msb: nrpn.0,
-                nrpn_lsb: nrpn.1,
+                osc: unique(format!("/{path}"), used),
+                cc: first.cc,
+                cc_lsb: first.cc_lsb,
+                nrpn_msb: first.nrpn_msb,
+                nrpn_lsb: first.nrpn_lsb,
                 nrpn_lsb_range: None,
                 rpn_msb: None,
                 rpn_lsb: None,
-                range,
+                range: first.range,
+                also,
                 default,
                 priority: None,
                 step_count: None,
@@ -373,14 +445,7 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             }
             entry
         };
-        let suffix = if cc.is_some() && has_nrpn { "-nrpn" } else { "" };
-        if let Some(n) = cc {
-            entries.push(control("", format!("cc-{n}"), cc, cc_lsb, (None, None), cc_range, cc_default, used));
-        }
-        if has_nrpn {
-            let fallback = format!("nrpn-{}-{}", nrpn_msb.map_or(String::new(), |n| n.to_string()), nrpn_lsb.map_or(String::new(), |n| n.to_string()));
-            entries.push(control(suffix, fallback, None, None, (nrpn_msb, nrpn_lsb), nrpn_range, nrpn_default, used));
-        }
+        entries.push(control(first, also, cc_default.or(nrpn_default), used));
     }
 
     Ok((entries, losses))
@@ -465,27 +530,46 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             row[DESCRIPTION] = text_remark(e, "_description");
             row[NOTES] = text_remark(e, "_notes");
             row[USAGE] = text_remark(e, "_usage");
-            put(&mut row, CC_MSB, e.cc);
-            put(&mut row, CC_LSB, e.cc_lsb);
-            put(&mut row, NRPN_MSB, e.nrpn_msb);
-            put(&mut row, NRPN_LSB, e.nrpn_lsb);
-            put(&mut row, ORIENTATION, e.orientation.map(|o| if o == Orientation::Centered { "centered" } else { "0-based" }));
-            if let Some([lo, hi]) = e.range {
-                let (min, max) = if e.cc.is_some() { (CC_MIN, CC_MAX) } else { (NRPN_MIN, NRPN_MAX) };
-                if e.cc.is_none() && e.nrpn_msb.is_none() && e.nrpn_lsb.is_none() {
-                    gone(&mut losses, at("range"), "the entry has neither a CC nor an NRPN to give the range to");
-                } else {
-                    row[min] = lo.to_string();
-                    row[max] = hi.to_string();
-                    if e.cc.is_some() && (e.nrpn_msb.is_some() || e.nrpn_lsb.is_some()) {
-                        gone(&mut losses, at("range"), "the one range goes to the CC columns; the NRPN columns stay empty");
-                    }
+            // The row holds the first way with a CC and the first way with an NRPN; any other way
+            // is a loss at its pointer.
+            let ways = e.ways();
+            let has_nrpn = |w: &Way| w.nrpn_msb.is_some() || w.nrpn_lsb.is_some();
+            let cc_at = ways.iter().position(|w| w.cc.is_some());
+            let nrpn_at = ways.iter().position(has_nrpn);
+            for m in 1..ways.len() {
+                if Some(m) != cc_at && Some(m) != nrpn_at {
+                    gone(&mut losses, at(&format!("also/{}", m - 1)), "the row holds one CC way and one NRPN way: this way has no column");
                 }
             }
+            let (cc_way, nrpn_way) = (cc_at.map(|m| &ways[m]), nrpn_at.map(|m| &ways[m]));
+            if let Some(w) = cc_way {
+                put(&mut row, CC_MSB, w.cc);
+                put(&mut row, CC_LSB, w.cc_lsb);
+            }
+            if let Some(w) = nrpn_way {
+                put(&mut row, NRPN_MSB, w.nrpn_msb);
+                put(&mut row, NRPN_LSB, w.nrpn_lsb);
+            }
+            put(&mut row, ORIENTATION, e.orientation.map(|o| if o == Orientation::Centered { "centered" } else { "0-based" }));
+            // A range the two ways share is written once, in the CC columns.
+            let cc_range = cc_way.and_then(|w| w.range);
+            let nrpn_range = nrpn_way.and_then(|w| w.range).filter(|r| cc_range != Some(*r));
+            for (range, min, max) in [(cc_range, CC_MIN, CC_MAX), (nrpn_range, NRPN_MIN, NRPN_MAX)] {
+                if let Some([lo, hi]) = range {
+                    row[min] = lo.to_string();
+                    row[max] = hi.to_string();
+                }
+            }
+            if cc_at.is_some() && cc_at == nrpn_at && cc_range.is_some() {
+                gone(&mut losses, at("range"), "the one range goes to the CC columns; the NRPN columns stay empty");
+            }
+            if e.range.is_some() && cc_way.is_none() && nrpn_way.is_none() {
+                gone(&mut losses, at("range"), "the entry has neither a CC nor an NRPN to give the range to");
+            }
             if let Some(v) = e.default {
-                if e.cc.is_some() {
+                if cc_way.is_some() {
                     row[CC_DEFAULT] = v.to_string();
-                } else if e.nrpn_msb.is_some() || e.nrpn_lsb.is_some() {
+                } else if nrpn_way.is_some() {
                     row[NRPN_DEFAULT] = v.to_string();
                 } else {
                     gone(&mut losses, at("default"), "the entry has neither a CC nor an NRPN to give the default to");

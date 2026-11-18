@@ -8,6 +8,7 @@ mod catalogue;
 mod conformance;
 mod control_default;
 mod control_precision;
+mod control_ways;
 mod controls_table;
 mod convert;
 mod convert_midi_in_notes;

@@ -205,3 +205,63 @@ fn a_control_without_a_default_leaves_the_default_cells_empty() {
     let r = &parse(&export(&d, Format::MidiCsv).unwrap().value)[1];
     assert_eq!((cell(r, "cc_default_value"), cell(r, "nrpn_default_value")), ("".into(), "".into()));
 }
+
+#[test]
+fn a_control_with_a_cc_and_an_nrpn_way_gives_one_row_with_both_in_their_columns() {
+    let d = device_06(
+        r#", "cc_params": {"entries": [
+        {"osc": "/a", "cc": 74, "range": [0, 127], "also": [{"nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383]}]}]}"#,
+    );
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let records = parse(&t.value);
+    assert_eq!(records.len(), 2);
+    let r = &records[1];
+    assert_eq!((cell(r, "cc_msb"), cell(r, "cc_min_value"), cell(r, "cc_max_value")), ("74".into(), "0".into(), "127".into()));
+    assert_eq!((cell(r, "nrpn_msb"), cell(r, "nrpn_lsb"), cell(r, "nrpn_min_value"), cell(r, "nrpn_max_value")), ("1".into(), "2".into(), "0".into(), "16383".into()));
+    assert!(t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0")), "{:?}", t.lost);
+}
+
+#[test]
+fn the_nrpn_way_written_before_the_cc_way_still_gives_the_cc_and_the_nrpn_in_their_columns() {
+    let d = device_06(
+        r#", "cc_params": {"entries": [
+        {"osc": "/a", "nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383], "also": [{"cc": 74, "range": [0, 127]}]}]}"#,
+    );
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let records = parse(&t.value);
+    assert_eq!(records.len(), 2);
+    let r = &records[1];
+    assert_eq!((cell(r, "cc_msb"), cell(r, "cc_max_value")), ("74".into(), "127".into()));
+    assert_eq!((cell(r, "nrpn_msb"), cell(r, "nrpn_lsb"), cell(r, "nrpn_max_value")), ("1".into(), "2".into(), "16383".into()));
+    assert!(t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0")), "{:?}", t.lost);
+}
+
+#[test]
+fn a_second_nrpn_way_is_a_loss_at_its_pointer_and_the_first_nrpn_still_fills_its_row() {
+    let d = device_06(
+        r#", "cc_params": {"entries": [
+        {"osc": "/a", "cc": 74, "also": [{"nrpn_msb": 1, "nrpn_lsb": 2}, {"nrpn_msb": 3, "nrpn_lsb": 4}]}]}"#,
+    );
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let records = parse(&t.value);
+    assert_eq!(records.len(), 2);
+    assert_eq!((cell(&records[1], "cc_msb"), cell(&records[1], "nrpn_msb"), cell(&records[1], "nrpn_lsb")), ("74".into(), "1".into(), "2".into()));
+    let at: Vec<_> = t.lost.iter().filter(|l| l.place.starts_with("/cc_params/entries/0")).collect();
+    assert_eq!(at.len(), 1, "{:?}", t.lost);
+    assert_eq!(at[0].place, "/cc_params/entries/0/also/1");
+    assert!(!at[0].reason.is_empty());
+}
+
+#[test]
+fn a_second_cc_way_and_an_rpn_way_are_losses_at_their_pointers() {
+    let d = device_06(
+        r#", "cc_params": {"entries": [
+        {"osc": "/a", "cc": 74, "also": [{"cc": 1, "cc_lsb": 33}, {"rpn_msb": 0, "rpn_lsb": 2}]}]}"#,
+    );
+    let t = export(&d, Format::MidiCsv).unwrap();
+    let records = parse(&t.value);
+    assert_eq!((records.len(), cell(&records[1], "cc_msb"), cell(&records[1], "cc_lsb")), (2, "74".into(), "".into()));
+    let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).filter(|p| p.starts_with("/cc_params/entries/0")).collect();
+    places.sort();
+    assert_eq!(places, ["/cc_params/entries/0/also/0", "/cc_params/entries/0/also/1"]);
+}

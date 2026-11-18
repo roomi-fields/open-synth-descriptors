@@ -146,7 +146,7 @@ fn an_entry_of_each_control_form_accepts_a_role() {
         "role_vocabulary": "1",
         "device": {"name": "T", "osc_prefix": "/t"},
         "cc_params": {"channel": 0, "entries": [
-            {"osc": "/a", "cc": 74, "role": role},
+            {"osc": "/a", "cc": 20, "role": role},
             {"osc": "/b", "cc": 74, "cc_lsb": 106, "role": role},
             {"osc": "/c", "nrpn_msb": 1, "nrpn_lsb": 2, "role": role},
             {"osc": "/d", "rpn_msb": 0, "rpn_lsb": 1, "role": role}

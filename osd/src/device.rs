@@ -460,6 +460,60 @@ fn check_precision(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
+/// A message a control claims: its kind (0 CC, 1 NRPN, 2 RPN), its channel and its numbers. A 14-bit
+/// CC claims its CC number and its LSB number, one message each.
+type Claim = (u8, Option<u8>, Option<u8>, Option<u8>);
+
+fn claims(w: &Way, channel: Option<u8>) -> Vec<Claim> {
+    let mut out: Vec<Claim> = [w.cc, w.cc_lsb].into_iter().flatten().map(|n| (0, channel, Some(n), None)).collect();
+    if w.has_nrpn() {
+        out.push((1, channel, w.nrpn_msb, w.nrpn_lsb));
+    }
+    if w.has_rpn() {
+        out.push((2, channel, w.rpn_msb, w.rpn_lsb));
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// The ways of a control (0.6): `also` is not a field before 0.6; from 0.6 each way of `also` gives
+/// one message kind, and a message (kind, channel, numbers) is claimed once, across the ways of a
+/// control as across controls; the fault is at the later place and names the earlier.
+fn check_ways(d: &Device) -> Result<(), Fault> {
+    let Some(c) = &d.cc_params else { return Ok(()) };
+    let v06 = d.schema >= Some(Version::V0_6);
+    let mut claimed: BTreeMap<Claim, String> = BTreeMap::new();
+    for (n, e) in c.entries.iter().enumerate() {
+        let at = format!("/cc_params/entries/{n}");
+        if !v06 {
+            if e.also.is_some() {
+                return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: format!("{at}/also"), rule: "also is not a field before 0.6".into() });
+            }
+            continue;
+        }
+        let channel = e.channel.or(c.channel);
+        for (m, w) in e.ways().iter().enumerate() {
+            let pointer = if m == 0 { at.clone() } else { format!("{at}/also/{}", m - 1) };
+            if m > 0 {
+                let kinds = [w.has_cc(), w.has_nrpn(), w.has_rpn()].iter().filter(|k| **k).count();
+                if kinds != 1 {
+                    let rule = if kinds == 0 { "a way names a message kind: a cc, an nrpn or an rpn" } else { "a way carries one message kind only: a cc, an nrpn or an rpn" };
+                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: rule.into() });
+                }
+            }
+            for claim in claims(w, channel) {
+                if let Some(first) = claimed.get(&claim) {
+                    let rule = format!("the message is already claimed at {first}: one control is reached by it");
+                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule });
+                }
+                claimed.insert(claim, pointer.clone());
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
@@ -469,6 +523,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     check_roles(d)?;
     check_defaults(d)?;
     check_precision(d)?;
+    check_ways(d)?;
     check_banks_and_reply_time(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
@@ -993,6 +1048,53 @@ object! {
         "transform_reverse" transform_reverse: Option<String> = Opt(STRING),
         /// What the control does, in the words every device shares (0.6).
         "role" role: Option<Role> = Opt(obj()),
+        /// The ways of reaching the control after the one the flat fields give, in the order of
+        /// preference, each with one message kind and its own range (0.6).
+        "also" also: Option<Vec<Way>> = Opt(list(obj())),
+    }
+}
+
+object! {
+    /// One way of reaching a control: a CC (with its LSB for 14 bits), an NRPN or an RPN, with its
+    /// range (0.6).
+    Way {
+        "cc" cc: Option<u8> = Opt(U7),
+        "cc_lsb" cc_lsb: Option<u8> = Opt(U7),
+        "nrpn_msb" nrpn_msb: Option<u8> = Opt(U7),
+        "nrpn_lsb" nrpn_lsb: Option<u8> = Opt(U7),
+        "rpn_msb" rpn_msb: Option<u8> = Opt(U7),
+        "rpn_lsb" rpn_lsb: Option<u8> = Opt(U7),
+        /// Lowest and highest value.
+        "range" range: Option<[i64; 2]> = Opt(Pair),
+    }
+}
+
+impl Way {
+    fn has_cc(&self) -> bool {
+        self.cc.is_some() || self.cc_lsb.is_some()
+    }
+    fn has_nrpn(&self) -> bool {
+        self.nrpn_msb.is_some() || self.nrpn_lsb.is_some()
+    }
+    fn has_rpn(&self) -> bool {
+        self.rpn_msb.is_some() || self.rpn_lsb.is_some()
+    }
+}
+
+impl CcEntry {
+    /// The ways of reaching the control in the order written: the flat fields first, then `also`.
+    pub fn ways(&self) -> Vec<Way> {
+        let first = Way {
+            cc: self.cc,
+            cc_lsb: self.cc_lsb,
+            nrpn_msb: self.nrpn_msb,
+            nrpn_lsb: self.nrpn_lsb,
+            rpn_msb: self.rpn_msb,
+            rpn_lsb: self.rpn_lsb,
+            range: self.range,
+            remarks: Default::default(),
+        };
+        std::iter::once(first).chain(self.also.iter().flatten().cloned()).collect()
     }
 }
 

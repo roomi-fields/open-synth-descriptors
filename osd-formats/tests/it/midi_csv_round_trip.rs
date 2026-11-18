@@ -37,7 +37,7 @@ fn rows_with_a_cc_alone_or_an_nrpn_alone_come_back_the_same_in_order() {
 }
 
 #[test]
-fn a_row_with_both_gives_two_rows_back_and_a_row_with_neither_is_dropped_into_the_losses() {
+fn a_row_with_both_gives_one_row_back_and_a_row_with_neither_is_dropped_into_the_losses() {
     let both = base(&[("section", "Filter"), ("parameter_name", "Cutoff"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_min_value", "0"), ("nrpn_max_value", "16383"), ("notes", "n")]);
     let neither = base(&[("parameter_name", "Sysex only")]);
     let alone = base(&[("parameter_name", "Alone"), ("cc_msb", "5")]);
@@ -45,9 +45,21 @@ fn a_row_with_both_gives_two_rows_back_and_a_row_with_neither_is_dropped_into_th
     let imported = import(&text, Format::MidiCsv, &source()).unwrap();
     assert!(imported.lost.iter().any(|l| l.place == "line 3"));
     let out = parse(&export(&resolved(imported.value), Format::MidiCsv).unwrap().value);
-    let cc_row = row(&[("manufacturer", "Lofty"), ("device", "Trundler"), ("section", "Filter"), ("parameter_name", "Cutoff"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("notes", "n")]);
-    let nrpn_row = row(&[("manufacturer", "Lofty"), ("device", "Trundler"), ("section", "Filter"), ("parameter_name", "Cutoff"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_min_value", "0"), ("nrpn_max_value", "16383"), ("notes", "n")]);
-    assert_eq!(out[1..].to_vec(), vec![alone, cc_row, nrpn_row]);
+    let one_row = row(&[
+        ("manufacturer", "Lofty"),
+        ("device", "Trundler"),
+        ("section", "Filter"),
+        ("parameter_name", "Cutoff"),
+        ("cc_msb", "74"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("nrpn_msb", "1"),
+        ("nrpn_lsb", "2"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
+        ("notes", "n"),
+    ]);
+    assert_eq!(out[1..].to_vec(), vec![alone, one_row]);
 }
 
 #[test]
@@ -67,6 +79,67 @@ fn a_row_with_a_cc_and_an_nrpn_gives_its_cc_default_back_in_the_cc_cell() {
     let both = base(&[("parameter_name", "Both"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("cc_default_value", "64"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
     let out = parse(&through(&csv(&[both])));
     let at = |name: &str| crate::common::HEADER.iter().position(|h| *h == name).unwrap();
+    assert_eq!(out.len(), 2);
     assert_eq!(out[1][at("cc_default_value")], "64");
-    assert_eq!(out[2][at("nrpn_default_value")], "");
+    assert_eq!(out[1][at("nrpn_default_value")], "");
+}
+
+#[test]
+fn a_row_with_a_cc_and_an_nrpn_gives_one_row_back_and_loses_nothing() {
+    let both = base(&[
+        ("section", "Filter"),
+        ("parameter_name", "Cutoff"),
+        ("parameter_description", "d"),
+        ("cc_msb", "74"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("nrpn_msb", "1"),
+        ("nrpn_lsb", "2"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
+        ("orientation", "centered"),
+        ("notes", "n"),
+        ("usage", "u"),
+    ]);
+    let alone = base(&[("parameter_name", "Alone"), ("cc_msb", "5")]);
+    let mut last = alone.clone();
+    last[base(&[("parameter_name", "Alone"), ("cc_msb", "5")]).iter().position(|c| c == "5").unwrap()] = "6".into();
+    let text = csv(&[alone, both, last]);
+    let imported = import(&text, Format::MidiCsv, &source()).unwrap();
+    assert!(imported.lost.is_empty(), "{:?}", imported.lost);
+    let out = export(&resolved(imported.value), Format::MidiCsv).unwrap();
+    assert_eq!(parse(&out.value), parse(&text));
+    assert!(out.lost.iter().all(|l| !l.place.starts_with("/cc_params")), "{:?}", out.lost);
+}
+
+#[test]
+fn a_row_with_a_cc_and_an_nrpn_and_one_range_comes_back_with_that_range_in_the_cc_cells_only() {
+    let one_range = base(&[("parameter_name", "Cutoff"), ("cc_msb", "74"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
+    assert_eq!(parse(&through(&csv(std::slice::from_ref(&one_range)))), parse(&csv(&[one_range])));
+}
+
+#[test]
+fn a_14_bit_cc_and_an_nrpn_in_one_row_come_back_in_one_row() {
+    let r = base(&[("parameter_name", "Cutoff"), ("cc_msb", "1"), ("cc_lsb", "33"), ("cc_min_value", "0"), ("cc_max_value", "16383"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")]);
+    assert_eq!(parse(&through(&csv(std::slice::from_ref(&r)))), parse(&csv(&[r])));
+}
+
+#[test]
+fn a_control_with_a_cc_and_an_nrpn_way_comes_back_as_the_same_control_after_the_csv() {
+    let text = r#"{"$schema": "https://w3id.org/osd/0.6/device.schema.json",
+        "_sources": [{"type": "community-re", "url": "https://github.com/pencilresearch/midi", "license": "CC-BY-SA-4.0"}],
+        "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"},
+        "cc_params": {"entries": [
+            {"osc": "/filter/cutoff", "cc": 74, "range": [0, 127], "section": "Filter",
+             "also": [{"nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383]}]}]}}"#;
+    let device = crate::common::device_from(text);
+    let csv_text = export(&resolved(device.clone()), Format::MidiCsv).unwrap().value;
+    let back = import(&csv_text, Format::MidiCsv, &source()).unwrap();
+    let (before, after) = (crate::common::entries(&device), crate::common::entries(&back.value));
+    assert_eq!(after.len(), 1);
+    let (a, b) = (before[0].ways(), after[0].ways());
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(&b) {
+        assert_eq!((x.cc, x.cc_lsb, x.nrpn_msb, x.nrpn_lsb, x.range), (y.cc, y.cc_lsb, y.nrpn_msb, y.nrpn_lsb, y.range));
+    }
 }

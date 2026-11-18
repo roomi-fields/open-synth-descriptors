@@ -28,7 +28,7 @@ pub use device::{
     DeviceKind, Dump, DumpKind, FirmwareRule, Forward, Identity, IdentityTo, MatchArg, MidiIn, MidiOut, MidiTemplates, MidiType,
     NoteOff,
     Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, Scalar, ScriptProfile, Sends, Source,
-    Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType,
+    Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType, Way,
 };
 pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
 pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports, Via};

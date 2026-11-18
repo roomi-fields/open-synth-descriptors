@@ -1423,6 +1423,13 @@
         },
         "role": {
           "$ref": "#/$defs/role"
+        },
+        "also": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cc_way"
+          },
+          "description": "The ways of reaching the control after the one the flat fields give (cc, cc_lsb, nrpn_msb, nrpn_lsb, rpn_msb, rpn_lsb, range), in the order of preference: a sender picks the first way it can send, a receiver recognises all of them as the same control, a reader never reorders them. A message (kind, channel, numbers) is claimed once, across the ways and across the controls; the reader refuses a second claim at the later place."
         }
       },
       "patternProperties": {
@@ -1433,6 +1440,45 @@
       "additionalProperties": false,
       "required": [
         "osc"
+      ]
+    },
+    "cc_way": {
+      "type": "object",
+      "description": "One way of reaching a control: a CC (with cc_lsb for 14 bits), an NRPN or an RPN, with its own range. One message kind only.",
+      "properties": {
+        "cc": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "cc_lsb": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "nrpn_msb": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "nrpn_lsb": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "rpn_msb": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "rpn_lsb": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "range": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Lowest and highest value."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "anyOf": [{ "required": ["cc"] }, { "required": ["cc_lsb"] }],
+          "not": { "anyOf": [{ "required": ["nrpn_msb"] }, { "required": ["nrpn_lsb"] }, { "required": ["rpn_msb"] }, { "required": ["rpn_lsb"] }] }
+        },
+        {
+          "anyOf": [{ "required": ["nrpn_msb"] }, { "required": ["nrpn_lsb"] }],
+          "not": { "anyOf": [{ "required": ["cc"] }, { "required": ["cc_lsb"] }, { "required": ["rpn_msb"] }, { "required": ["rpn_lsb"] }] }
+        },
+        {
+          "anyOf": [{ "required": ["rpn_msb"] }, { "required": ["rpn_lsb"] }],
+          "not": { "anyOf": [{ "required": ["cc"] }, { "required": ["cc_lsb"] }, { "required": ["nrpn_msb"] }, { "required": ["nrpn_lsb"] }] }
+        }
       ]
     },
     "param_entry": {

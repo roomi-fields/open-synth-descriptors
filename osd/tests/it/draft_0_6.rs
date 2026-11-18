@@ -231,6 +231,9 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             }
             let props = now["$defs"]["cc_entry"]["properties"].as_object_mut().unwrap();
             assert!(props.remove("values").is_some(), "cc_entry has no values");
+            // The further ways of a control (`also`, and their definition) are 0.6's own.
+            assert!(props.remove("also").is_some(), "cc_entry has no also");
+            assert!(now["$defs"].as_object_mut().unwrap().remove("cc_way").is_some(), "no def cc_way");
             // The `values` of a param entry stays, its description saying the range check is 0.6's.
             let values = now["$defs"]["param_entry"]["properties"]["values"].as_object_mut().unwrap();
             assert!(values["description"].as_str().unwrap().contains("range"));
