@@ -450,3 +450,49 @@ fn two_equal_settings_with_the_same_value_are_equal_and_zero_is_a_value() {
     let b = vec![s("/params/entries/1", "/Output/Pan", 1)];
     assert_eq!(outcomes(&a, &b), vec![("/params/entries/1".to_string(), Comparison::Differ)]);
 }
+
+#[test]
+fn a_control_outside_the_pattern_of_the_schema_is_refused_at_the_control() {
+    for bad in ["/nowhere", "/cc_params/entries", "/cc_params/entries/x", "/cc_params/entries/-1", "cc_params/entries/0", "/other/entries/0", "/cc_params/entries/0/osc"] {
+        let doc = device(vec![single(json!([place(bad, 0, 2)]))], &[]);
+        refused(&doc, FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    }
+}
+
+#[test]
+fn a_well_formed_control_that_names_an_absent_entry_is_refused_at_the_control() {
+    for absent in ["/cc_params/entries/4", "/params/entries/2", "/cc_params/entries/99"] {
+        let doc = device(vec![single(json!([place(absent, 0, 2)]))], &[]);
+        refused(&doc, FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    }
+}
+
+#[test]
+fn the_last_entry_of_each_table_is_a_control_the_settings_may_name() {
+    let doc = device(vec![single(json!([place("/cc_params/entries/3", 0, 1), place("/params/entries/1", 1, 1)]))], &[]);
+    read(&doc).unwrap_or_else(|f| panic!("{f}"));
+}
+
+#[test]
+fn a_control_is_refused_when_the_description_has_no_table_of_controls() {
+    let mut doc = device(vec![single(json!([place("/cc_params/entries/0", 0, 2)]))], &[]);
+    doc.as_object_mut().unwrap().remove("cc_params");
+    doc.as_object_mut().unwrap().remove("params");
+    refused(&doc, FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    // A table that is there does not stand for the one named.
+    let mut doc = device(vec![single(json!([place("/params/entries/0", 0, 2)]))], &[]);
+    doc.as_object_mut().unwrap().remove("params");
+    refused(&doc, FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+}
+
+#[test]
+fn the_control_is_judged_before_the_faults_of_place_of_the_same_setting() {
+    let past = place("/nowhere", 3, 2);
+    refused(&device(vec![single(json!([past]))], &[]), FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    let absent_and_past = place("/cc_params/entries/9", 3, 2);
+    refused(&device(vec![single(json!([absent_and_past]))], &[]), FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    let no_place = json!({"control": "/nowhere"});
+    refused(&device(vec![single(json!([no_place]))], &[]), FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+    let both = json!({"control": "/cc_params/entries/9", "from": 0, "length": 1, "script": "return 1"});
+    refused(&device(vec![single(json!([both]))], &["lua"]), FaultKind::BadValue, "/sound_transfers/0/settings/0/control");
+}

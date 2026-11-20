@@ -1,0 +1,9 @@
+{
+  "_about": "A control well formed that names an entry the description does not have (one cc_params entry, entry 9 named) is refused where it is.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/settings/0/control"
+  }
+}

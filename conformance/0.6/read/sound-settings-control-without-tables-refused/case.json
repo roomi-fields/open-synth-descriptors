@@ -1,0 +1,9 @@
+{
+  "_about": "A control well formed when the description has no cc_params nor params table is refused where it is: the entry does not exist.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/settings/0/control"
+  }
+}

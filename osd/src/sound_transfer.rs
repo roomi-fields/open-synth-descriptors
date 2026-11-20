@@ -477,6 +477,40 @@ fn unpack_msb_first_7in8(packed: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+/// The `control` of each setting of each sound transfer of a device text, judged before any
+/// other field is read, so that it comes first among the faults of a setting: it matches the
+/// pattern of the schema (`^/(cc_params|params)/entries/[0-9]+$`), then names an entry of the
+/// description. A description that is a driver's delta (`midi_of`) takes its tables from the
+/// driver: only the pattern is judged. What is not shaped as a setting is left to the reader.
+pub(crate) fn check_controls(v: &serde_json::Value) -> Result<(), Fault> {
+    // Before 0.6 the field is unknown, which the reader says itself.
+    if !v.get("$schema").and_then(|s| s.as_str()).is_some_and(|s| s.contains("/0.6/")) {
+        return Ok(());
+    }
+    let Some(transfers) = v.get("sound_transfers").and_then(|t| t.as_array()) else { return Ok(()) };
+    let delta = v.get("midi_of").is_some();
+    let count = |table: &str| v.get(table).and_then(|t| t.get("entries")).and_then(|e| e.as_array()).map_or(0, Vec::len);
+    for (n, t) in transfers.iter().enumerate() {
+        let Some(settings) = t.get("settings").and_then(|s| s.as_array()) else { continue };
+        for (m, s) in settings.iter().enumerate() {
+            let Some(control) = s.get("control").and_then(|c| c.as_str()) else { continue };
+            let at = format!("/sound_transfers/{n}/settings/{m}/control");
+            let entry = control
+                .strip_prefix("/cc_params/entries/")
+                .map(|i| ("cc_params", i))
+                .or_else(|| control.strip_prefix("/params/entries/").map(|i| ("params", i)))
+                .filter(|(_, i)| !i.is_empty() && i.bytes().all(|b| b.is_ascii_digit()));
+            let Some((table, i)) = entry else {
+                return Err(fault(FaultKind::BadValue, at, "a pointer `/cc_params/entries/N` or `/params/entries/N`"));
+            };
+            if !delta && i.parse::<usize>().map_or(true, |i| i >= count(table)) {
+                return Err(fault(FaultKind::BadValue, at, format!("the description has no entry {control}")));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The sound transfers of a device before 0.6 are an unknown field.
 pub(crate) fn check_version(d: &Device) -> Result<(), Fault> {
     if d.sound_transfers.is_some() && d.schema < Some(crate::Version::V0_6) {

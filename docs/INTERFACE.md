@@ -144,7 +144,7 @@ A sound transfer adds `settings`, a list that says, for each control, where its 
 
 | Key | Meaning |
 |---|---|
-| `control` | the JSON pointer of the control it sets: `/cc_params/entries/N` or `/params/entries/N` |
+| `control` | the JSON pointer of the control it sets: `/cc_params/entries/N` or `/params/entries/N`, an entry the description has (the reader refuses a pointer outside this pattern or naming an absent entry, at the `control`, before any other fault of the setting) |
 | `from`, `length` | whole bytes of the data, unpacked and without the name (`from` 0 is its first byte); the value is the unsigned integer of those bytes, the first the highest (two bytes, high then low, are `length: 2`) |
 | `bits` `{from, length}` | with `from`, `length`: bits of those bytes (bit 0 is the lowest of the first byte) |
 | `bits_per_byte` | with `from`, `length`: `7`, the value made of the 7 low bits of each byte (a 14-bit value on two bytes of 7 bits) |

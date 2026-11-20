@@ -107,6 +107,7 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
                 Some(c) => doc["capabilities"] = c,
                 None => { doc.as_object_mut().map(|o| o.remove("capabilities")); }
             }
+            crate::sound_transfer::check_controls(&doc).map_err(|f| f.in_file(id))?;
             Device::read(&doc, &At::Root).map_err(|f| f.in_file(id))?
         }
     };

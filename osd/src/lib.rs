@@ -206,6 +206,7 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     let at = At::Root;
     Ok(match kind {
         Kind::Device => {
+            sound_transfer::check_controls(v)?;
             let mut d = Device::read(v, &at)?;
             if is_05_form(d.schema) {
                 device::check_capabilities(&d)?;
