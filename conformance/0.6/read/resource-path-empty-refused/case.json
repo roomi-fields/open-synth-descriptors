@@ -1,0 +1,5 @@
+{
+  "_about": "The path of a file write has one segment at least; an empty list is refused at the path.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/via/file_write/path"}
+}

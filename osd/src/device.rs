@@ -14,6 +14,7 @@ use crate::frame::{
     REPLY_TOKEN,
 };
 use crate::role::{check_roles, Role};
+use crate::resource::Resource;
 use crate::sound_transfer::SoundTransfer;
 use crate::vocabulary;
 use crate::{Capability, Fault, FaultKind, SchemaUrlFrom05, Version};
@@ -48,6 +49,8 @@ object! {
         "loads_sounds_of" loads_sounds_of: Option<Vec<String>> = Opt(list(STRING)),
         /// What in a message is the sound, per form of transfer (0.6).
         "sound_transfers" sound_transfers: Option<Vec<SoundTransfer>> = Opt(list(obj())),
+        /// What the device can receive from another (0.6).
+        "resources" resources: Option<Vec<Resource>> = Opt(list(obj())),
         "identity" identity: Option<Identity> = Opt(obj()),
         "programs" programs: Option<Programs> = Opt(obj()),
         "sysex" sysex: Option<Sysex> = Opt(obj()),
@@ -537,6 +540,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     }
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     crate::sound_transfer::check_version(d)?;
+    crate::resource::check_version(d)?;
     check_roles(d)?;
     check_stands_for(d)?;
     check_defaults(d)?;

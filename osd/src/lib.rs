@@ -16,6 +16,7 @@ mod firmware;
 mod frame;
 mod json;
 mod resolve;
+mod resource;
 mod role;
 mod role_vocabulary;
 mod sound;
@@ -35,6 +36,7 @@ pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports,
 pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
+pub use resource::{resource_path, CanSet, CarriedBy, FileWrite, PathSegment, PathVariable, Resource, ResourceVia, RESOURCE_EXPORTS};
 pub use role::{role_from_param_path, roles, Role, RoleEntry, RoleMeaning, RolePart};
 pub use role_vocabulary::{
     read_vocabulary, vocabulary_state, Controller, DocumentSource, MakerWord, SharedDevice, Term, TermKind, TermSource, Vocabulary,

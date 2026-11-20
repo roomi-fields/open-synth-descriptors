@@ -1,0 +1,5 @@
+{
+  "_about": "A resource of its own starts with X-, as Property Exchange names a resource that is not in its list; another name is refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/resource"}
+}

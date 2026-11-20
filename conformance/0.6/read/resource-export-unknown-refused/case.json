@@ -1,0 +1,5 @@
+{
+  "_about": "export names a format of osd-formats, a closed list; a name outside it is refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/export"}
+}

@@ -37,3 +37,4 @@ mod oscquery_import;
 mod oscquery_round_trip;
 mod oscquery_table;
 mod oscquery_values;
+mod resource_exports;

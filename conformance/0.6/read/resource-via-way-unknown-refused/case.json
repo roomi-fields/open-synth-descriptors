@@ -1,0 +1,5 @@
+{
+  "_about": "The only way a resource arrives by, besides Property Exchange, is file_write; another key of via is refused at the key.",
+  "read": "device",
+  "fault": {"kind": "UnknownField", "pointer": "/resources/0/via/ftp"}
+}

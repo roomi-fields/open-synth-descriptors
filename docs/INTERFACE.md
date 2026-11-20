@@ -83,6 +83,27 @@ A reader without Lua knows at load, per transfer, whether it computes the identi
 
 Refused, at the address of the fault: an element outside the message (the name included, the last sound of a bank included), an empty data, a data that overlaps the header, the checksum or a transport part, two transport parts that overlap (at the later, in the order of the table above), an element given by positions and by a script, a name that straddles the end of the data or that lies inside a packed data, a `packing` word outside the list, a script without the `lua` capability and the capability without a script. A descriptor of 0.4 or 0.5 refuses `sound_transfers` as an unknown field; `osd::convert` from 0.5 adds none.
 
+## What a device can receive (0.6)
+
+From 0.6 a device says, in `resources[]`, what it can receive from another, so that placing a description on a target asks for no code of the target. The words are those of the ResourceList of MIDI 2.0 Property Exchange: `resource` (a name of its own starts with `X-`), `canSet` (`none`, `partial`, `full`) and `mediaTypes`. OSD adds two fields: `export`, the name of the format of osd-formats that produces the content (a closed list, the names of the formats), and `via`, the way the content arrives by on a device that does not speak Property Exchange (absent, Property Exchange sets the resource). The only way is `file_write`: a `path`, a list of segments (a fixed text, or `{"variable": "vendor"}` or `{"variable": "device"}`, with an optional `suffix` for a text that follows the value), never a template string, and `carried_by` (`sysex`). The consent before a write on a device is the rule of the tool that writes, not a field.
+
+The Deluge (community firmware 1.3) reads `MIDI_DEVICES/DEFINITION/<vendor>/<device>.xml` on its card:
+
+```json
+"resources": [{
+  "resource": "X-DeviceDefinition",
+  "canSet": "full",
+  "mediaTypes": ["application/xml"],
+  "export": "deluge",
+  "via": { "file_write": {
+    "path": ["MIDI_DEVICES", "DEFINITION", {"variable": "vendor"}, {"variable": "device", "suffix": ".xml"}],
+    "carried_by": "sysex"
+  } }
+}]
+```
+
+`osd::resource_path` fills the variables from the `vendor` and the `name` of the identity of the device to place: the Minilogue (Korg, minilogue) gives `MIDI_DEVICES/DEFINITION/Korg/minilogue.xml`. A value that is empty or holds `/` or `\` is refused, naming the segment of the path and the field of the device. A new target is added by its description alone, with no code: its `resources` says the format it takes and where. The SysEx frames of a file write are not described here. A descriptor of 0.4 or 0.5 refuses `resources` as an unknown field; `osd::convert` from 0.5 adds none.
+
 ## A sound read setting by setting (0.6)
 
 A sound transfer adds `settings`, a list that says, for each control, where its value lies in the data of the sound. The place is written here, on the transfer, because it depends on the form the data takes; a control carries no place. Each setting is:

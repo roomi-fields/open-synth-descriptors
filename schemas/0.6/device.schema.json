@@ -109,6 +109,13 @@
       },
       "description": "What in a message is the sound: for each form a sound travels in (alone, in a bank), the elements of the message. The identity of a sound is the SHA-256 of its data element alone."
     },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource"
+      },
+      "description": "What the device can receive from another, in the words of the ResourceList of MIDI 2.0 Property Exchange (resource, canSet, mediaTypes): each resource names the format that produces its content (export) and, for a device that does not speak Property Exchange, the way it arrives by (via)."
+    },
     "identity": {
       "$ref": "#/$defs/identity"
     },
@@ -480,6 +487,79 @@
     }
   },
   "$defs": {
+    "resource": {
+      "type": "object",
+      "required": ["resource", "canSet", "export"],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "properties": {
+        "resource": {
+          "type": "string",
+          "pattern": "^X-.+",
+          "description": "The name of the resource; a resource of its own starts with X-, as Property Exchange names a resource that is not in its list."
+        },
+        "canSet": {
+          "enum": ["none", "partial", "full"],
+          "description": "Whether the resource can be set, with the words of Property Exchange."
+        },
+        "mediaTypes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The media types of the content, as Property Exchange names them."
+        },
+        "export": {
+          "enum": ["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge"],
+          "description": "The name of the format of osd-formats that produces the content. A closed list, the names of the formats; a guard of osd-formats compares it to them."
+        },
+        "via": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file_write": {
+              "type": "object",
+              "required": ["path"],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "oneOf": [
+                      { "type": "string" },
+                      {
+                        "type": "object",
+                        "required": ["variable"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "variable": {
+                            "enum": ["vendor", "device"],
+                            "description": "The vendor or the name of the identity of the device placed."
+                          },
+                          "suffix": {
+                            "type": "string",
+                            "description": "A fixed text that follows the value of the variable in the same segment."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "description": "The path of the file, a list of segments: a fixed text, or a variable of the identity of the device placed."
+                },
+                "carried_by": {
+                  "enum": ["sysex"],
+                  "description": "What carries the write."
+                }
+              }
+            }
+          },
+          "description": "The way the content arrives by on a device that does not speak Property Exchange; absent, Property Exchange sets it."
+        }
+      }
+    },
     "sound_transfer": {
       "type": "object",
       "required": ["id", "carries", "match_frame", "elements"],

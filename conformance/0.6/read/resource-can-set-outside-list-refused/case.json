@@ -1,0 +1,5 @@
+{
+  "_about": "canSet is none, partial or full, the words of Property Exchange; another word is refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/canSet"}
+}

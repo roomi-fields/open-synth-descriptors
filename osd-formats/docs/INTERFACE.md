@@ -22,6 +22,7 @@ The fate of each column of the pencilresearch/midi CSV is in [midi-csv.md](midi-
 ## The guard
 
 - A test reads every tag and attribute the Deluge reader accepts for `ccLabels` and needs its line in deluge.md, with its fate and its piece; the export is read back with an XML parser, in ascending CC order, one attribute per CC.
+- A test compares `osd::RESOURCE_EXPORTS`, the closed list of the names a `resources` entry of a device may export (osd cannot read `Format`, which depends on it), to the names of `Format::ALL`, and finds each by `Format::from_name`; the lists differ, the test fails.
 - A round-trip test per format: a descriptor exported then imported keeps everything the format can carry, and the list of losses names the rest.
 - Every export is checked against its format's own rules: the header and the cell count of each row.
 - A test reads every column of the CSV's header and needs its line in midi-csv.md; the same for the triggers CSV and midi-triggers-csv.md.

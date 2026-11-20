@@ -1,0 +1,5 @@
+{
+  "_about": "A resource without its export is refused as missing, at the field.",
+  "read": "device",
+  "fault": {"kind": "Missing", "pointer": "/resources/0/export"}
+}
