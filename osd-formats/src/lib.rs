@@ -67,6 +67,37 @@ impl Format {
         }
     }
 
+    /// The media type of the file written in this format. IANA-registered where one exists
+    /// (RFC 8259 JSON, RFC 7303 XML, RFC 4180 CSV); `text/x-python` follows the usual use of
+    /// Python's `mimetypes`, and MIDNAM is served as XML since the MIDI Association declares none.
+    pub fn media_type(self) -> &'static str {
+        match self {
+            Format::MidiCsv => "text/csv",
+            Format::MidiTriggersCsv => "text/csv",
+            Format::ElectraOne => "application/json",
+            Format::Midnam => "application/xml",
+            Format::OscQuery => "application/json",
+            Format::Midi2Controllers => "application/json",
+            Format::Deluge => "application/xml",
+            Format::Knobkraft => "text/x-python",
+        }
+    }
+
+    /// The usual extension of the file written in this format, without its dot. Two formats may
+    /// share one.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Format::MidiCsv => "csv",
+            Format::MidiTriggersCsv => "csv",
+            Format::ElectraOne => "epr",
+            Format::Midnam => "midnam",
+            Format::OscQuery => "json",
+            Format::Midi2Controllers => "json",
+            Format::Deluge => "xml",
+            Format::Knobkraft => "py",
+        }
+    }
+
     /// The format a name designates.
     pub fn from_name(name: &str) -> Option<Format> {
         Format::ALL.into_iter().find(|f| f.name() == name)
