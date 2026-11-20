@@ -69,6 +69,8 @@ flowchart TB
 
 **A reader loads a device that shares another's MIDI.** `osd` parses the file strictly, asks its file source for the file named by `midi_of` and for each maker profile named, merges them by the rules the cases fix (the file's own keys win, a `null` removes a profile's key, depth at most 8, cycles refused), and returns the resolved device with the capabilities it declares.
 
+**A KnobKraft skeleton is proved by running KnobKraft's own tests.** `osd-formats` only writes the text of an adaptation skeleton and never runs it (R12). The proof that the skeleton passes the generic test suite of KnobKraft Orm (Christof Ruch, AGPL-3.0, https://github.com/christofmuc/KnobKraft-orm) lives outside it, in a test of the night of `osd-cli` (`osd-cli/tests/it_nuit/knobkraft_suite.rs`): it exports a skeleton with the `osd` command and plays the suite on it, with KnobKraft pinned at the revision 9e2522cd44765603162b4afd31419c3597ff85fc. The suite is not copied into this repository. The reference is the same as OpenAPI Generator, which keeps its generator pure and compiles and tests its generated samples with the target tool.
+
 ## 6. Runtime
 
 `osd` performs no I/O: its caller supplies files through a small trait, so it runs natively, in a browser (WebAssembly) and on a server alike. It compiles to `wasm32-unknown-unknown`.

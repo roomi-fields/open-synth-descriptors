@@ -2,7 +2,7 @@
 
 ## Role
 
-- **R1** `osd-formats` is the one place where OSD meets the formats others already use: it reads a file of another format into an OSD descriptor, and writes a descriptor in another format: the pencilresearch/midi CSV and its triggers CSV, Electra One presets, MIDNAM, OSCQuery, `midi2-controllers`, the controller resources of MIDI 2.0 Property Exchange, and the Deluge device definition (`deluge`, write only: the Deluge reads it, it is not imported).
+- **R1** `osd-formats` is the one place where OSD meets the formats others already use: it reads a file of another format into an OSD descriptor, and writes a descriptor in another format: the pencilresearch/midi CSV and its triggers CSV, Electra One presets, MIDNAM, OSCQuery, `midi2-controllers`, the controller resources of MIDI 2.0 Property Exchange, and the Deluge device definition (`deluge`, write only: the Deluge reads it, it is not imported), and last the skeleton of a KnobKraft Orm adaptation (`knobkraft`, write only: an adaptation is code that only its host runs, it is not imported).
 
 ## Receives
 

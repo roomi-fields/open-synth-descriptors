@@ -512,7 +512,7 @@
           "description": "The media types of the content, as Property Exchange names them."
         },
         "export": {
-          "enum": ["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge"],
+          "enum": ["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge", "knobkraft"],
           "description": "The name of the format of osd-formats that produces the content. A closed list, the names of the formats; a guard of osd-formats compares it to them."
         },
         "via": {

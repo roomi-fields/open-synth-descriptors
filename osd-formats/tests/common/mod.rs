@@ -5,6 +5,7 @@
 
 pub mod deluge;
 pub mod electra;
+pub mod knobkraft;
 pub mod midi2;
 pub mod midnam;
 pub mod oscquery;

@@ -11,7 +11,7 @@ use serde_json::{Map, Value};
 /// cannot read the formats of `osd-formats`, which depends on it; a guard of `osd-formats`
 /// compares this list to its own.
 pub const RESOURCE_EXPORTS: &[&str] =
-    &["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge"];
+    &["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge", "knobkraft"];
 
 words! {
     /// Whether a resource can be set, with the words of Property Exchange.
@@ -36,7 +36,7 @@ object! {
         "canSet" can_set: CanSet = closed(),
         "mediaTypes" media_types: Option<Vec<String>> = Opt(list(STRING)),
         /// A name of `RESOURCE_EXPORTS`.
-        "export" export: String = matching(|s| RESOURCE_EXPORTS.contains(&s), "naming a format: midi-csv, midi-triggers-csv, electra-one, midnam, oscquery, midi2-controllers or deluge"),
+        "export" export: String = matching(|s| RESOURCE_EXPORTS.contains(&s), "naming a format: midi-csv, midi-triggers-csv, electra-one, midnam, oscquery, midi2-controllers, deluge or knobkraft"),
         /// Absent, Property Exchange sets the resource.
         "via" via: Option<ResourceVia> = Opt(obj()),
     }

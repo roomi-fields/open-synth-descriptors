@@ -16,12 +16,21 @@ fn the_midi2_controller_list_comes_after_oscquery_and_is_named_midi2_controllers
 }
 
 #[test]
-fn the_deluge_comes_last_in_the_list_of_formats_and_is_named_deluge() {
-    assert_eq!(Format::ALL[6..], [Format::Deluge]);
-    assert_eq!(Format::ALL.len(), 7);
+fn the_deluge_comes_after_the_midi2_controller_list_and_is_named_deluge() {
+    assert_eq!(Format::ALL[6..7], [Format::Deluge]);
     assert_eq!(Format::Deluge.name(), "deluge");
     assert_eq!(Format::from_name("deluge"), Some(Format::Deluge));
     assert_eq!(Format::from_name("Deluge"), None);
+}
+
+#[test]
+fn knobkraft_comes_last_in_the_list_of_formats_and_is_named_knobkraft() {
+    assert_eq!(Format::ALL[7..], [Format::Knobkraft]);
+    assert_eq!(Format::ALL.len(), 8);
+    assert_eq!(Format::Knobkraft.name(), "knobkraft");
+    assert_eq!(Format::from_name("knobkraft"), Some(Format::Knobkraft));
+    assert_eq!(Format::from_name("KnobKraft"), None);
+    assert_eq!(Format::from_name("knobkraft-orm"), None);
 }
 
 #[test]

@@ -8,6 +8,7 @@ mod credit;
 mod csv;
 mod deluge;
 mod electra_one;
+mod knobkraft;
 mod midi2_controllers;
 mod midi_csv;
 mod midi_triggers_csv;
@@ -35,12 +36,22 @@ pub enum Format {
     Midi2Controllers,
     /// The Deluge device definition (XML `midiDevice` with `ccLabels`); exported only.
     Deluge,
+    /// The skeleton of a KnobKraft Orm adaptation (Python text); exported only, never run here.
+    Knobkraft,
 }
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 7] =
-        [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery, Format::Midi2Controllers, Format::Deluge];
+    pub const ALL: [Format; 8] = [
+        Format::MidiCsv,
+        Format::MidiTriggersCsv,
+        Format::ElectraOne,
+        Format::Midnam,
+        Format::OscQuery,
+        Format::Midi2Controllers,
+        Format::Deluge,
+        Format::Knobkraft,
+    ];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
@@ -52,6 +63,7 @@ impl Format {
             Format::OscQuery => "oscquery",
             Format::Midi2Controllers => "midi2-controllers",
             Format::Deluge => "deluge",
+            Format::Knobkraft => "knobkraft",
         }
     }
 
@@ -85,6 +97,8 @@ pub enum FaultKind {
     InvalidFile,
     /// The device to export has no `_sources` entry.
     NoSources,
+    /// The device to export has no `sound_transfers`.
+    NoSoundTransfers,
 }
 
 /// A typed refusal: its kind, the place in the source and the rule.
@@ -113,6 +127,7 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
         Format::OscQuery => oscquery::import(text, source),
         Format::Midi2Controllers => midi2_controllers::import(text, source),
         Format::Deluge => Err(deluge::import_refusal()),
+        Format::Knobkraft => Err(knobkraft::import_refusal()),
     }
 }
 
@@ -135,6 +150,7 @@ pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<Strin
         Format::OscQuery => oscquery::export(device),
         Format::Midi2Controllers => midi2_controllers::export(device),
         Format::Deluge => deluge::export(device),
+        Format::Knobkraft => knobkraft::export(device),
     }
 }
 

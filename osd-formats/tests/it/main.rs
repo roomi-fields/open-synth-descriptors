@@ -14,6 +14,8 @@ mod electra_round_trip;
 mod electra_table;
 mod format_names;
 mod import_into;
+mod knobkraft_export;
+mod knobkraft_table;
 mod midi2_controllers_export;
 mod midi2_controllers_import;
 mod midi2_controllers_round_trip;
