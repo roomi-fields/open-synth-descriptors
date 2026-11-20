@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The pencilresearch/midi CSV places a control's default in the column of its first way: an NRPN first way whose range differs from the CC's exports it in `nrpn_default_value`, and the import makes the NRPN the first way of a row whose only default is in that column with ranges that differ, so the round trip keeps the value. With equal ranges, or a CC first, nothing changes. A default on a control whose first way is an RPN, with a CC or NRPN further on, is a loss at `/cc_params/entries/N/default`, written in no column.
+
 - Each format says the media type and the extension of the file it writes: `Format::media_type` and `Format::extension` (extension without a dot), following the table of `docs/INTERFACE.md`, so osc-bridge and SyntHub write no case per format when they place an export or offer it for download. Types are IANA's where one exists (`application/json`, `application/xml`, `text/csv`). Departures, each with its reason in INTERFACE.md: `text/x-python` for KnobKraft (IANA registers none for Python; the usual type, that of Python's `mimetypes`), `application/xml` for MIDNAM (the MIDI Association declares no type), and `epr` for Electra One (the extension the maker's repository gives its presets; the maker's documentation names none).
 
 - The KnobKraft skeleton states its own licence, `# SPDX-License-Identifier: AGPL-3.0-only`, before the credit of the sources. Each source whose licence is not allowed under the AGPL-3.0, or not recognised (none included), gets a warning line under its `# Source:` line and a loss at `/_sources/N/license`; the export never refuses for it. `docs/knobkraft.md` gives the piece of the licence and a line per allowed licence.

@@ -425,3 +425,51 @@ fn the_losses_come_in_the_order_of_the_source_and_are_the_same_on_each_import() 
     assert_eq!(places, ["line 2, column cc_default_value", "line 3", "line 4, column cc_default_value", "line 4, column orientation"]);
     assert_eq!(first.lost, ok(&text).lost);
 }
+
+#[test]
+fn a_row_whose_only_default_is_in_the_nrpn_cell_and_whose_ranges_differ_has_the_nrpn_as_first_way() {
+    let r = row(&[
+        ("parameter_name", "Both"),
+        ("cc_msb", "1"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("nrpn_msb", "2"),
+        ("nrpn_lsb", "3"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
+        ("nrpn_default_value", "8192"),
+    ]);
+    let t = ok(&csv(&[glide(), r]));
+    assert!(t.lost.is_empty(), "{:?}", t.lost);
+    let e = &entries(&t.value)[1];
+    assert_eq!((e.cc, e.nrpn_msb, e.nrpn_lsb, e.range, e.default), (None, Some(2), Some(3), Some([0, 16383]), Some(8192)));
+    let ways = e.ways();
+    assert_eq!((ways.len(), ways[1].cc, ways[1].range), (2, Some(1), Some([0, 127])));
+}
+
+#[test]
+fn a_row_with_a_cc_and_an_nrpn_of_one_range_or_a_default_in_the_cc_cell_keeps_the_cc_as_first_way() {
+    let same = row(&[
+        ("parameter_name", "Same"),
+        ("cc_msb", "1"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("nrpn_msb", "2"),
+        ("nrpn_lsb", "3"),
+        ("nrpn_default_value", "64"),
+    ]);
+    let in_cc = row(&[
+        ("parameter_name", "InCc"),
+        ("cc_msb", "4"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "127"),
+        ("cc_default_value", "10"),
+        ("nrpn_msb", "5"),
+        ("nrpn_lsb", "6"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
+    ]);
+    let list = entries(&ok(&csv(&[glide(), same, in_cc])).value);
+    assert_eq!((list[1].cc, list[1].default, list[1].range), (Some(1), Some(64), Some([0, 127])));
+    assert_eq!((list[2].cc, list[2].default, list[2].range), (Some(4), Some(10), Some([0, 127])));
+}

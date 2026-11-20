@@ -383,10 +383,16 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         let cc_default = default_of(cc_default, CC_DEFAULT, cc.is_some(), cc_range);
         let nrpn_default = default_of(nrpn_default, NRPN_DEFAULT, has_nrpn, nrpn_range);
         // One control has one default, in the space of its first way's range.
+        // A lone default in the NRPN cell, with ranges that differ, makes the NRPN the first way.
+        let mut nrpn_first = false;
         let (cc_default, nrpn_default) = match (cc.is_some() && has_nrpn, cc_default, nrpn_default) {
             (true, None, Some(v)) if cc_range == nrpn_range => (Some(v), None),
+            (true, None, Some(v)) => {
+                nrpn_first = true;
+                (None, Some(v))
+            }
             (true, _, Some(_)) => {
-                lost(&mut row_losses, line, NRPN_DEFAULT, "a control has one default, in the space of its CC: the NRPN's is left");
+                lost(&mut row_losses, line, NRPN_DEFAULT, "a control has one default, in the space of its first way: the NRPN's is left");
                 (cc_default, None)
             }
             _ => (cc_default, nrpn_default),
@@ -405,8 +411,10 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         };
         // The CC is the first way, the NRPN the way after it; a row with an NRPN alone has it first.
         let nrpn_way = Way { cc: None, cc_lsb: None, nrpn_msb, nrpn_lsb, rpn_msb: None, rpn_lsb: None, range: nrpn_range, remarks: Default::default() };
+        let cc_way = || Way { cc, cc_lsb, nrpn_msb: None, nrpn_lsb: None, rpn_msb: None, rpn_lsb: None, range: cc_range, remarks: Default::default() };
         let (first, also) = match cc {
-            Some(_) => (Way { cc, cc_lsb, nrpn_msb: None, nrpn_lsb: None, rpn_msb: None, rpn_lsb: None, range: cc_range, remarks: Default::default() }, has_nrpn.then_some(vec![nrpn_way])),
+            Some(_) if nrpn_first => (nrpn_way, Some(vec![cc_way()])),
+            Some(_) => (cc_way(), has_nrpn.then_some(vec![nrpn_way])),
             None => (nrpn_way, None),
         };
         let fallback = match cc {
@@ -570,10 +578,22 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 gone(&mut losses, at("range"), "the entry has neither a CC nor an NRPN to give the range to");
             }
             if let Some(v) = e.default {
-                if cc_way.is_some() {
+                // The default is in the space of the first way's range: it goes to the column of
+                // the first way. An NRPN first way whose range differs from the CC's keeps it in
+                // the NRPN column; with one range the import puts the CC first, so the CC column.
+                let first_is_cc = cc_at == Some(0);
+                let first_is_nrpn = nrpn_at == Some(0);
+                if first_is_cc {
                     row[CC_DEFAULT] = v.to_string();
-                } else if nrpn_way.is_some() {
-                    row[NRPN_DEFAULT] = v.to_string();
+                } else if first_is_nrpn {
+                    let same_range = cc_way.is_some() && cc_range == nrpn_way.and_then(|w| w.range);
+                    if cc_way.is_some() && same_range {
+                        row[CC_DEFAULT] = v.to_string();
+                    } else {
+                        row[NRPN_DEFAULT] = v.to_string();
+                    }
+                } else if cc_way.is_some() || nrpn_way.is_some() {
+                    gone(&mut losses, at("default"), "the default is in the space of the first way, which is neither a CC nor an NRPN: no column carries it");
                 } else {
                     gone(&mut losses, at("default"), "the entry has neither a CC nor an NRPN to give the default to");
                 }

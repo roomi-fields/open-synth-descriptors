@@ -143,3 +143,26 @@ fn a_control_with_a_cc_and_an_nrpn_way_comes_back_as_the_same_control_after_the_
         assert_eq!((x.cc, x.cc_lsb, x.nrpn_msb, x.nrpn_lsb, x.range), (y.cc, y.cc_lsb, y.nrpn_msb, y.nrpn_lsb, y.range));
     }
 }
+
+fn default_after_the_csv(ways: &str, default: i64) -> Option<i64> {
+    let text = format!(
+        r#"{{"$schema": "https://w3id.org/osd/0.6/device.schema.json",
+        "_sources": [{{"type": "community-re", "url": "https://github.com/pencilresearch/midi", "license": "CC-BY-SA-4.0"}}],
+        "device": {{"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}},
+        "cc_params": {{"entries": [{{"osc": "/a", "default": {default}, {ways}}}]}}}}"#
+    );
+    let device = crate::common::device_from(&text);
+    let csv_text = export(&resolved(device), Format::MidiCsv).unwrap().value;
+    let back = import(&csv_text, Format::MidiCsv, &source()).unwrap();
+    crate::common::entries(&back.value)[0].default
+}
+
+#[test]
+fn the_default_of_a_control_whose_first_way_is_an_nrpn_comes_back_after_the_csv() {
+    // Different ranges: the NRPN stays first and the default is in its range.
+    let different = r#""nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383], "also": [{"cc": 74, "range": [0, 127]}]"#;
+    assert_eq!(default_after_the_csv(different, 8192), Some(8192));
+    // Same range: the CC comes first after the CSV, the default is the same.
+    let same = r#""nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 127], "also": [{"cc": 74, "range": [0, 127]}]"#;
+    assert_eq!(default_after_the_csv(same, 64), Some(64));
+}
