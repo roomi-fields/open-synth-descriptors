@@ -107,15 +107,68 @@ fn the_interface_shapes_of_import_and_export_carry_the_source_and_output_options
 }
 
 #[test]
-fn the_readme_presents_the_three_words_with_the_interface_shapes() {
+fn the_readme_presents_the_words_with_the_interface_shapes() {
     let readme = std::fs::read_to_string(repo().join("README.md")).unwrap();
     let part = readme.split("## Checking a file").nth(1).expect("the README has `Checking a file`");
     let part = part.split("\n## ").next().unwrap();
     for (word, shape, _) in interface_rows() {
-        if ["validate", "convert", INIT].contains(&word.as_str()) {
+        if ["validate", "convert", INIT, "import", "export"].contains(&word.as_str()) {
             assert!(part.contains(&shape), "{shape:?} not in the README part on checking a file");
         }
     }
+}
+
+fn format_names(word: &str) -> Vec<String> {
+    let rows = interface_rows();
+    let (_, _, line) = rows.iter().find(|r| r.0 == word).unwrap_or_else(|| panic!("no row for {word}"));
+    let returns = line.split('|').map(str::trim).nth(3).unwrap();
+    returns
+        .split('`')
+        .skip(1)
+        .step_by(2)
+        .filter(|t| t.starts_with(|c: char| c.is_ascii_lowercase()) && t.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'))
+        .map(str::to_string)
+        .collect()
+}
+
+fn readme_import_export_paragraph() -> String {
+    let readme = std::fs::read_to_string(repo().join("README.md")).unwrap();
+    let part = readme.split("## Checking a file").nth(1).expect("the README has `Checking a file`");
+    let part = part.split("\n## ").next().unwrap();
+    part.split("\n\n")
+        .find(|p| p.contains("`import`") && p.contains("`export`") && !p.trim_start().starts_with("```"))
+        .expect("a README paragraph on `import` and `export`")
+        .to_string()
+}
+
+#[test]
+fn the_readme_paragraph_on_import_and_export_names_every_format_the_interface_lists() {
+    let paragraph = readme_import_export_paragraph();
+    let mut names = format_names("import");
+    names.extend(format_names("export"));
+    for expected in ["midi-csv", "midi-triggers-csv", "electra-one", "midnam", "oscquery", "midi2-controllers", "deluge"] {
+        assert!(names.iter().any(|n| n == expected), "{expected} not read from the interface: {names:?}");
+    }
+    for name in names {
+        assert!(paragraph.contains(&format!("`{name}`")), "{name} not in the README paragraph: {paragraph}");
+    }
+}
+
+#[test]
+fn the_readme_paragraph_on_import_and_export_states_the_limits_and_points_to_the_interface() {
+    let paragraph = readme_import_export_paragraph();
+    assert!(!paragraph.contains("the CSV"), "{paragraph}");
+    let sentences: Vec<&str> = paragraph.split(". ").collect();
+    assert!(
+        sentences.iter().any(|s| s.contains("`deluge`") && s.contains("export") && s.contains("only")),
+        "no sentence says deluge exists only at export: {paragraph}"
+    );
+    assert!(
+        sentences.iter().any(|s| s.contains("--into") && s.contains("`midi-csv`") && s.contains("`midi-triggers-csv`") && s.contains("only")),
+        "no sentence says --into holds only for midi-csv and midi-triggers-csv: {paragraph}"
+    );
+    assert!(paragraph.contains("error output"), "{paragraph}");
+    assert!(paragraph.contains("osd-cli/docs/INTERFACE.md"), "{paragraph}");
 }
 
 #[test]

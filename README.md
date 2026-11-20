@@ -84,11 +84,11 @@ The `osd` command checks, converts and starts a descriptor, without writing code
 osd validate [--kind <kind>] <file>…
 osd convert [--kind <kind>] [--to <version>] <file> [-o <file>] [--force]
 osd init <kind> [-o <file>] [--force]
-osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [-o <file>] [--force]
+osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [--into <descriptor>] [-o <file>] [--force]
 osd export <format> <file> [-o <file>] [--force]
 ```
 
-`validate` prints `<file>: ok` or one line per fault (its JSON pointer and its rule) and exits 0, 1 or 2; the kind is read from the file's `$schema`, and `--kind` gives it for a file without one. `convert` writes the latest published version (0.5), or the version `--to` names (the 0.6 draft). `init` writes a template whose places to fill start with `FILL: `. `import` and `export` translate the pencilresearch/midi CSV (`midi-csv`) to a descriptor and back, and print on the error output what the CSV cannot carry. Until `osd` reads every file, the Python script does the same check on the schemas:
+`validate` prints `<file>: ok` or one line per fault (its JSON pointer and its rule) and exits 0, 1 or 2; the kind is read from the file's `$schema`, and `--kind` gives it for a file without one. `convert` writes the latest published version (0.5), or the version `--to` names (the 0.6 draft). `init` writes a template whose places to fill start with `FILL: `. `import` and `export` translate between a descriptor and the formats of its neighbours: `midi-csv` (the pencilresearch/midi file), `midi-triggers-csv`, `electra-one`, `midnam`, `oscquery` and `midi2-controllers`; `deluge` exists only at export. `--into` adds the entries of a file to a descriptor already written, and holds only for `midi-csv` and `midi-triggers-csv`. What a format cannot carry is printed on the error output, one line per loss, the losses of that format. The detail of each word and of its refusals is in [`osd-cli/docs/INTERFACE.md`](osd-cli/docs/INTERFACE.md). Until `osd` reads every file, the Python script does the same check on the schemas:
 
 ```sh
 pip install jsonschema
