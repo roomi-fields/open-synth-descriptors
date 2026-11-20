@@ -36,7 +36,11 @@
       "../synthhub"
     ],
     "circuits": 2,
-    "outil": "0.45.1"
+    "outil": "0.45.1",
+    "part": {
+      "coeurs": 4,
+      "memoireGo": 4
+    }
   },
   "workspaces": [
     "osd",
