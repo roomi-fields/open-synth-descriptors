@@ -1,0 +1,16 @@
+{
+  "_about": "A key a block sets to null is dropped from the profile's block, in identity and in programs: programs.dump and identity.ports leave the description, the profile's other keys stay.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "identity": {
+      "request": [240, 126, 127, 6, 1, 247],
+      "profile": "acme"
+    },
+    "programs": {
+      "selects": "sound",
+      "profile": "acme"
+    }
+  }
+}

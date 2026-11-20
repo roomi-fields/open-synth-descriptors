@@ -22,6 +22,7 @@ mod integers;
 mod midi_type_template;
 mod param_path;
 mod probe;
+mod profile_null_keys;
 mod published;
 mod readme;
 mod release_manifests;

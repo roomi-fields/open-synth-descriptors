@@ -561,7 +561,8 @@ fn every_file_of_a_0_6_resolution_case_that_expects_a_result_validates_against_t
         for (id, text) in files(&case.join("files")) {
             let doc: Value = serde_json::from_str(&text).unwrap();
             let schemas = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.5/")) { &s5 } else { &s6 };
-            if let Some(e) = schemas.check(osd::Kind::Device, &doc) {
+            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            if let Some(e) = schemas.check(kind, &doc) {
                 failures.push(format!("{}: {id}: {e}", case.file_name().unwrap().to_string_lossy()));
             }
         }

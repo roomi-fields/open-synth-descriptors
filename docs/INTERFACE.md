@@ -342,7 +342,9 @@ Cases: `0.4/profile-own-keys-win`, `0.5/profile-own-keys-win`, `0.5/profile-fami
 
 ### R23 — A key a block sets to null drops the profile's key
 
-Cases: `0.4/profile-null-removes-key`, `0.5/profile-null-drops-key`
+Only a key directly in `identity` or `programs` (the blocks R21 completes), other than `profile`, takes `null`; the profile's key then does not pass into the resolved description, and a `null` on a key the profile does not give is accepted and leaves the key absent. A `null` inside the value of such a key (`programs.dump.request`, `identity.device_id.min`) is refused, because R22 replaces the whole key and does not merge into it. The 0.4 and 0.5 schemas admit `null` on `identity.firmware` only; the 0.6 schema admits it on every optional key of the two blocks.
+
+Cases: `0.4/profile-null-removes-key`, `0.5/profile-null-drops-key`, `0.6/profile-null-drops-key`
 
 ### R24 — A profile may itself name a profile and the nearest keys win
 

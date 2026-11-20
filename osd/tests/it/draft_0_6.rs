@@ -207,6 +207,41 @@ fn strip_roles(v: &mut Value) {
     }
 }
 
+/// A key's schema without the `null` it admits: out of `type`, `enum` and `anyOf`.
+/// 0.6 admits `null` on the direct keys of `identity` and `programs` (a profile's key is dropped by it).
+fn strip_null(schema: &mut Value) {
+    let Some(o) = schema.as_object_mut() else { return };
+    if let Some(Value::Array(types)) = o.get_mut("type") {
+        types.retain(|t| t != "null");
+        if types.len() == 1 {
+            let only = types.remove(0);
+            o.insert("type".into(), only);
+        }
+    }
+    if let Some(Value::Array(e)) = o.get_mut("enum") {
+        e.retain(|t| !t.is_null());
+    }
+    if let Some(Value::Array(any)) = o.get_mut("anyOf") {
+        any.retain(|t| t != &json!({"type": "null"}));
+        if any.len() == 1 {
+            let only = any.remove(0);
+            o.remove("anyOf");
+            if let Value::Object(m) = only {
+                o.extend(m);
+            }
+        }
+    }
+}
+
+fn strip_block_nulls(doc: &mut Value) {
+    if let Some(props) = doc["properties"]["programs"]["properties"].as_object_mut() {
+        props.values_mut().for_each(strip_null);
+    }
+    if let Some(props) = doc["$defs"]["identity"]["properties"].as_object_mut() {
+        props.values_mut().for_each(strip_null);
+    }
+}
+
 #[test]
 fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabilities_the_role_and_the_default_value() {
     for (_, n) in KINDS {
@@ -282,6 +317,11 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {
             assert!(now["properties"].as_object_mut().unwrap().remove("external_ids").is_some(), "sound has no external_ids");
+        }
+        // The `null` of a direct key of `identity` and `programs` is 0.6's own.
+        if n == "device" {
+            strip_block_nulls(&mut now);
+            strip_block_nulls(&mut before);
         }
         // Compare once the version names are the same everywhere.
         let norm = |v: &mut Value| {

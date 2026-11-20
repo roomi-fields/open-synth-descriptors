@@ -128,6 +128,9 @@
         "selects": {
           "anyOf": [
             {
+              "type": "null"
+            },
+            {
               "enum": [
                 "sound",
                 "kit",
@@ -148,23 +151,23 @@
           "description": "What a program change selects: the sound kind's list, or an extension x-<registrant>-<term> (read as a plain recall)."
         },
         "program_change": {
-          "type": "boolean"
+          "type": ["boolean", "null"]
         },
         "requires": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           },
           "description": "Settings on the device needed first, as its manual names them."
         },
         "banks": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/$defs/bank"
           }
         },
         "before": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "type": "array",
             "items": {
@@ -179,15 +182,15 @@
           "description": "Messages sent after a recall (before it for before); with program_change false, before and after recall alone."
         },
         "recall_script": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "A Lua script that writes the recall itself, in place of before, the bank select, the program change and after: it reads ctx (channel, dev, family, member, bank, bank_name, msb, lsb, program, index, number) and returns the messages, a list of lists of bytes. Requires the lua capability."
         },
         "delay_ms": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0
         },
         "dump": {
-          "type": "object",
+          "type": ["object", "null"],
           "properties": {
             "kind": {
               "enum": [
@@ -226,7 +229,7 @@
           "description": "How the current sound is taken from it."
         },
         "notes": {
-          "type": "string"
+          "type": ["string", "null"]
         }
       },
       "patternProperties": {
@@ -1316,37 +1319,38 @@
           "description": "A maker profile this extends (maker or maker/family)."
         },
         "request": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/$defs/frame_token"
           },
           "description": "The identify request, when not the Universal Identity Request (F0 7E 7F 06 01 F7); its elements may take the device's own values (an identity object)."
         },
         "to": {
-          "enum": ["every_port", "named_ports"],
+          "enum": ["every_port", "named_ports", null],
           "description": "Where the request goes: every_port (default), or named_ports, only the ports whose name matches ports (for a message other devices might misread)."
         },
         "script": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "A Lua script that says whether a reply is this device's, for what reply cannot say: it reads reply (the bytes, from 1) and returns true or false; with reply, both must hold. Requires the lua capability."
         },
         "unpack": {
           "enum": [
-            "lsb_8to7"
+            "lsb_8to7",
+            null
           ]
         },
         "reply": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/$defs/recognised_frame_token"
           },
           "description": "The start of the reply, element by element: a byte, any, a capture, or an object of its nature."
         },
         "reply_text": {
-          "type": "string"
+          "type": ["string", "null"]
         },
         "family": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "type": "integer",
             "minimum": 0,
@@ -1354,7 +1358,7 @@
           }
         },
         "member": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "type": "integer",
             "minimum": 0,
@@ -1362,7 +1366,7 @@
           }
         },
         "device_id": {
-          "type": "object",
+          "type": ["object", "null"],
           "properties": {
             "default": {
               "type": "integer"
@@ -1462,21 +1466,28 @@
           "description": "Where the reply carries the firmware version, and how to read it."
         },
         "ports": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           },
           "description": "Its port names, for a device that does not answer."
         },
         "usb": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/$defs/usb_id"
           },
           "description": "Its USB identities (one per model version or mode): the strongest sign of which model is plugged in, read by a native program (a web browser does not see it)."
         },
         "sends": {
-          "$ref": "#/$defs/sends"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sends"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "patternProperties": {

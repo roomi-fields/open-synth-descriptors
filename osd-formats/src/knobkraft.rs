@@ -142,7 +142,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     text.push_str(&format!("def name():\n    return {}\n", python_string(&d.device.name)));
 
     let programs = d.programs.as_ref();
-    let banks = programs.and_then(|p| p.banks.as_deref()).filter(|b| !b.is_empty());
+    let banks = programs.and_then(|p| p.banks.as_ref()).and_then(|b| b.as_deref()).filter(|b| !b.is_empty());
     match banks {
         Some(banks) => {
             text.push_str(&format!("\ndef numberOfBanks():\n    return {}\n", banks.len()));
@@ -159,7 +159,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
 
-    let dump = programs.and_then(|p| p.dump.as_ref());
+    let dump = programs.and_then(|p| p.dump.as_ref()).and_then(|x| x.as_ref());
     let request = dump.filter(|x| matches!(x.kind, DumpKind::Request | DumpKind::EditBuffer) && x.script.is_none()).and_then(|x| x.request.as_ref());
     let bytes: Option<Vec<u8>> = request.and_then(|r| r.iter().map(|t| if let FrameToken::Byte(b) = t { Some(*b) } else { None }).collect());
     match bytes {

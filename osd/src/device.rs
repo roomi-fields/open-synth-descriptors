@@ -241,22 +241,22 @@ object! {
 
 /// Every frame of an identity, with the JSON pointer of its place.
 fn identity_frames<'a>(i: &'a Identity, at: &str, out: &mut Vec<(String, Place, &'a [FrameToken])>) {
-    if let Some(r) = &i.request {
+    if let Some(Some(r)) = &i.request {
         out.push((format!("{at}/request"), Place::Sent, r));
     }
-    if let Some(r) = &i.reply {
+    if let Some(Some(r)) = &i.reply {
         out.push((format!("{at}/reply"), Place::Reply, r));
     }
 }
 
 fn programs_frames<'a>(p: &'a Programs, at: &str, out: &mut Vec<(String, Place, &'a [FrameToken])>) {
-    for (n, f) in p.before.iter().flatten().enumerate() {
+    for (n, f) in p.before.iter().flatten().flatten().enumerate() {
         out.push((format!("{at}/before/{n}"), Place::Sent, f));
     }
-    for (n, f) in p.after.iter().flatten().enumerate() {
+    for (n, f) in p.after.iter().flatten().flatten().enumerate() {
         out.push((format!("{at}/after/{n}"), Place::Sent, f));
     }
-    if let Some(r) = p.dump.as_ref().and_then(|d| d.request.as_ref()) {
+    if let Some(r) = p.dump.iter().flatten().find_map(|d| d.request.as_ref()) {
         out.push((format!("{at}/dump/request"), Place::Sent, r));
     }
 }
@@ -272,7 +272,7 @@ fn check_05_fields(i: Option<&Identity>, p: Option<&Programs>, v05: bool) -> Res
         ("/identity/script", i.is_some_and(|i| i.script.is_some())),
         ("/programs/after", p.is_some_and(|p| p.after.is_some())),
         ("/programs/recall_script", p.is_some_and(|p| p.recall_script.is_some())),
-        ("/programs/dump/script", p.is_some_and(|p| p.dump.as_ref().is_some_and(|d| d.script.is_some()))),
+        ("/programs/dump/script", p.is_some_and(|p| p.dump.iter().flatten().any(|d| d.script.is_some()))),
         ("", false),
     ];
     match present.iter().find(|(_, here)| *here) {
@@ -300,9 +300,9 @@ impl Device {
         let replies = d.replies.iter().flatten().any(|r| r.script.is_some());
         let custom = d.custom_commands.as_ref().is_some_and(|c| !c.is_empty());
         let identity = d.identity.as_ref().is_some_and(|i| {
-            i.script.is_some() || i.firmware.iter().flatten().any(|f| f.script.is_some() || f.decode == "lua")
+            i.script.iter().flatten().next().is_some() || i.firmware.iter().flatten().any(|f| f.script.is_some() || f.decode == "lua")
         });
-        let programs = d.programs.as_ref().is_some_and(|p| p.recall_script.is_some() || p.dump.as_ref().is_some_and(|x| x.script.is_some()));
+        let programs = d.programs.as_ref().is_some_and(|p| p.recall_script.iter().flatten().next().is_some() || p.dump.iter().flatten().any(|x| x.script.is_some()));
         let sounds = d.sound_transfers_use_lua();
         if cc || params || commands || replies || custom || identity || programs || sounds { vec![Capability::Lua] } else { Vec::new() }
     }
@@ -340,10 +340,10 @@ fn check_identity_vocabularies(i: &Identity) -> Result<(), Fault> {
 }
 
 fn check_programs_vocabularies(p: &Programs) -> Result<(), Fault> {
-    if let Some(s) = &p.selects {
+    if let Some(Some(s)) = &p.selects {
         vocabulary::check_selects(s, "/programs/selects")?;
     }
-    for (n, b) in p.banks.iter().flatten().enumerate() {
+    for (n, b) in p.banks.iter().flatten().flatten().enumerate() {
         if let Some(s) = &b.selects {
             vocabulary::check_selects(s, &format!("/programs/banks/{n}/selects"))?;
         }
@@ -405,18 +405,18 @@ fn check_banks_and_reply_time(d: &Device) -> Result<(), Fault> {
     let v06 = d.schema >= Some(Version::V0_6);
     let unknown = |pointer: String, name: &str| Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: format!("{name} is not a field before 0.6") };
     if !v06 {
-        for (n, b) in p.banks.iter().flatten().enumerate() {
+        for (n, b) in p.banks.iter().flatten().flatten().enumerate() {
             if b.writable.is_some() {
                 return Err(unknown(format!("/programs/banks/{n}/writable"), "writable"));
             }
         }
-        if p.dump.as_ref().is_some_and(|k| k.reply_timeout_ms.is_some()) {
+        if p.dump.iter().flatten().any(|k| k.reply_timeout_ms.is_some()) {
             return Err(unknown("/programs/dump/reply_timeout_ms".into(), "reply_timeout_ms"));
         }
         return Ok(());
     }
-    if let Some(timeout) = p.dump.as_ref().and_then(|k| k.reply_timeout_ms) {
-        let pause = p.delay_ms.unwrap_or(0);
+    if let Some(timeout) = p.dump.iter().flatten().find_map(|k| k.reply_timeout_ms) {
+        let pause = p.delay_ms.flatten().unwrap_or(0);
         if timeout < pause {
             return Err(Fault {
                 kind: FaultKind::BadValue,
@@ -665,34 +665,34 @@ fn convert_identity(i: &mut Identity, at: &At) -> Result<(), Fault> {
     if let Some(Some(f)) = &i.firmware {
         vocabulary::convert_decode(&f.decode, f.field.is_some(), f.script.is_some(), &At::Key(at, "firmware").pointer())?;
     }
-    if let Some(r) = &mut i.request {
+    if let Some(Some(r)) = &mut i.request {
         convert_frame(r, Place::Sent, &At::Key(at, "request"))?;
     }
-    if let Some(r) = &mut i.reply {
+    if let Some(Some(r)) = &mut i.reply {
         convert_frame(r, Place::Reply, &At::Key(at, "reply"))?;
     }
     Ok(())
 }
 
 fn convert_programs(p: &mut Programs, at: &At) -> Result<(), Fault> {
-    if let Some(s) = &mut p.selects {
+    if let Some(Some(s)) = &mut p.selects {
         *s = vocabulary::convert_selects(s, &At::Key(at, "selects").pointer())?;
     }
     let banks = At::Key(at, "banks");
-    for (n, b) in p.banks.iter_mut().flatten().enumerate() {
+    for (n, b) in p.banks.iter_mut().flatten().flatten().enumerate() {
         if let Some(s) = &mut b.selects {
             *s = vocabulary::convert_selects(s, &At::Key(&At::Index(&banks, n), "selects").pointer())?;
         }
     }
     let before = At::Key(at, "before");
-    for (n, f) in p.before.iter_mut().flatten().enumerate() {
+    for (n, f) in p.before.iter_mut().flatten().flatten().enumerate() {
         convert_frame(f, Place::Sent, &At::Index(&before, n))?;
     }
     let after = At::Key(at, "after");
-    for (n, f) in p.after.iter_mut().flatten().enumerate() {
+    for (n, f) in p.after.iter_mut().flatten().flatten().enumerate() {
         convert_frame(f, Place::Sent, &At::Index(&after, n))?;
     }
-    if let Some(r) = p.dump.as_mut().and_then(|d| d.request.as_mut()) {
+    if let Some(r) = p.dump.iter_mut().flatten().find_map(|d| d.request.as_mut()) {
         convert_frame(r, Place::Sent, &At::Key(&At::Key(at, "dump"), "request"))?;
     }
     Ok(())
@@ -965,26 +965,27 @@ object! {
         /// A maker profile this extends (`maker` or `maker/family`).
         "profile" profile: Option<String> = Opt(STRING),
         /// The identify request, when not the Universal Identity Request.
-        "request" request: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        "request" request: Option<Option<Vec<FrameToken>>> = Opt(Nullable(list(FRAME_TOKEN))),
         /// Where the request goes (0.5).
-        "to" to: Option<IdentityTo> = Opt(closed()),
+        "to" to: Option<Option<IdentityTo>> = Opt(Nullable(closed())),
         /// A Lua script that says whether a reply is the device's (0.5).
-        "script" script: Option<String> = Opt(STRING),
-        "unpack" unpack: Option<Unpack> = Opt(closed()),
+        "script" script: Option<Option<String>> = Opt(Nullable(STRING)),
+        "unpack" unpack: Option<Option<Unpack>> = Opt(Nullable(closed())),
         /// The start of the reply, recognised element by element.
-        "reply" reply: Option<Vec<FrameToken>> = Opt(list(REPLY_TOKEN)),
-        "reply_text" reply_text: Option<String> = Opt(STRING),
-        "family" family: Option<Vec<u8>> = Opt(list(BYTE)),
-        "member" member: Option<Vec<u8>> = Opt(list(BYTE)),
-        "device_id" device_id: Option<DeviceIdRange> = Opt(obj()),
-        /// Where the reply carries the firmware version; `Some(None)` is
-        /// written `null`, which removes a profile's rule.
+        "reply" reply: Option<Option<Vec<FrameToken>>> = Opt(Nullable(list(REPLY_TOKEN))),
+        "reply_text" reply_text: Option<Option<String>> = Opt(Nullable(STRING)),
+        "family" family: Option<Option<Vec<u8>>> = Opt(Nullable(list(BYTE))),
+        "member" member: Option<Option<Vec<u8>>> = Opt(Nullable(list(BYTE))),
+        "device_id" device_id: Option<Option<DeviceIdRange>> = Opt(Nullable(obj())),
+        /// Where the reply carries the firmware version. Every optional key
+        /// but `profile` takes `null` (`Some(None)`), which removes the
+        /// maker profile's key (R23).
         "firmware" firmware: Option<Option<FirmwareRule>> = Opt(Nullable(obj())),
         /// Its port names, for a device that does not answer.
-        "ports" ports: Option<Vec<String>> = Opt(list(STRING)),
+        "ports" ports: Option<Option<Vec<String>>> = Opt(Nullable(list(STRING))),
         /// Its USB identities, one per model version or mode.
-        "usb" usb: Option<Vec<UsbId>> = Opt(list(obj())),
-        "sends" sends: Option<Sends> = Opt(obj()),
+        "usb" usb: Option<Option<Vec<UsbId>>> = Opt(Nullable(list(obj()))),
+        "sends" sends: Option<Option<Sends>> = Opt(Nullable(obj())),
     }
 }
 
@@ -1036,20 +1037,22 @@ object! {
     Programs {
         "profile" profile: Option<String> = Opt(STRING),
         /// What a program change selects (sound, pattern, kit…).
-        "selects" selects: Option<String> = Opt(STRING),
-        "program_change" program_change: Option<bool> = Opt(Bool),
+        "selects" selects: Option<Option<String>> = Opt(Nullable(STRING)),
+        "program_change" program_change: Option<Option<bool>> = Opt(Nullable(Bool)),
         /// Settings on the device needed first, as its manual names them.
-        "requires" requires: Option<Vec<String>> = Opt(list(STRING)),
-        "banks" banks: Option<Vec<Bank>> = Opt(list(obj())),
+        "requires" requires: Option<Option<Vec<String>>> = Opt(Nullable(list(STRING))),
+        "banks" banks: Option<Option<Vec<Bank>>> = Opt(Nullable(list(obj()))),
         /// Messages sent before a recall.
-        "before" before: Option<Vec<Vec<FrameToken>>> = Opt(list(list(FRAME_TOKEN))),
+        "before" before: Option<Option<Vec<Vec<FrameToken>>>> = Opt(Nullable(list(list(FRAME_TOKEN)))),
         /// Messages sent after a recall (0.5).
-        "after" after: Option<Vec<Vec<FrameToken>>> = Opt(list(list(FRAME_TOKEN))),
+        "after" after: Option<Option<Vec<Vec<FrameToken>>>> = Opt(Nullable(list(list(FRAME_TOKEN)))),
         /// A Lua script that writes the recall itself (0.5).
-        "recall_script" recall_script: Option<String> = Opt(STRING),
-        "delay_ms" delay_ms: Option<i64> = Opt(at_least(0)),
-        "dump" dump: Option<Dump> = Opt(obj()),
-        "notes" notes: Option<String> = Opt(STRING),
+        "recall_script" recall_script: Option<Option<String>> = Opt(Nullable(STRING)),
+        "delay_ms" delay_ms: Option<Option<i64>> = Opt(Nullable(at_least(0))),
+        /// Every optional key but `profile` takes `null` (`Some(None)`),
+        /// which removes the maker profile's key (R23).
+        "dump" dump: Option<Option<Dump>> = Opt(Nullable(obj())),
+        "notes" notes: Option<Option<String>> = Opt(Nullable(STRING)),
     }
 }
 

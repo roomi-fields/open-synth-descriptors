@@ -731,7 +731,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     if !controls.is_empty() {
         w.empty("UsesControlNameList", &[("Name", "Controls".into())]);
     }
-    let banks = d.programs.as_ref().map(|p| p.banks.iter().flatten().collect::<Vec<_>>()).unwrap_or_default();
+    let banks = d.programs.as_ref().map(|p| p.banks.iter().flatten().flatten().collect::<Vec<_>>()).unwrap_or_default();
     if let Some(p) = &d.programs {
         for (field, present) in [
             ("profile", p.profile.is_some()),
@@ -748,7 +748,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 loss(&mut losses, format!("/programs/{field}"), "a PatchBank names patches and selects a bank: nothing for how a recall is made");
             }
         }
-        if p.program_change == Some(false) {
+        if p.program_change == Some(Some(false)) {
             loss(&mut losses, "/programs/program_change", "a Patch of the DTD carries a program change number: the device's choice not to use it is not said");
         }
         for key in p.remarks.keys() {
