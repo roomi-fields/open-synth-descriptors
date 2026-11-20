@@ -40,7 +40,6 @@ fn sample() -> Value {
              "paramPath": "/Mystery/Wave"},
             {"title": "Alt", "ctrlType": "rpn", "ctrlIndex": [0, 2], "numSigBits": 14, "minMax": [0, 16383], "typeHint": "valueSelect", "ctrlMapId": "x"},
             {"title": "On", "ctrlType": "cc", "ctrlIndex": [9], "numSigBits": 7, "minMax": [0, 127], "typeHint": "toggle", "paramPath": "/Oscillator/1/Level"},
-            {"title": "P", "ctrlType": "param", "ctrlIndex": [12], "numSigBits": 7, "minMax": [0, 127], "typeHint": "momentary"},
         ],
         "CtrlMapList": [
             {"ctrlMapId": "w", "ctrlMap": [{"value": 0, "title": "Saw"}, {"value": 1, "title": "Sq"}, {"value": 2, "title": "Tri"}]},
@@ -90,7 +89,8 @@ fn a_device_exported_then_imported_keeps_what_the_format_carries() {
     let t = import(&out.value, Format::Midi2Controllers, &source()).unwrap();
     let json = json_of(&t.value);
     let kept = controls(&json);
-    assert_eq!(kept.len(), 4);
+    assert_eq!(kept.len(), 3);
+    assert!(json.get("params").is_none(), "no params block with made-up frames: {json}");
     assert_eq!(kept[0]["cc"], 74);
     assert_eq!(kept[0]["range"], json!([10, 100]));
     assert_eq!(kept[0]["role"]["setting"], "cutoff");
@@ -98,7 +98,6 @@ fn a_device_exported_then_imported_keeps_what_the_format_carries() {
     assert_eq!(kept[1]["cc_lsb"], 37);
     assert_eq!(kept[1]["section"], "/Free/Path");
     assert_eq!(kept[2]["values"], json!({"A": 0, "B": 1, "C": 2}));
-    assert_eq!(json["params"]["entries"][0]["id"], 7);
     assert_eq!(canon(&back(&out.value)), canon(&v));
 }
 

@@ -6,7 +6,7 @@
 use serde_json::{json, Value};
 
 /// The properties of a control of MIDI-CI Property Exchange Controller Resources
-/// (M2-117-UM v1.0.1, table 5).
+/// (M2-117-UM v1.0, tables 6 and 12).
 pub const PROPERTIES: [&str; 15] = [
     "title",
     "description",

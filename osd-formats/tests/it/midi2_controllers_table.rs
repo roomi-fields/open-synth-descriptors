@@ -47,3 +47,28 @@ fn the_properties_the_import_cannot_read_back_are_lost_and_the_others_carried() 
     let title = lines.iter().find(|l| l[0] == "title").unwrap();
     assert_eq!(title[1], "lost");
 }
+
+#[test]
+fn the_document_cites_the_standard_at_version_1_0_tables_6_and_12_and_names_its_nine_types() {
+    let text = std::fs::read_to_string(DOC).unwrap();
+    assert!(!text.contains("v1.0.1"), "the standard is version 1.0");
+    assert!(!text.contains("table 5"), "the controller object is table 6 (AllCtrlList) and table 12 (ChCtrlList)");
+    assert!(text.contains("v1.0"), "the version is cited");
+    assert!(text.contains("table 6") || text.contains("tables 6"), "table 6 is cited");
+    assert!(text.contains("12"), "table 12 is cited");
+    let lines = doc_lines();
+    let ctrl_type = lines.iter().find(|l| l[0] == "ctrlType").unwrap();
+    let row = ctrl_type.join(" ");
+    for word in ["cc", "chPress", "pPress", "nrpn", "rpn", "pBend", "pnrc", "pnac", "pnp"] {
+        assert!(row.contains(word), "ctrlType line names {word}: {row}");
+    }
+    assert!(!row.contains("param or") && !row.contains("`param`"), "param is not a ctrlType: {row}");
+}
+
+#[test]
+fn the_document_says_the_sysex_params_are_not_written_and_a_standard_type_the_descriptor_cannot_carry_is_lost() {
+    let text = std::fs::read_to_string(DOC).unwrap();
+    assert!(text.contains("SysEx"), "the SysEx params that the export does not write are named");
+    assert!(text.contains("params"), "the params block is named");
+    assert!(text.contains("pBend"), "the types lost at import are named");
+}

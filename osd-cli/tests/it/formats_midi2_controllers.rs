@@ -97,6 +97,66 @@ fn export_of_what_import_wrote_gives_back_the_entry() {
     assert_eq!(v["ChCtrlList"][1]["paramPath"], "/Mystery/Shape");
 }
 
+fn device_with_sysex_params() -> String {
+    json!({
+        "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+        "_sources": [{"type": "community-re", "url": "https://example.org/d", "author": "Dee", "license": "CC-BY-4.0"}],
+        "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"},
+        "cc_params": {"entries": [{"osc": "/a", "cc": 7}]},
+        "params": {"get_frame": [240, 1, 247], "set_frame": [240, 2, 247], "value_type": "u7",
+                   "entries": [{"osc": "/p1", "id": 1}, {"osc": "/p2", "id": 2}]},
+    })
+    .to_string()
+}
+
+#[test]
+fn export_writes_no_param_entry_and_names_one_loss_for_the_sysex_params() {
+    let (_dir, file) = with_file("d.json", &device_with_sysex_params());
+    let run = osd(&["export", "midi2-controllers", &file]);
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    let v: Value = serde_json::from_str(&run.stdout).unwrap();
+    let entries = v["ChCtrlList"].as_array().unwrap();
+    assert_eq!(entries.len(), 1, "{}", run.stdout);
+    assert_eq!(entries[0]["ctrlType"], "cc");
+    let lines: Vec<&str> = run.stderr.lines().filter(|l| l.starts_with("/params")).collect();
+    assert_eq!(lines.len(), 1, "{:?}", run.stderr);
+    assert!(lines[0].starts_with("/params: "), "{lines:?}");
+}
+
+#[test]
+fn import_refuses_a_param_ctrl_type_with_exit_1_at_its_pointer_and_prints_no_descriptor() {
+    let list = json!([{"title": "P", "ctrlType": "param", "ctrlIndex": [12]}]).to_string();
+    let (_dir, file) = with_file("p.json", &list);
+    let run = osd(&import_args(&file, &[]));
+    assert_eq!(run.code, 1, "{:?}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert!(run.stderr.contains("/0/ctrlType"), "{:?}", run.stderr);
+}
+
+#[test]
+fn import_of_a_standard_type_the_descriptor_cannot_carry_prints_the_descriptor_and_the_loss_at_its_pointer() {
+    let list = json!([{"ctrlType": "cc", "ctrlIndex": [7]}, {"ctrlType": "pBend"}]).to_string();
+    let (_dir, file) = with_file("b.json", &list);
+    let run = osd(&import_args(&file, &[]));
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))), "{}", run.stdout);
+    assert!(run.stderr.lines().any(|l| l.starts_with("/1: ")), "{:?}", run.stderr);
+}
+
+#[test]
+fn a_device_with_sysex_params_exported_then_imported_has_no_params_block() {
+    let (dir, file) = with_file("d.json", &device_with_sysex_params());
+    let exported = osd(&["export", "midi2-controllers", &file]);
+    assert_eq!(exported.code, 0, "{:?}", exported.stderr);
+    let list = dir.path().join("list.json").to_string_lossy().into_owned();
+    std::fs::write(&list, &exported.stdout).unwrap();
+    let run = osd(&import_args(&list, &[]));
+    assert_eq!(run.code, 0, "{:?}", run.stderr);
+    assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))), "{}", run.stdout);
+    let doc: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert!(doc.get("params").is_none(), "{}", run.stdout);
+}
+
 #[test]
 fn the_unknown_format_message_and_the_helps_list_midi2_controllers() {
     let (_dir, file) = with_file("list.json", &sample());

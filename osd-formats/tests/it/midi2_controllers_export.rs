@@ -51,13 +51,50 @@ fn each_kind_of_control_is_an_entry_of_its_type_with_its_index() {
     }));
     let (v, _) = exported(&d);
     let l = list(&v);
-    assert_eq!(l.len(), 5);
+    assert_eq!(l.len(), 4, "the SysEx param is not written: {v}");
     let kinds: Vec<(&str, &serde_json::Value)> = l.iter().map(|e| (e["ctrlType"].as_str().unwrap(), &e["ctrlIndex"])).collect();
     assert_eq!(kinds[0], ("cc", &json!([7])));
     assert_eq!(kinds[1], ("cc", &json!([1])));
     assert_eq!(kinds[2], ("nrpn", &json!([3, 9])));
     assert_eq!(kinds[3], ("rpn", &json!([0, 2])));
-    assert_eq!(kinds[4], ("param", &json!([12])));
+}
+
+const STANDARD_TYPES: [&str; 9] = ["cc", "chPress", "pPress", "nrpn", "rpn", "pBend", "pnrc", "pnac", "pnp"];
+
+fn device_with_three_params() -> osd::Resolved {
+    device(json!({
+        "cc_params": {"entries": [{"osc": "/a", "cc": 7}]},
+        "params": {"get_frame": [240, 1, 247], "set_frame": [240, 2, 247], "value_type": "u7",
+                   "entries": [
+                       {"osc": "/p1", "id": 1, "range": [0, 63]},
+                       {"osc": "/p2", "id": 2, "expects": "switch"},
+                       {"osc": "/p3", "p": 3, "pr": 9},
+                   ]},
+    }))
+}
+
+#[test]
+fn an_export_writes_no_entry_outside_the_nine_types_of_the_standard() {
+    let (v, _) = exported(&device_with_three_params());
+    for e in list(&v) {
+        assert!(STANDARD_TYPES.contains(&e["ctrlType"].as_str().unwrap()), "{e}");
+    }
+    assert_eq!(list(&v).len(), 1, "{v}");
+}
+
+#[test]
+fn the_sysex_params_are_one_loss_at_params_with_their_count_and_none_per_entry() {
+    let (_, lost) = exported(&device_with_three_params());
+    let at: Vec<&osd_formats::Loss> = lost.iter().filter(|l| l.place == "/params" || l.place.starts_with("/params/")).collect();
+    assert_eq!(at.len(), 1, "{lost:?}");
+    assert_eq!(at[0].place, "/params");
+    assert!(at[0].reason.contains('3'), "the count of entries not written: {:?}", at[0]);
+}
+
+#[test]
+fn a_device_without_params_names_no_loss_for_them() {
+    let (_, lost) = exported(&cc_device(json!([{"osc": "/a", "cc": 7}])));
+    assert!(!lost.iter().any(|l| l.place.starts_with("/params")), "{lost:?}");
 }
 
 #[test]

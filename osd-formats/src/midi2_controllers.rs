@@ -1,6 +1,6 @@
-//! The controller resources of MIDI-CI Property Exchange (M2-117-UM v1.0.1): `ChCtrlList`,
+//! The controller resources of MIDI-CI Property Exchange (M2-117-UM v1.0): `ChCtrlList`,
 //! `AllCtrlList` and `CtrlMapList`, in JSON. The importer and the exporter; the fate of each
-//! property of table 5 is in docs/midi2-controllers.md.
+//! property of the controller object (tables 6 and 12) is in docs/midi2-controllers.md.
 
 use crate::midi_csv::check_source;
 use crate::{Fault, FaultKind, Loss, Translated};
@@ -38,8 +38,10 @@ enum Kind {
     Cc,
     Nrpn,
     Rpn,
-    Param,
 }
+
+/// The types of the standard (M2-117-UM v1.0, tables 6 and 12) a descriptor holds no control for.
+const STANDARD_TYPES_NOT_CARRIED: [&str; 6] = ["chPress", "pPress", "pBend", "pnrc", "pnac", "pnp"];
 
 /// The number of bits a count of values needs, from the standard's usual widths.
 fn bits_of(max: i64) -> i64 {
@@ -167,10 +169,7 @@ fn read_maps(root: &Map<String, Value>, losses: &mut Vec<Loss>) -> Result<Vec<(V
 
 struct Built {
     cc: Vec<Value>,
-    params: Vec<Value>,
     any_role: bool,
-    /// The widest value of a param entry, in bits.
-    param_bits: i64,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -188,8 +187,11 @@ fn read_entry(
         Some(Some("cc")) => Kind::Cc,
         Some(Some("nrpn")) => Kind::Nrpn,
         Some(Some("rpn")) => Kind::Rpn,
-        Some(Some("param")) => Kind::Param,
-        Some(_) => return Err(invalid(format!("{ptr}/ctrlType"), "ctrlType is cc, nrpn, rpn or param")),
+        Some(Some(t)) if STANDARD_TYPES_NOT_CARRIED.contains(&t) => {
+            loss(losses, ptr, format!("the ctrlType {t} is a type of the standard that the descriptor has no field for: the entry is not carried"));
+            return Ok(());
+        }
+        Some(_) => return Err(invalid(format!("{ptr}/ctrlType"), "ctrlType is one of the nine types of the standard: cc, chPress, pPress, nrpn, rpn, pBend, pnrc, pnac, pnp")),
     };
     let index = index_of(o, ptr, if matches!(kind, Kind::Nrpn | Kind::Rpn) { 2 } else { 1 })?;
     if kind == Kind::Cc && index[0] > 127 {
@@ -211,10 +213,6 @@ fn read_entry(
             entry.insert("rpn_msb".into(), json!(index[0]));
             entry.insert("rpn_lsb".into(), json!(index[1]));
             14
-        }
-        Kind::Param => {
-            entry.insert("id".into(), json!(index[0]));
-            7
         }
     };
 
@@ -282,11 +280,7 @@ fn read_entry(
         if !(0..=15).contains(&c) {
             return Err(invalid(format!("{ptr}/channel"), "channel is from 0 to 15"));
         }
-        if kind == Kind::Param {
-            loss(losses, format!("{ptr}/channel"), "a param entry of the descriptor has no channel");
-        } else {
-            entry.insert("channel".into(), json!(c));
-        }
+        entry.insert("channel".into(), json!(c));
     }
     match o.get("typeHint").map(|t| t.as_str()) {
         None => {}
@@ -351,7 +345,6 @@ fn read_entry(
         Kind::Cc => format!("/cc/{}", index[0]),
         Kind::Nrpn => format!("/nrpn/{}/{}", index[0], index[1]),
         Kind::Rpn => format!("/rpn/{}/{}", index[0], index[1]),
-        Kind::Param => format!("/param/{}", index[0]),
     };
     let mut osc = base.clone();
     let mut k = 2;
@@ -362,12 +355,7 @@ fn read_entry(
     let mut full = Map::new();
     full.insert("osc".into(), json!(osc));
     full.extend(entry);
-    if kind == Kind::Param {
-        built.param_bits = built.param_bits.max(bits.unwrap_or_else(|| range_out.map_or(natural, |[lo, hi]| bits_of(hi.max(lo.abs())))));
-        built.params.push(Value::Object(full));
-    } else {
-        built.cc.push(Value::Object(full));
-    }
+    built.cc.push(Value::Object(full));
     Ok(())
 }
 
@@ -401,7 +389,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         }
         _ => return Err(invalid("", "a controller list is a JSON array of entries, or an object holding one")),
     };
-    let mut built = Built { cc: Vec::new(), params: Vec::new(), any_role: false, param_bits: 0 };
+    let mut built = Built { cc: Vec::new(), any_role: false };
     let mut used = BTreeSet::new();
     for (n, e) in list.iter().enumerate() {
         read_entry(e, &format!("{base}/{n}"), &maps, &mut used, &mut built, &mut losses)?;
@@ -431,20 +419,6 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
     if !built.cc.is_empty() {
         doc.insert("cc_params".into(), json!({"entries": built.cc}));
     }
-    if !built.params.is_empty() {
-        // A params block names how its values are read and written by SysEx: the list says
-        // nothing of it, so both frames are empty and the losses say so; the width of the
-        // values follows from the widest numSigBits.
-        let value_type = match built.param_bits {
-            ..=7 => "u7",
-            8..=14 => "u14",
-            _ => "s32",
-        };
-        doc.insert("params".into(), json!({"get_frame": [], "set_frame": [], "value_type": value_type, "entries": built.params}));
-        for field in ["get_frame", "set_frame"] {
-            loss(&mut losses, format!("/params/{field}"), "the controller list says nothing of the SysEx frames that read and write a param: the frame is empty");
-        }
-    }
     let read = osd::read(&Value::Object(doc).to_string(), osd::Kind::Device)
         .map_err(|f| invalid(base.clone(), format!("the list does not make a device descriptor: {} at {}", f.rule, f.pointer)))?;
     let Descriptor::Device(mut d) = read else {
@@ -461,7 +435,6 @@ const CC_CARRIED: [&str; 18] = [
     "osc", "cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb", "range", "default", "priority", "step_count", "transmit", "recognize", "values", "channel", "section", "expects",
     "role",
 ];
-const PARAM_CARRIED: [&str; 14] = ["osc", "id", "range", "default", "priority", "step_count", "transmit", "recognize", "values", "section", "expects", "role", "p", "pr"];
 
 /// The maps written: equal value lists share one id.
 #[derive(Default)]
@@ -489,35 +462,21 @@ impl Maps {
     }
 }
 
-fn export_entry(e: &Map<String, Value>, ptr: &str, is_cc: bool, block_channel: Option<i64>, role_path: Option<&str>, maps: &mut Maps, losses: &mut Vec<Loss>) -> Option<Value> {
-    let carried: &[&str] = if is_cc { &CC_CARRIED } else { &PARAM_CARRIED };
-    for key in e.keys().filter(|k| !carried.contains(&k.as_str())) {
+fn export_entry(e: &Map<String, Value>, ptr: &str, block_channel: Option<i64>, role_path: Option<&str>, maps: &mut Maps, losses: &mut Vec<Loss>) -> Option<Value> {
+    for key in e.keys().filter(|k| !CC_CARRIED.contains(&k.as_str())) {
         loss(losses, format!("{ptr}/{}", segment(key)), "the Property Exchange controller resources have no property for it");
     }
     let num = |k: &str| e.get(k).and_then(Value::as_i64);
-    let (ctrl_type, index, natural) = if is_cc {
-        if let Some(cc) = num("cc") {
-            ("cc", vec![cc], 7)
-        } else if let (Some(a), Some(b)) = (num("nrpn_msb"), num("nrpn_lsb")) {
-            ("nrpn", vec![a, b], 14)
-        } else if let (Some(a), Some(b)) = (num("rpn_msb"), num("rpn_lsb")) {
-            ("rpn", vec![a, b], 14)
-        } else {
-            loss(losses, ptr, "the control has no complete address (cc, nrpn_msb and nrpn_lsb, or rpn_msb and rpn_lsb): it is not written");
-            return None;
-        }
-    } else if let Some(id) = num("id").or_else(|| num("p")) {
-        ("param", vec![id], 7)
+    let (ctrl_type, index, natural) = if let Some(cc) = num("cc") {
+        ("cc", vec![cc], 7)
+    } else if let (Some(a), Some(b)) = (num("nrpn_msb"), num("nrpn_lsb")) {
+        ("nrpn", vec![a, b], 14)
+    } else if let (Some(a), Some(b)) = (num("rpn_msb"), num("rpn_lsb")) {
+        ("rpn", vec![a, b], 14)
     } else {
-        loss(losses, ptr, "the param has no id nor p to index it: it is not written");
+        loss(losses, ptr, "the control has no complete address (cc, nrpn_msb and nrpn_lsb, or rpn_msb and rpn_lsb): it is not written");
         return None;
     };
-    // `p` indexes a param that has no `id`; beside an `id` it has no property, as `pr` has none.
-    for key in ["p", "pr"] {
-        if !is_cc && e.contains_key(key) && !(key == "p" && num("id").is_none()) {
-            loss(losses, format!("{ptr}/{key}"), "the Property Exchange controller resources have no property for it");
-        }
-    }
 
     let osc = e.get("osc").and_then(Value::as_str).unwrap_or("");
     let section = e.get("section").and_then(Value::as_str);
@@ -527,7 +486,7 @@ fn export_entry(e: &Map<String, Value>, ptr: &str, is_cc: bool, block_channel: O
 
     let mut o = Map::new();
     o.insert("title".into(), json!(title));
-    if let Some(c) = num("channel").or(block_channel).filter(|_| is_cc) {
+    if let Some(c) = num("channel").or(block_channel) {
         o.insert("channel".into(), json!(c));
     }
     o.insert("ctrlType".into(), json!(ctrl_type));
@@ -628,20 +587,24 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
 
     let mut maps = Maps::default();
     let mut list = Vec::new();
-    for (block, is_cc) in [("cc_params", true), ("params", false)] {
-        let Some(b) = doc.get(block).and_then(Value::as_object) else { continue };
+    if let Some(b) = doc.get("cc_params").and_then(Value::as_object) {
         let block_channel = b.get("channel").and_then(Value::as_i64);
-        for key in b.keys().filter(|k| *k != "entries" && !(is_cc && *k == "channel")) {
-            loss(&mut losses, format!("/{block}/{}", segment(key)), "the controller list has no property for it");
+        for key in b.keys().filter(|k| *k != "entries" && *k != "channel") {
+            loss(&mut losses, format!("/cc_params/{}", segment(key)), "the controller list has no property for it");
         }
         for (n, e) in b.get("entries").and_then(Value::as_array).into_iter().flatten().enumerate() {
             let Some(e) = e.as_object() else { continue };
-            let ptr = format!("/{block}/entries/{n}");
+            let ptr = format!("/cc_params/entries/{n}");
             let role = role_paths.iter().find(|(p, _)| *p == format!("{ptr}/role")).map(|(_, r)| r.as_str());
-            if let Some(v) = export_entry(e, &ptr, is_cc, block_channel, role, &mut maps, &mut losses) {
+            if let Some(v) = export_entry(e, &ptr, block_channel, role, &mut maps, &mut losses) {
                 list.push(v);
             }
         }
+    }
+    // A SysEx param has no ctrlType in the standard (nine types, M2-117-UM v1.0): none is written.
+    if let Some(b) = doc.get("params").and_then(Value::as_object) {
+        let count = b.get("entries").and_then(Value::as_array).map_or(0, Vec::len);
+        loss(&mut losses, "/params", format!("the standard has no ctrlType for a setting set by SysEx: the {count} entries of the block are not written"));
     }
     let out = json!({"ChCtrlList": list, "CtrlMapList": maps.to_json()});
     let mut text = serde_json::to_string_pretty(&out).expect("a list is JSON");

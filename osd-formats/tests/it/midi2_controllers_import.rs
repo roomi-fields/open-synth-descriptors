@@ -32,11 +32,10 @@ fn a_list_imports_as_controls_with_their_address_range_default_priority_and_mode
 }
 
 #[test]
-fn a_14_bit_cc_gets_its_lsb_pair_and_a_param_becomes_a_param_entry() {
+fn a_14_bit_cc_gets_its_lsb_pair() {
     let text = json!([
         {"title": "A", "ctrlType": "cc", "ctrlIndex": [1], "numSigBits": 14, "minMax": [0, 16383]},
         {"title": "B", "ctrlType": "cc", "ctrlIndex": [2], "numSigBits": 7},
-        {"title": "P", "ctrlType": "param", "ctrlIndex": [12], "minMax": [0, 63]},
     ])
     .to_string();
     let (d, _) = imported(&text);
@@ -44,7 +43,69 @@ fn a_14_bit_cc_gets_its_lsb_pair_and_a_param_becomes_a_param_entry() {
     assert_eq!(cc.len(), 2);
     assert_eq!(cc[0]["cc_lsb"], 33);
     assert!(cc[1].get("cc_lsb").is_none(), "{}", cc[1]);
-    assert_eq!(d["params"]["entries"][0]["id"], 12);
+}
+
+#[test]
+fn a_ctrl_type_outside_the_nine_of_the_standard_is_refused_at_its_pointer_and_param_is_one() {
+    for word in ["param", "sysex", "CC", ""] {
+        let list = json!([cc_entry(0), {"title": "P", "ctrlType": word, "ctrlIndex": [12], "minMax": [0, 63]}]);
+        let f = refused(&list.to_string());
+        assert_eq!((f.kind, f.place.as_str()), (FaultKind::InvalidFile, "/1/ctrlType"), "{word:?}");
+        let f = refused(&json!({"ChCtrlList": list, "CtrlMapList": []}).to_string());
+        assert_eq!((f.kind, f.place.as_str()), (FaultKind::InvalidFile, "/ChCtrlList/1/ctrlType"), "{word:?}");
+    }
+    let f = refused(&json!([{"title": "P", "ctrlType": 3, "ctrlIndex": [1]}]).to_string());
+    assert_eq!((f.kind, f.place.as_str()), (FaultKind::InvalidFile, "/0/ctrlType"));
+}
+
+#[test]
+fn an_entry_of_a_standard_type_the_descriptor_cannot_carry_is_a_loss_at_its_pointer_not_a_refusal() {
+    let text = json!({
+        "ChCtrlList": [
+            cc_entry(1),
+            {"title": "Press", "ctrlType": "chPress"},
+            {"title": "Poly", "ctrlType": "pPress"},
+            {"title": "Bend", "ctrlType": "pBend"},
+            {"title": "Reg", "ctrlType": "pnrc", "ctrlIndex": [3]},
+            {"title": "Assign", "ctrlType": "pnac", "ctrlIndex": [4]},
+            {"title": "Pitch", "ctrlType": "pnp"},
+            cc_entry(2),
+        ],
+        "CtrlMapList": [],
+    })
+    .to_string();
+    let (d, lost) = imported(&text);
+    let c = controls(&d);
+    assert_eq!(c.len(), 2, "only the two CC are carried: {c:?}");
+    assert_eq!((c[0]["cc"].clone(), c[1]["cc"].clone()), (json!(1), json!(2)));
+    for n in 1..=6 {
+        let at = lost_at(&lost, &format!("/ChCtrlList/{n}"));
+        assert_eq!(at.len(), 1, "entry {n}: {lost:?}");
+        assert!(at[0].reason.contains("ctrlType"), "{:?}", at[0]);
+    }
+}
+
+#[test]
+fn a_list_of_only_standard_types_the_descriptor_cannot_carry_still_imports() {
+    let (d, lost) = imported(&json!([{"ctrlType": "pBend"}, {"ctrlType": "chPress"}]).to_string());
+    assert!(controls(&d).is_empty(), "{d}");
+    assert_eq!(lost_at(&lost, "/0").len(), 1, "{lost:?}");
+    assert_eq!(lost_at(&lost, "/1").len(), 1, "{lost:?}");
+}
+
+#[test]
+fn an_import_never_makes_a_params_block_so_no_frame_is_made_up() {
+    let text = json!([
+        cc_entry(1),
+        {"ctrlType": "nrpn", "ctrlIndex": [1, 2]},
+        {"ctrlType": "rpn", "ctrlIndex": [0, 2]},
+        {"ctrlType": "pnp"},
+        {"ctrlType": "pnrc", "ctrlIndex": [1]},
+    ])
+    .to_string();
+    let (d, lost) = imported(&text);
+    assert!(d.get("params").is_none(), "{d}");
+    assert!(!lost.iter().any(|l| l.place.starts_with("/params")), "{lost:?}");
 }
 
 #[test]
