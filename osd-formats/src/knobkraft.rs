@@ -4,6 +4,9 @@
 //! parses or runs one. It writes the functions whose constants the descriptor gives and names
 //! each other function of the interface lost. The fate of each function is in docs/knobkraft.md.
 
+#[cfg(test)]
+mod tests;
+
 use crate::credit::source_text;
 use crate::{Fault, FaultKind, Loss, Translated};
 use osd::{DumpKind, FrameToken, Resolved};
@@ -31,6 +34,49 @@ const LEFT_TO_HAND: [(&str, &str); 20] = [
     ("convertPatchesToBankDump", "building a bank dump from sounds is code the descriptor does not give"),
     ("friendlyBankName", "the descriptor's bank names are not turned into a function: left to write"),
 ];
+
+/// The licence of the skeleton: that of KnobKraft Orm and of its adaptations (docs/knobkraft.md).
+const SKELETON_LICENCE: &str = "AGPL-3.0-only";
+
+/// The SPDX identifiers (without `-only`, `-or-later`) of the licences allowed under the AGPL-3.0.
+/// Each has its line and its piece in docs/knobkraft.md.
+const AGPL_COMPATIBLE: [&str; 5] = ["AGPL-3.0", "GPL-3.0", "MIT", "Apache-2.0", "CC-BY-4.0"];
+
+/// The identifiers known not to be allowed under the AGPL-3.0, with their versions.
+const AGPL_NOT_ALLOWED: [&str; 12] = [
+    "GPL-2.0",
+    "GPL-1.0",
+    "LGPL-2.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+    "CC-BY-SA-3.0",
+    "CC-BY-SA-4.0",
+    "CC-BY-NC-3.0",
+    "CC-BY-NC-4.0",
+    "CC-BY-NC-SA-4.0",
+    "CC-BY-ND-4.0",
+    "EPL-1.0",
+];
+
+enum Standing {
+    Compatible,
+    NotAllowed,
+    NotRecognised,
+}
+
+/// A licence by its SPDX identifier, spaces and case removed, `X-only`, `X-or-later` and `X` the same.
+fn classify(license: &str) -> Standing {
+    let id = license.trim().to_ascii_lowercase();
+    let id = id.strip_suffix("-only").or_else(|| id.strip_suffix("-or-later")).unwrap_or(&id);
+    let is = |list: &[&str]| list.iter().any(|k| k.eq_ignore_ascii_case(id));
+    if is(&AGPL_COMPATIBLE) {
+        Standing::Compatible
+    } else if is(&AGPL_NOT_ALLOWED) {
+        Standing::NotAllowed
+    } else {
+        Standing::NotRecognised
+    }
+}
 
 fn lose(losses: &mut Vec<Loss>, place: &str, reason: impl Into<String>) {
     losses.push(Loss { place: place.to_string(), reason: reason.into() });
@@ -78,9 +124,19 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     text.push_str("# Skeleton of a KnobKraft Orm adaptation, written from an Open Synth Descriptors device.\n");
     text.push_str("# KnobKraft Orm, by Christof Ruch, https://github.com/christofmuc/KnobKraft-orm, under the AGPL-3.0 licence;\n");
     text.push_str("# the Adaptation Programming Guide of KnobKraft Orm names the functions below.\n");
-    for s in sources {
+    text.push_str(&format!("# SPDX-License-Identifier: {SKELETON_LICENCE}\n"));
+    for (i, s) in sources.iter().enumerate() {
         let line = source_text(s).replace(['\n', '\r'], " ");
         text.push_str(&format!("# Source: {line}\n"));
+        let license = s.license.as_deref().unwrap_or("").trim().replace(['\n', '\r'], " ");
+        let warning = match classify(&license) {
+            Standing::Compatible => continue,
+            Standing::NotAllowed => format!("Licence not allowed under AGPL-3.0: {license}"),
+            Standing::NotRecognised if license.is_empty() => "Licence not recognised, not checked against AGPL-3.0: none declared".to_string(),
+            Standing::NotRecognised => format!("Licence not recognised, not checked against AGPL-3.0: {license}"),
+        };
+        text.push_str(&format!("# {warning}\n"));
+        lose(&mut losses, &format!("/_sources/{i}/license"), warning);
     }
     text.push('\n');
     text.push_str(&format!("def name():\n    return {}\n", python_string(&d.device.name)));

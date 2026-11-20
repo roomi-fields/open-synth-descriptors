@@ -4,6 +4,26 @@ KnobKraft Orm, by Christof Ruch (https://github.com/christofmuc/KnobKraft-orm, l
 
 The guides are cited at the revision 9e2522cd44765603162b4afd31419c3597ff85fc of KnobKraft Orm (release 2.10.2 plus 9 commits). The file `adaptations/Adaptation Programming Guide.md` of that revision points to the maintained guide, `docs/programming-guide.md`; the sections below are the headings of that file.
 
+## The licence of the skeleton
+
+The skeleton states its own licence in its header, before the credit of the sources: `# SPDX-License-Identifier: AGPL-3.0-only`. It is the licence of KnobKraft Orm, the only software the skeleton runs in. The piece, at the revision 9e2522cd44765603162b4afd31419c3597ff85fc of KnobKraft Orm: `LICENSE.md` is the text of the GNU Affero General Public License version 3, and no sentence of the project grants "or any later version" (the only "any later version" are the licence's own text and its header template); 84 of the 115 Python files of `adaptations/` open with "Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase", with no version. Without an "or later" sentence the exact identifier is `AGPL-3.0-only`. The MIT licence that KnobKraft sells does not concern the skeleton.
+
+The licence of the skeleton and the licences of its sources are two things: each `# Source:` line keeps the licence the descriptor gives. The skeleton borrows from the descriptor only facts (a name, a count of banks, the bytes of a request), so the export warns and never refuses. The export reads each source's licence by its SPDX identifier, spaces and case removed, `X-only`, `X-or-later` and `X` being the same identifier:
+
+- allowed under the AGPL-3.0 (the table below): no line more;
+- an identifier known not to be allowed (for example `GPL-2.0`, `CC-BY-SA-4.0`, `CC-BY-NC-4.0`): the line `# Licence not allowed under AGPL-3.0: <licence>` under its `# Source:` line;
+- anything else (free text, an expression, an unknown identifier, no licence): the line `# Licence not recognised, not checked against AGPL-3.0: <licence>`.
+
+Each such line is also a loss at `/_sources/N/license`, with the same words: whoever publishes the completed skeleton checks that licence. A source without a declared licence is published credited until a claim, the project's rule.
+
+| Licence | Piece |
+|---|---|
+| `AGPL-3.0` | the licence itself, GNU Affero General Public License version 3 |
+| `GPL-3.0` | FSF licence list: GPLv3 is compatible with the AGPLv3 (GPLv3 section 13) |
+| `MIT` | FSF licence list: Expat licence, compatible with the GPL |
+| `Apache-2.0` | FSF licence list: compatible with GPLv3 |
+| `CC-BY-4.0` | FSF licence list: compatible with GPLv3 |
+
 ## What the export writes
 
 A skeleton: a Python text of comments (the credit), then the functions whose constants the descriptor gives, each under the exact name of the guide:

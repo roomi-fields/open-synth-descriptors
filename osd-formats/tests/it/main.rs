@@ -15,6 +15,7 @@ mod electra_table;
 mod format_names;
 mod import_into;
 mod knobkraft_export;
+mod knobkraft_licence;
 mod knobkraft_table;
 mod midi2_controllers_export;
 mod midi2_controllers_import;

@@ -45,6 +45,10 @@ fn the_document_does_not_list_a_function_the_export_neither_writes_nor_names_los
     let doc = read("docs/knobkraft.md");
     for line in doc.lines().filter(|l| l.starts_with("| `")) {
         let name = line.trim_start_matches("| `").split('`').next().unwrap();
+        // The lines of the licence table are named by an SPDX identifier, which starts upper case.
+        if name.starts_with(|c: char| c.is_ascii_uppercase()) {
+            continue;
+        }
         assert!(WRITTEN.contains(&name) || LEFT_TO_HAND.contains(&name), "{name} is in the document and not in the export");
     }
 }
