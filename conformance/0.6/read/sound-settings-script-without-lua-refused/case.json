@@ -1,0 +1,9 @@
+{
+  "_about": "A script in a setting without the lua capability declared is refused at the list; the schema cannot count fields, so it accepts the descriptor.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/capabilities"
+  }
+}

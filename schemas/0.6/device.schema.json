@@ -515,6 +515,13 @@
           "type": "integer",
           "minimum": 1,
           "description": "A bank: the sound i has its elements shifted by i times stride bytes."
+        },
+        "settings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sound_setting"
+          },
+          "description": "Where the value of each control lies in the data of a sound of this form: a list of settings, each pointing to the control it sets. A control carries no place."
         }
       },
       "patternProperties": {
@@ -533,6 +540,84 @@
       "else": {
         "not": { "anyOf": [{ "required": ["count"] }, { "required": ["stride"] }] }
       }
+    },
+    "sound_setting": {
+      "type": "object",
+      "required": ["control"],
+      "properties": {
+        "control": {
+          "type": "string",
+          "pattern": "^/(cc_params|params)/entries/[0-9]+$",
+          "description": "The JSON pointer of the control this setting sets: an entry of cc_params or of params."
+        },
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The first byte of the place in the data of the sound (unpacked, the name left out; the first byte is 0)."
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of bytes of the place. The value of a whole-byte place is the unsigned integer of the bytes, the first the highest; the reader reads up to 8 bytes."
+        },
+        "bits": {
+          "$ref": "#/$defs/sound_setting_bits"
+        },
+        "bits_per_byte": {
+          "const": 7,
+          "description": "The value is made of the 7 low bits of each byte of the place (a 14-bit value on two bytes of 7 bits)."
+        },
+        "script": {
+          "type": "string",
+          "description": "A Lua script that gives the value from the data. Requires the lua capability."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "dependentRequired": {
+        "from": ["length"],
+        "length": ["from"],
+        "bits": ["from"],
+        "bits_per_byte": ["from"]
+      },
+      "anyOf": [
+        { "required": ["from"] },
+        { "required": ["script"] }
+      ],
+      "not": {
+        "anyOf": [
+          { "required": ["script", "from"] },
+          { "required": ["bits", "bits_per_byte"] }
+        ]
+      },
+      "description": "A control and its place in the data of the sound: whole bytes ({from, length}), bits of them (bits), 7-bit words (bits_per_byte), or a Lua script ({script}); a place and a script never together."
+    },
+    "sound_setting_bits": {
+      "type": "object",
+      "required": ["from", "length"],
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The first bit; 0 is the lowest bit of the first byte of the place."
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The number of bits."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people (provenance, caveats, usage); never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Bits of the bytes of a place."
     },
     "sound_elements": {
       "type": "object",

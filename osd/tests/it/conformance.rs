@@ -83,6 +83,46 @@ fn sound_transfer_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
             return Some(format!("identity {got:?}, the case states {want}"));
         }
     }
+    settings_claims(device, case)
+}
+
+/// What a reading case states of the settings of a sound: `settings` (`{transfer, index, message,
+/// settings: [{control, param_path, value}]}`, the list `sound_settings` gives, in order) and
+/// `comparisons` (`{transfer, a: {index, message}, b: {index, message}, result: [{control,
+/// param_path, outcome}]}`, `outcome` being `equal`, `differ` or `absent`).
+fn settings_claims(device: &osd::Device, case: &Value) -> Option<String> {
+    for want in case.get("settings").and_then(Value::as_array).into_iter().flatten() {
+        let got = osd::sound_settings(device, want["transfer"].as_str().unwrap(), &hex_bytes(want["message"].as_str().unwrap()), want["index"].as_u64().unwrap() as usize);
+        let got: Vec<Value> = match got {
+            Ok(list) => list.into_iter().map(|s| serde_json::json!({"control": s.control, "param_path": s.param_path, "value": s.value})).collect(),
+            Err(f) => return Some(format!("settings refused: {f}, the case states {want}")),
+        };
+        if Value::Array(got.clone()) != want["settings"] {
+            return Some(format!("settings {got:?}, the case states {}", want["settings"]));
+        }
+    }
+    for want in case.get("comparisons").and_then(Value::as_array).into_iter().flatten() {
+        let transfer = want["transfer"].as_str().unwrap();
+        let list = |side: &Value| osd::sound_settings(device, transfer, &hex_bytes(side["message"].as_str().unwrap()), side["index"].as_u64().unwrap() as usize);
+        let (a, b) = match (list(&want["a"]), list(&want["b"])) {
+            (Ok(a), Ok(b)) => (a, b),
+            (Err(f), _) | (_, Err(f)) => return Some(format!("settings refused: {f}")),
+        };
+        let got: Vec<Value> = osd::compare_settings(&a, &b)
+            .into_iter()
+            .map(|c| {
+                let outcome = match c.outcome {
+                    osd::Comparison::Equal => "equal",
+                    osd::Comparison::Differ => "differ",
+                    osd::Comparison::Absent => "absent",
+                };
+                serde_json::json!({"control": c.control, "param_path": c.param_path, "outcome": outcome})
+            })
+            .collect();
+        if Value::Array(got.clone()) != want["result"] {
+            return Some(format!("comparison {got:?}, the case states {}", want["result"]));
+        }
+    }
     None
 }
 

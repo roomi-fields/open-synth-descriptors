@@ -20,6 +20,13 @@ identity without Lua) and, when it computes, `identities`
 (`{transfer, index, message, identity}`: the `id` of a transfer, the index of
 the sound, the message in hexadecimal and the SHA-256 expected).
 
+A result case may add `settings` (`{transfer, index, message, settings}`: the
+settings `sound_settings` gives for that sound, each `{control, param_path,
+value}`, in the order of the controls) and `comparisons` (`{transfer, a, b,
+result}`: `a` and `b` each `{index, message}`, `result` one `{control,
+param_path, outcome}` per setting, `outcome` being `equal`, `differ` or
+`absent`).
+
 A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
 one schema error, at the pointer the fault names. A case with

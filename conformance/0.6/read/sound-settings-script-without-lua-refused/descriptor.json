@@ -1,0 +1,150 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "role_vocabulary": "1",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/cutoff",
+        "cc": 74,
+        "role": {
+          "parts": [
+            {
+              "part": "filter"
+            }
+          ],
+          "setting": "cutoff"
+        }
+      },
+      {
+        "osc": "/fenv",
+        "cc": 73,
+        "role": {
+          "parts": [
+            {
+              "part": "filter"
+            },
+            {
+              "part": "envelope"
+            }
+          ],
+          "setting": "attack-time"
+        }
+      },
+      {
+        "osc": "/aenv",
+        "cc": 72,
+        "role": {
+          "parts": [
+            {
+              "part": "amplifier"
+            },
+            {
+              "part": "envelope"
+            }
+          ],
+          "setting": "attack-time"
+        }
+      },
+      {
+        "osc": "/pan",
+        "cc": 10,
+        "role": {
+          "parts": [
+            {
+              "part": "output"
+            }
+          ],
+          "setting": "pan"
+        }
+      }
+    ]
+  },
+  "params": {
+    "get_frame": [
+      240,
+      247
+    ],
+    "set_frame": [
+      240,
+      247
+    ],
+    "value_type": "u7",
+    "entries": [
+      {
+        "osc": "/p0",
+        "id": 3,
+        "role": {
+          "parts": [
+            {
+              "part": "filter"
+            }
+          ],
+          "setting": "cutoff"
+        }
+      },
+      {
+        "osc": "/p1",
+        "id": 4,
+        "role": {
+          "parts": [
+            {
+              "part": "output"
+            }
+          ],
+          "setting": "pan"
+        }
+      }
+    ]
+  },
+  "sound_transfers": [
+    {
+      "id": "single",
+      "sound_id": "program",
+      "carries": "sound",
+      "match_frame": [
+        240,
+        66,
+        "any",
+        0,
+        1,
+        81,
+        64,
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        247
+      ],
+      "elements": {
+        "data": {
+          "from": 11,
+          "length": 4
+        },
+        "name": {
+          "from": 7,
+          "length": 4
+        },
+        "checksum": {
+          "from": 15,
+          "length": 1
+        }
+      },
+      "settings": [
+        {
+          "control": "/cc_params/entries/0",
+          "script": "return 0"
+        }
+      ]
+    }
+  ]
+}

@@ -83,6 +83,41 @@ A reader without Lua knows at load, per transfer, whether it computes the identi
 
 Refused, at the address of the fault: an element outside the message (the name included, the last sound of a bank included), an empty data, a data that overlaps the header, the checksum or a transport part, two transport parts that overlap (at the later, in the order of the table above), an element given by positions and by a script, a name that straddles the end of the data or that lies inside a packed data, a `packing` word outside the list, a script without the `lua` capability and the capability without a script. A descriptor of 0.4 or 0.5 refuses `sound_transfers` as an unknown field; `osd::convert` from 0.5 adds none.
 
+## A sound read setting by setting (0.6)
+
+A sound transfer adds `settings`, a list that says, for each control, where its value lies in the data of the sound. The place is written here, on the transfer, because it depends on the form the data takes; a control carries no place. Each setting is:
+
+| Key | Meaning |
+|---|---|
+| `control` | the JSON pointer of the control it sets: `/cc_params/entries/N` or `/params/entries/N` |
+| `from`, `length` | whole bytes of the data, unpacked and without the name (`from` 0 is its first byte); the value is the unsigned integer of those bytes, the first the highest (two bytes, high then low, are `length: 2`) |
+| `bits` `{from, length}` | with `from`, `length`: bits of those bytes (bit 0 is the lowest of the first byte) |
+| `bits_per_byte` | with `from`, `length`: `7`, the value made of the 7 low bits of each byte (a 14-bit value on two bytes of 7 bits) |
+| `script` | a Lua script that gives the value from the data, for a device no list can describe; declares the `lua` capability; never with a place |
+
+`osd::sound_settings` gives, for a sound of a message, the list of its settings: the control, its role (the `paramPath` that `roles` gives) and its raw value, in the order of the controls (`cc_params`, then `params`). A control that has no role or no place, that is read by bits or by 7-bit words or by a script (which the reader does not play), or whose place the data does not hold, is absent: the reader guesses neither place nor value. A sound of a bank and a single sound of the same data have the same settings. `osd::compare_settings` sets the settings of two sounds of one device side by side, by role: `equal`, `differ`, or `absent` when one of the two lacks it, never `equal`.
+
+**On a real device: the Korg minilogue xd.** The piece is the KORG minilogue xd MIDI Implementation (public document of the maker), TABLE 2 "PROGRAM PARAMETER", which gives each parameter an offset in the program data, a bit range and a value range. Three lines are taken as they stand:
+
+| Offset | Bit | Range | Description |
+|---|---|---|---|
+| 16 | | 0~4 | OCTAVE (0~4 = -2~+2) |
+| 24, 25 | H:0~7, L:0~7 | 0~1023 | VCO 1 PITCH (note P5) |
+| 162 | 0 | 0,1 | Step 1 Active Step Off/On |
+
+According to the document, not read on a device, the place of each is: OCTAVE one whole byte (`from: 16, length: 1`); VCO 1 PITCH the byte 24 marked H then the byte 25 marked L, each with its bits 0 to 7 (`from: 24, length: 2`, the first the highest), the document saying nothing more of how the range 0~1023 lies in those 16 bits, so the raw value is the integer of the two bytes and no more; Step 1 Active one bit of the byte 162 (bit 0). Offsets are taken as places in the data as the table gives them. The first two are written on the sound transfer:
+
+```json
+"settings": [
+  { "control": "/params/entries/0", "from": 16, "length": 1 },
+  { "control": "/params/entries/1", "from": 24, "length": 2 }
+]
+```
+
+(`/params/entries/0` and `/1` being the controls OCTAVE and VCO 1 PITCH of the descriptor.) Two sounds whose byte 16 is `02` and `03`, the bytes 24 and 25 being the same, compare as: OCTAVE `differ` (2 against 3), VCO 1 PITCH `equal`. Step 1 Active is a bit of a byte: a place with `bits` is written, but the reader gives no value for it, so the setting is absent from both sounds and the comparison says `absent`, never `equal`.
+
+Refused, at the address of the fault: a place that goes past the data (unpacked, the name left out) or a `bits` past the bytes of its place (at the setting), a place and a script together, `bits` with `bits_per_byte`, a `bits_per_byte` other than 7, a script without the `lua` capability and the capability without a script; a descriptor of 0.4 or 0.5 refuses `settings` as an unknown field; `osd::convert` from 0.5 adds none.
+
 ## The identities other tools give a sound (0.6)
 
 A 0.6 sound descriptor may hold `external_ids`, a list of the identities other tools give the same sound, so that a tool which holds it recognises it. Each entry is `{tool, by, algorithm, value}`: `tool` (required) names the tool, such as `KnobKraft Orm`; `by` names what in the tool computes the identity per device, such as the name of a KnobKraft adaptation; `algorithm` names the algorithm when it is known, such as `md5`; `value` (required) is the value as the tool writes it. The model is the external identifiers of Wikidata (an item keeps the identifier each other catalogue gives it, with that catalogue's name). For KnobKraft Orm, the piece is the guide of KnobKraft Orm (`docs/programming-guide.md`, revision 735e96c9), on `calculateFingerprint` (lines 872 and 924): each adaptation writes its own `calculateFingerprint`, which hashes the bytes it chooses with MD5 and returns 32 hexadecimal digits.

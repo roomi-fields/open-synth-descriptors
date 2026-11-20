@@ -84,6 +84,12 @@ pub(crate) fn device_roles(d: &Device) -> Vec<(String, &Role)> {
     cc.chain(params).collect()
 }
 
+/// The pointer of each control that has a role, with the `paramPath` of that role, in the order of
+/// the controls (`cc_params`, then `params`).
+pub(crate) fn control_param_paths(d: &Device) -> Vec<(String, String)> {
+    device_roles(d).into_iter().map(|(p, r)| (p.trim_end_matches("/role").to_string(), r.param_path())).collect()
+}
+
 /// Each role of a descriptor, by its JSON pointer, with what it resolves to (a known role,
 /// or no known role when it holds an extension) and its `paramPath`. A descriptor of
 /// another kind than a device has none.

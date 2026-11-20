@@ -269,6 +269,12 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             for def in ["sound_transfer", "sound_elements", "sound_element", "sound_data_element"] {
                 assert!(defs.remove(def).is_some(), "no def {def}");
             }
+            // The settings of a sound (their place in its data) are 0.6's own: their definitions begin with `sound_`.
+            let more: Vec<String> = defs.keys().filter(|k| k.starts_with("sound_")).cloned().collect();
+            assert!(more.iter().any(|k| k.starts_with("sound_setting")), "no def sound_setting…: {more:?}");
+            for def in more {
+                defs.remove(&def);
+            }
         }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {

@@ -41,7 +41,8 @@ pub use role_vocabulary::{
     VOCABULARY_STATES,
 };
 pub use sound_transfer::{
-    sound_identity, sound_identity_support, Carries, Element, Elements, IdentitySupport, Packing, SoundTransfer,
+    compare_settings, sound_identity, sound_identity_support, sound_settings, Carries, Comparison, Element, Elements, IdentitySupport,
+    Packing, Setting, SettingBits, SettingComparison, SoundSetting, SoundTransfer,
 };
 pub use sound::{Attached, Author, Content, ExternalId, FileRef, ForDevice, Link, Origin, Preview, Sound, SoundKind};
 

@@ -57,6 +57,36 @@ object! {
 }
 
 object! {
+    /// Bits of the bytes of a place: `from` is the first bit (0 is the lowest of the first byte), `length` their number.
+    SettingBits {
+        "from" from: i64 = at_least(0),
+        "length" length: i64 = at_least(1),
+    }
+}
+
+object! {
+    /// A control and where its value lies in the data of the sound (unpacked, the name left out,
+    /// the first byte being 0): whole bytes `{from, length}`, the first byte the highest, or bits
+    /// of them (`bits`), or 7-bit words (`bits_per_byte`: 7), or a Lua script. The reader reads whole
+    /// bytes only.
+    SoundSetting {
+        /// The JSON pointer of the control: `/cc_params/entries/N` or `/params/entries/N`.
+        "control" control: String = STRING,
+        /// The first byte of the place in the data.
+        "from" from: Option<i64> = Opt(at_least(0)),
+        /// The number of bytes of the place.
+        "length" length: Option<i64> = Opt(at_least(1)),
+        /// The value is these bits of the bytes of the place.
+        "bits" bits: Option<SettingBits> = Opt(obj()),
+        /// The value is made of the low bits of each byte of the place; 7 for the 7-bit words of MIDI.
+        "bits_per_byte" bits_per_byte: Option<i64> = Opt(at_least(1)),
+        /// A Lua script that gives the value from the data.
+        "script" script: Option<String> = Opt(STRING),
+    }
+    check check_setting
+}
+
+object! {
     /// A form a sound travels in.
     SoundTransfer {
         "id" id: String = STRING,
@@ -69,8 +99,57 @@ object! {
         "count" count: Option<i64> = Opt(at_least(1)),
         /// A bank: the sound i has its elements shifted by i times `stride`.
         "stride" stride: Option<i64> = Opt(at_least(1)),
+        /// Where the value of each control lies in the data of a sound of this form.
+        "settings" settings: Option<Vec<SoundSetting>> = Opt(crate::json::list(obj())),
     }
     check check_transfer
+}
+
+fn check_setting(s: &SoundSetting, at: &At) -> Result<(), Fault> {
+    let bad = |rule: &str| fault(FaultKind::BadValue, at.pointer(), rule);
+    if s.script.is_some() {
+        return if s.from.is_some() || s.length.is_some() || s.bits.is_some() || s.bits_per_byte.is_some() {
+            Err(bad("a place or a script, never both"))
+        } else {
+            Ok(())
+        };
+    }
+    let length = match (s.from, s.length) {
+        (Some(_), Some(l)) => l,
+        (Some(_), None) => return Err(fault(FaultKind::Missing, format!("{}/length", at.pointer()), "length is required with from")),
+        (None, Some(_)) => return Err(fault(FaultKind::Missing, format!("{}/from", at.pointer()), "from is required with length")),
+        (None, None) => return Err(bad("a place {from, length} or a {script}")),
+    };
+    if s.bits.is_some() && s.bits_per_byte.is_some() {
+        return Err(bad("bits or bits_per_byte, never both"));
+    }
+    if let Some(n) = s.bits_per_byte {
+        if n != 7 {
+            return Err(fault(FaultKind::BadValue, format!("{}/bits_per_byte", at.pointer()), "7, the 7-bit words of MIDI"));
+        }
+    }
+    if let Some(b) = &s.bits {
+        if b.from + b.length > 8 * length {
+            return Err(fault(FaultKind::BadValue, format!("{}/bits", at.pointer()), "the bits go past the bytes of the place"));
+        }
+    }
+    Ok(())
+}
+
+/// The length of the data of a sound once unpacked and the name left out, when the data is
+/// found by positions.
+fn data_length(t: &SoundTransfer) -> Option<usize> {
+    let (from, length) = span(&t.elements.data)?;
+    let mut n = length;
+    if let Some((nf, nl)) = t.elements.name.as_ref().and_then(span) {
+        if nf >= from && nf + nl <= from + length {
+            n -= nl;
+        }
+    }
+    if t.elements.data.packing == Some(Packing::MsbFirst7In8) {
+        n -= n.div_ceil(8);
+    }
+    Some(n)
 }
 
 fn fault(kind: FaultKind, pointer: String, rule: impl Into<String>) -> Fault {
@@ -107,6 +186,12 @@ impl Elements {
 
     fn is_script(&self) -> bool {
         self.named().iter().any(|(_, e)| e.is_some_and(|e| e.script.is_some()))
+    }
+}
+
+impl SoundTransfer {
+    fn is_script(&self) -> bool {
+        self.elements.is_script() || self.settings.iter().flatten().any(|s| s.script.is_some())
     }
 }
 
@@ -199,6 +284,19 @@ fn check_transfer(t: &SoundTransfer, at: &At) -> Result<(), Fault> {
             "a packed group of one byte holds no data",
         ));
     }
+    if let Some(dlen) = data_length(t) {
+        for (m, s) in t.settings.iter().flatten().enumerate() {
+            if let (Some(f), Some(l)) = (s.from, s.length) {
+                if (f + l) as usize > dlen {
+                    return Err(fault(
+                        FaultKind::BadValue,
+                        format!("{base}/settings/{m}"),
+                        format!("the place reaches past the data of {dlen} byte(s) (unpacked, the name left out)"),
+                    ));
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -226,7 +324,7 @@ impl SoundTransfer {
 impl Device {
     /// Whether any element of any sound transfer is a script.
     pub(crate) fn sound_transfers_use_lua(&self) -> bool {
-        self.sound_transfers.iter().flatten().any(|t| t.elements.is_script())
+        self.sound_transfers.iter().flatten().any(SoundTransfer::is_script)
     }
 }
 
@@ -248,6 +346,12 @@ pub fn sound_identity_support(device: &Device) -> Vec<IdentitySupport> {
 /// A message that the transfer's `match_frame` does not recognise, a transfer the device does
 /// not have, an index past the bank, and a transfer whose identity needs Lua are refused.
 pub fn sound_identity(device: &Device, transfer: &str, message: &[u8], index: usize) -> Result<String, Fault> {
+    let (_, data) = sound_data(device, transfer, message, index)?;
+    Ok(Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// The transfer `transfer` and the data of the sound `index` of `message`: unpacked, the name left out.
+fn sound_data<'d>(device: &'d Device, transfer: &str, message: &[u8], index: usize) -> Result<(&'d SoundTransfer, Vec<u8>), Fault> {
     let none = || fault(FaultKind::BadValue, String::new(), format!("the device has no sound transfer `{transfer}`"));
     let (i, t) = device.sound_transfers.iter().flatten().enumerate().find(|(_, t)| t.id == transfer).ok_or_else(none)?;
     let base = format!("/sound_transfers/{i}");
@@ -286,7 +390,84 @@ pub fn sound_identity(device: &Device, transfer: &str, message: &[u8], index: us
     if t.elements.data.packing == Some(Packing::MsbFirst7In8) {
         data = unpack_msb_first_7in8(&data);
     }
-    Ok(Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect())
+    Ok((t, data))
+}
+
+/// A setting of a sound: a control found in its data, with its role and its raw value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Setting {
+    /// The JSON pointer of the control (`/cc_params/entries/0`).
+    pub control: String,
+    /// The role of the control as a `paramPath` (`/Filter/Cutoff`).
+    pub param_path: String,
+    /// The unsigned integer of the bytes of the place, read as they stand in the data.
+    pub value: u64,
+}
+
+/// The settings of the sound `index` of a message of the transfer `transfer`, in the order of the
+/// controls (`cc_params`, then `params`). A control with no role, no place, a place by bits or
+/// 7-bit words, a script or a place the data does not hold is absent: nothing is guessed. The
+/// refusals are those of `sound_identity`.
+pub fn sound_settings(device: &Device, transfer: &str, message: &[u8], index: usize) -> Result<Vec<Setting>, Fault> {
+    let (t, data) = sound_data(device, transfer, message, index)?;
+    let mut out = Vec::new();
+    for (pointer, path) in crate::role::control_param_paths(device) {
+        let Some(s) = t.settings.iter().flatten().find(|s| s.control == pointer) else { continue };
+        let (Some(from), Some(length), None, None, None) = (s.from, s.length, &s.bits, s.bits_per_byte, &s.script) else { continue };
+        let (from, length) = (from as usize, length as usize);
+        // A place of more than 8 bytes holds no 64-bit integer: the value is not read.
+        let Some(bytes) = data.get(from..from + length).filter(|b| b.len() <= 8) else { continue };
+        let value = bytes.iter().fold(0u64, |v, b| v << 8 | u64::from(*b));
+        out.push(Setting { control: pointer, param_path: path, value });
+    }
+    Ok(out)
+}
+
+/// What two sounds say of a setting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Comparison {
+    Equal,
+    Differ,
+    /// One of the two sounds has no such setting: never equal.
+    Absent,
+}
+
+/// A setting of two sounds side by side.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingComparison {
+    pub control: String,
+    pub param_path: String,
+    pub a: Option<u64>,
+    pub b: Option<u64>,
+    pub outcome: Comparison,
+}
+
+/// The place of a control in the order of the controls: `cc_params` before `params`, then its number.
+fn control_rank(pointer: &str) -> (bool, usize) {
+    let mut parts = pointer.split('/').skip(1);
+    let params = parts.next() == Some("params");
+    let n = parts.nth(1).and_then(|n| n.parse().ok()).unwrap_or(usize::MAX);
+    (params, n)
+}
+
+/// Two lists of settings of one device side by side, in the order of the controls: each setting
+/// that one of them has, `Equal` or `Differ` when both have it, `Absent` when one lacks it.
+pub fn compare_settings(a: &[Setting], b: &[Setting]) -> Vec<SettingComparison> {
+    let mut all: Vec<(&str, &str)> = a.iter().chain(b).map(|s| (s.control.as_str(), s.param_path.as_str())).collect();
+    all.sort_by_key(|(c, _)| control_rank(c));
+    all.dedup_by_key(|(c, _)| *c);
+    all.into_iter()
+        .map(|(control, path)| {
+            let find = |l: &[Setting]| l.iter().find(|s| s.control == control).map(|s| s.value);
+            let (va, vb) = (find(a), find(b));
+            let outcome = match (va, vb) {
+                (Some(x), Some(y)) if x == y => Comparison::Equal,
+                (Some(_), Some(_)) => Comparison::Differ,
+                _ => Comparison::Absent,
+            };
+            SettingComparison { control: control.to_string(), param_path: path.to_string(), a: va, b: vb, outcome }
+        })
+        .collect()
 }
 
 fn unpack_msb_first_7in8(packed: &[u8]) -> Vec<u8> {
