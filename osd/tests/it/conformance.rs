@@ -545,7 +545,7 @@ fn every_reading_case_of_the_0_6_draft_passes() {
 
 #[test]
 fn every_resolution_case_of_0_6_passes() {
-    every_case(&common::repo().join("conformance/0.6/resolve"), 11, run_resolve);
+    every_case(&common::repo().join("conformance/0.6/resolve"), 15, run_resolve);
 }
 
 #[test]

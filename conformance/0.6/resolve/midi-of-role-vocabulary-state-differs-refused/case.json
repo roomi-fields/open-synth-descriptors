@@ -1,0 +1,9 @@
+{
+  "_about": "A file with midi_of that names another state of the role vocabulary than its target's is refused: each file's roles are read against the state it names, states are never merged.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/role_vocabulary"
+  }
+}

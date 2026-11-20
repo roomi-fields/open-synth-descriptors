@@ -106,6 +106,58 @@ fn the_rules_of_what_a_midi_of_file_adds_cite_the_cases_of_0_6_that_hold_them() 
     common::report("rules that miss their 0.6 cases", failures);
 }
 
+/// What a case of `conformance/0.6/resolve/` expects: `Err((kind, file, pointer))` for a fault, `Ok` for a result.
+fn expected(case: &str) -> Result<(), (String, String, String)> {
+    let path = format!("conformance/0.6/resolve/{case}/case.json");
+    let spec: serde_json::Value = serde_json::from_str(&text(&path)).unwrap_or_else(|e| panic!("{path}: {e}"));
+    match spec.get("fault") {
+        None => {
+            assert!(spec.get("result").is_some(), "{path} expects neither a result nor a fault");
+            Ok(())
+        }
+        Some(f) => {
+            let s = |k: &str| f[k].as_str().unwrap_or_else(|| panic!("{path}: fault has no `{k}`")).to_string();
+            Err((s("kind"), s("file"), s("pointer")))
+        }
+    }
+}
+
+#[test]
+fn the_refusals_of_the_role_vocabulary_state_and_of_a_missing_stands_for_are_rules_that_cite_their_cases() {
+    let rules = rules();
+    let cases_of = |n: u32| cited(rules.iter().find(|r| r.number == n).and_then(|r| r.cases_line.as_deref()).unwrap_or(""));
+    let want: [(u32, &[&str]); 2] = [
+        (33, &["0.6/midi-of-role-vocabulary-state-differs-refused", "0.6/midi-of-role-vocabulary-kept-from-target"]),
+        (34, &["0.6/stands-for-absent-from-catalogue-refused", "0.6/midi-of-inherited-stands-for-absent-refused"]),
+    ];
+    let mut failures = Vec::new();
+    for (n, names) in want {
+        if !rules.iter().any(|r| r.number == n) {
+            failures.push(format!("the section Resolution has no R{n}"));
+            continue;
+        }
+        let got = cases_of(n);
+        failures.extend(names.iter().filter(|c| !got.iter().any(|g| g == *c)).map(|c| format!("R{n} does not cite `{c}`")));
+    }
+    common::report("rules without their cases", failures);
+}
+
+#[test]
+fn the_cases_of_the_role_vocabulary_state_and_of_stands_for_state_their_fault_in_the_file_asked_for() {
+    let fault = |kind: &str, pointer: &str| Err((kind.to_string(), "acme/a".to_string(), pointer.to_string()));
+    assert_eq!(expected("midi-of-role-vocabulary-state-differs-refused"), fault("BadValue", "/role_vocabulary"));
+    assert_eq!(expected("midi-of-role-vocabulary-kept-from-target"), Ok(()));
+    assert_eq!(expected("stands-for-absent-from-catalogue-refused"), fault("BadValue", "/device/stands_for"));
+    assert_eq!(expected("midi-of-inherited-stands-for-absent-refused"), fault("BadValue", "/device/stands_for"));
+}
+
+#[test]
+fn the_sentence_of_the_section_device_that_refuses_a_missing_stands_for_refers_to_its_rule() {
+    let spec = text("docs/INTERFACE.md");
+    let line = spec.lines().find(|l| l.contains("`stands_for`") && l.contains("absent from the catalogue") && l.contains("/device/stands_for")).expect("no sentence refuses a stands_for absent from the catalogue");
+    assert!(line.contains("R34"), "that sentence does not refer to R34");
+}
+
 #[test]
 fn each_rule_names_the_conformance_cases_that_hold_it_and_each_cited_case_exists() {
     let existing = existing_cases();

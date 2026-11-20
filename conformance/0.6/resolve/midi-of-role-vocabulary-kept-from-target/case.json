@@ -1,0 +1,13 @@
+{
+  "_about": "A file with midi_of that names no state of the role vocabulary keeps its target's.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "midi_of": "acme/b"
+  }
+}

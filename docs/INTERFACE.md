@@ -198,7 +198,7 @@ A virtual instrument is an entry like another: a software device (`device.kind` 
   - `modelled`: the behaviour of the device reproduced from study, without its firmware;
   - `principle`: a design that follows the device's principle without claiming its behaviour.
 
-`stands_for` may be given without `fidelity`; `fidelity` without `stands_for` is refused at `/device/fidelity`. Both need `kind` to be `software`: on a hardware device, or a device that gives no `kind`, they are refused at the field; the schema says it with a dependency on `kind`. A `stands_for` that is not of the form `maker/device`, and a `fidelity` outside the three words, are refused at the field (`BadValue`). `read` checks the form alone; resolving a device whose `stands_for` names an address absent from the catalogue is refused at `/device/stands_for`. A descriptor of 0.4 or 0.5 refuses both as unknown fields; `osd::convert` from 0.5 adds neither.
+`stands_for` may be given without `fidelity`; `fidelity` without `stands_for` is refused at `/device/fidelity`. Both need `kind` to be `software`: on a hardware device, or a device that gives no `kind`, they are refused at the field; the schema says it with a dependency on `kind`. A `stands_for` that is not of the form `maker/device`, and a `fidelity` outside the three words, are refused at the field (`BadValue`). `read` checks the form alone; resolving a device whose `stands_for` names an address absent from the catalogue is refused at `/device/stands_for` (R34). A descriptor of 0.4 or 0.5 refuses both as unknown fields; `osd::convert` from 0.5 adds neither.
 
 A plugin or a DAW of its own, which stands for no other device, gives neither field and reads as in 0.5.
 
@@ -397,6 +397,18 @@ Cases: `0.5/target-file-read-refused`, `0.5/syntax-refused`
 The fault is `LinkMissing` at the root of the file asked for.
 
 Cases: `0.5/driver-missing`
+
+### R33 — A file with `midi_of` that names another state of the role vocabulary than its target's is refused
+
+The fault is `BadValue` at `/role_vocabulary`, in the file that writes it: each file's roles are read against the state it names, and states are never merged. It applies only when the target and the file each name a `role_vocabulary` and the two differ; a file that names none keeps its target's.
+
+Cases: `0.6/midi-of-role-vocabulary-state-differs-refused`, `0.6/midi-of-role-vocabulary-kept-from-target`
+
+### R34 — A `stands_for` that the catalogue does not hold is refused
+
+It holds for the `stands_for` of the resolved device, written by the file asked for or inherited from its `midi_of` target (a `midi_of` file does not take a `stands_for` of its own: it is not an identity key). The fault is `BadValue` at `/device/stands_for`, always in the file asked for.
+
+Cases: `0.6/stands-for-absent-from-catalogue-refused`, `0.6/midi-of-inherited-stands-for-absent-refused`
 
 ## The guard
 
