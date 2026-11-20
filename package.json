@@ -40,6 +40,9 @@
     "part": {
       "coeurs": 4,
       "memoireGo": 4
+    },
+    "outils": {
+      "KNOBKRAFT": "~/dev/mcp/references/KnobKraft-orm"
     }
   },
   "workspaces": [
