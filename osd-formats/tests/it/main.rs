@@ -4,6 +4,8 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod deluge_export;
+mod deluge_table;
 mod electra_export;
 mod electra_import;
 mod electra_playable;

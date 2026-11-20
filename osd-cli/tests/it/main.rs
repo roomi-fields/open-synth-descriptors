@@ -6,6 +6,7 @@ mod common;
 
 mod convert;
 mod formats;
+mod formats_deluge;
 mod formats_electra;
 mod formats_midi2_controllers;
 mod formats_midnam;

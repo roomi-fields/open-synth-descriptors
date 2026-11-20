@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 
+pub mod deluge;
 pub mod electra;
 pub mod midi2;
 pub mod midnam;

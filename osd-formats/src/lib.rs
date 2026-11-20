@@ -6,6 +6,7 @@
 
 mod credit;
 mod csv;
+mod deluge;
 mod electra_one;
 mod midi2_controllers;
 mod midi_csv;
@@ -32,11 +33,14 @@ pub enum Format {
     OscQuery,
     /// The controller resources of MIDI-CI Property Exchange (M2-117-UM): ChCtrlList and CtrlMapList (JSON).
     Midi2Controllers,
+    /// The Deluge device definition (XML `midiDevice` with `ccLabels`); exported only.
+    Deluge,
 }
 
 impl Format {
     /// Every format, in the order the interface lists them.
-    pub const ALL: [Format; 6] = [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery, Format::Midi2Controllers];
+    pub const ALL: [Format; 7] =
+        [Format::MidiCsv, Format::MidiTriggersCsv, Format::ElectraOne, Format::Midnam, Format::OscQuery, Format::Midi2Controllers, Format::Deluge];
 
     /// The name the command and the documents give it.
     pub fn name(self) -> &'static str {
@@ -47,6 +51,7 @@ impl Format {
             Format::Midnam => "midnam",
             Format::OscQuery => "oscquery",
             Format::Midi2Controllers => "midi2-controllers",
+            Format::Deluge => "deluge",
         }
     }
 
@@ -107,6 +112,7 @@ pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Transl
         Format::Midnam => midnam::import(text, source),
         Format::OscQuery => oscquery::import(text, source),
         Format::Midi2Controllers => midi2_controllers::import(text, source),
+        Format::Deluge => Err(deluge::import_refusal()),
     }
 }
 
@@ -128,6 +134,7 @@ pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<Strin
         Format::Midnam => midnam::export(device),
         Format::OscQuery => oscquery::export(device),
         Format::Midi2Controllers => midi2_controllers::export(device),
+        Format::Deluge => deluge::export(device),
     }
 }
 

@@ -9,11 +9,28 @@ fn midnam_and_oscquery_come_after_electra_one_in_the_list_of_formats() {
 
 #[test]
 fn the_midi2_controller_list_comes_after_oscquery_and_is_named_midi2_controllers() {
-    assert_eq!(Format::ALL[5..], [Format::Midi2Controllers]);
-    assert_eq!(Format::ALL.len(), 6);
+    assert_eq!(Format::ALL[5..6], [Format::Midi2Controllers]);
     assert_eq!(Format::Midi2Controllers.name(), "midi2-controllers");
     assert_eq!(Format::from_name("midi2-controllers"), Some(Format::Midi2Controllers));
     assert_eq!(Format::from_name("midi2"), None);
+}
+
+#[test]
+fn the_deluge_comes_last_in_the_list_of_formats_and_is_named_deluge() {
+    assert_eq!(Format::ALL[6..], [Format::Deluge]);
+    assert_eq!(Format::ALL.len(), 7);
+    assert_eq!(Format::Deluge.name(), "deluge");
+    assert_eq!(Format::from_name("deluge"), Some(Format::Deluge));
+    assert_eq!(Format::from_name("Deluge"), None);
+}
+
+#[test]
+fn the_interfaces_of_the_crate_and_of_the_command_list_deluge() {
+    for path in ["/docs/INTERFACE.md", "/../osd-cli/docs/INTERFACE.md"] {
+        let file = format!("{}{path}", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{file}: {e}"));
+        assert!(text.contains("`deluge`"), "{file} does not list `deluge`");
+    }
 }
 
 #[test]
