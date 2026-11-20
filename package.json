@@ -42,7 +42,8 @@
       "memoireGo": 4
     },
     "outils": {
-      "KNOBKRAFT": "~/dev/mcp/references/KnobKraft-orm"
+      "KNOBKRAFT": "~/dev/mcp/references/KnobKraft-orm",
+      "DELUGE": "~/dev/mcp/references/DelugeFirmware"
     }
   },
   "workspaces": [
