@@ -1,7 +1,8 @@
 //! A driver as its firmware runs it: its shared MIDI (`midi_of`) followed,
 //! then its blocks completed from their maker profiles. Each file is read
-//! strictly before it is merged; the merge works on the JSON documents, by
-//! the rules the conformance cases of `conformance/0.4/resolve/` fix.
+//! strictly before it is merged (R31); the merge works on the JSON documents,
+//! by the rules of the section Resolution of `docs/INTERFACE.md` (R1 to R32),
+//! each held by conformance cases.
 
 use crate::json::{At, Object};
 use crate::{convert_to, read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind, Version, VERSIONS};
@@ -41,15 +42,19 @@ pub struct Resolved {
 }
 
 /// The `device` keys that say which firmware a file is, not how it speaks
-/// MIDI: a file with `midi_of` keeps these and takes the rest from its target.
+/// MIDI: a file with `midi_of` keeps these and takes the rest from its target
+/// (R2, section Resolution of `docs/INTERFACE.md`).
 const IDENTITY: [&str; 5] = ["name", "vendor", "revision", "osc_prefix", "kind"];
 
-/// Route lists a `midi_of` file may add to its target's, by OSC address.
+/// Route lists a `midi_of` file may add to its target's, by OSC address
+/// (R3, R5, R7; section Resolution of `docs/INTERFACE.md`).
 const OWN_LISTS: [&str; 2] = ["commands", "custom_commands"];
-/// Route tables (`entries`) a `midi_of` file may add to its target's.
+/// Route tables (`entries`) a `midi_of` file may add to its target's
+/// (R4, R5, R8; section Resolution of `docs/INTERFACE.md`).
 const OWN_TABLES: [&str; 3] = ["params", "cc_params", "triggers"];
 /// Blocks a `midi_of` file may hold in place of its target's: how this
-/// firmware is recognised and what its program changes recall.
+/// firmware is recognised and what its program changes recall (R6, R21;
+/// section Resolution of `docs/INTERFACE.md`).
 const OWN_BLOCKS: [&str; 2] = ["identity", "programs"];
 
 /// The most `midi_of` links followed from one file.
@@ -57,7 +62,9 @@ const MIDI_OF_DEPTH: usize = 8;
 /// The most profile links followed from one block.
 const PROFILE_DEPTH: usize = 8;
 
-/// The driver `id` as its firmware runs it. A file naming another with
+/// The driver `id` as its firmware runs it, by the rules R1 to R32 of the
+/// section Resolution of `docs/INTERFACE.md`: `follow` applies those of
+/// `midi_of` (R2 to R20), `complete` those of profiles (R21 to R30). A file naming another with
 /// `midi_of` (its catalogue id, `m-vave/fm-1.vendor.fw-15`: a firmware that
 /// shares that MIDI interface) keeps its own identity — the `_` keys and
 /// the `device` keys of `IDENTITY` — and takes everything else from the
@@ -145,6 +152,8 @@ fn upgrade(doc: &Value, to: Version, file: &str) -> Result<Value, Fault> {
     serde_json::from_str(&text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()).in_file(file))
 }
 
+/// The document of `id` joined to its `midi_of` target, followed to the end:
+/// rules R2 to R20 of the section Resolution of `docs/INTERFACE.md`.
 fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
     let Some(target) = doc.get("midi_of") else { return Ok(doc) };
     let fault = |kind: FaultKind, pointer: String, why: String| Fault { kind, file: Some(id.to_string()), pointer, rule: format!("midi_of {target}: {why}") };
@@ -260,6 +269,7 @@ fn profile_file(id: &str) -> Option<String> {
     Some(match family { Some(f) => format!("{maker}/_profile.{f}"), None => format!("{maker}/_profile") })
 }
 
+/// Rules R21 to R30 of the section Resolution of `docs/INTERFACE.md`.
 /// What a maker's models share is written once, in a profile kept in the
 /// maker's folder (`profile_file`): `"identity": {"profile": "roland",
 /// "family": [89, 1], "member": [0, 0]}` takes the Roland identity request,

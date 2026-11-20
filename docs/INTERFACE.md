@@ -114,6 +114,198 @@ A plugin or a DAW of its own, which stands for no other device, gives neither fi
 
 MAME states for each driver how well the emulation works (good, imperfect, preliminary), a grade of the result. OSD departs from it: the fidelity states how true a virtual instrument is by its method, a fact its maker knows and a reader can check against the sources, where a grade of the result is a judgement that changes with each listener. The departure keeps the vocabulary of the claim honest, and the descriptor still names the device it shows, as a Hugging Face Space names the model it demonstrates.
 
+## Resolution
+
+Resolving a driver gives the device as its firmware runs it: the MIDI it shares from another driver (`midi_of`), then its blocks completed from maker profiles. A resolver takes a catalogue id and a source of files by id: a driver `maker/name` is the file `<maker>/<name>.json`, the profile `maker` is `<maker>/_profile` and the profile `maker/family` is `<maker>/_profile.<family>`. It returns the device, the ids of the files it read (the driver first) and its capabilities, or a fault of the kinds named above, in the file where it arises, at the pointer of the faulty place. The rules below hold for every version read; the cases that hold them are those of `conformance/0.4/resolve/` and `conformance/0.5/resolve/`, and 0.6 has no cases of its own. Each rule names its cases as `<version>/<case>`.
+
+### R1 — A driver that names no other file is read as it is written
+
+Cases: `0.5/resolve-plain-driver`
+
+### R2 — A file with `midi_of` keeps its identity keys and takes every other key from its target
+
+The identity keys are the keys of `device` that say which firmware the file is: `name`, `vendor`, `revision`, `osc_prefix` and `kind`; one the file does not write is absent from the result. Its `_` keys (notes for people) and its credit are its own. The target is a driver of the same maker and device, and it may itself name another.
+
+Cases: `0.4/midi-of-own-keys`, `0.5/midi-of-identity-kept`, `0.5/midi-of-own-keys`
+
+### R3 — A file with `midi_of` adds route lists to its target's
+
+The lists are `commands` and `custom_commands`; the file's routes come after the target's.
+
+Cases: `0.5/midi-of-routes-appended`
+
+### R4 — A file with `midi_of` adds entries to the route tables of its target
+
+The tables are `params`, `cc_params` and `triggers`; only their `entries` are added, after the target's. A table the target does not have is taken from the file as it is.
+
+Cases: `0.5/midi-of-routes-appended`, `0.5/midi-of-table-absent-in-target`
+
+### R5 — At the same OSC address the route of the file wins
+
+The target's route at that address is dropped and the file's comes after the target's other routes.
+
+Cases: `0.5/midi-of-own-route-wins`
+
+### R6 — A file with `midi_of` replaces the blocks `identity` and `programs` whole
+
+The block of the file replaces its target's, not key by key: these are how this firmware is recognised and what its program changes recall.
+
+Cases: `0.5/midi-of-own-block-replaces`
+
+### R7 — A file with `midi_of` adds routes only and a key that is its target's is refused
+
+Any key other than `$schema`, `device`, `midi_of`, a `_` key, a route list, a route table and the two replaceable blocks is refused as `UnknownField` at that key.
+
+Cases: `0.4/midi-of-target-keys-refused`, `0.5/midi-of-target-keys-refused`
+
+### R8 — Where the target has the route table the file adds entries only
+
+Another key of that table is refused as `UnknownField` at that key.
+
+Cases: `0.5/midi-of-table-extra-key`
+
+### R9 — A route of the file has an OSC address
+
+An entry without `osc` is refused as `Missing`, at its `osc`.
+
+Cases: `0.5/midi-of-route-without-osc`
+
+### R10 — A file writes each OSC address once in its own routes
+
+A second route at an address already written in the same list or table is refused as `BadValue`, at its `osc`.
+
+Cases: `0.5/midi-of-route-twice`
+
+### R11 — The credit of the target is kept beside the file's own
+
+The `_sources` of the file stay its own; the `_sources` of the targets followed, and those they took from in turn, are credited in `_midi_of_sources`.
+
+Cases: `0.4/midi-of-own-keys`, `0.5/midi-of-credit`
+
+### R12 — The capabilities a driver declares are kept as declared
+
+They were checked on its own text; the merge keeps them, not its target's or a profile's. A capability that only the merge requires (a profile or a target that brings Lua) is inherited: reported, not demanded.
+
+Cases: `0.5/midi-of-capabilities-declared-kept`, `0.5/profile-brings-lua`
+
+### R13 — The links of `midi_of` are followed, the target first
+
+The target is followed to its own `midi_of` before the file is joined to it, so a chain is joined from its end toward the file that was asked for.
+
+Cases: `0.4/midi-of-depth-8`, `0.5/midi-of-chain`
+
+### R14 — A `midi_of` is a catalogue id of two parts
+
+It is a string `<maker>/<file>` without `.json`, each part non-empty and not starting with a dot; anything else is refused as `BadValue` at `/midi_of`.
+
+Cases: `0.5/midi-of-id-malformed`, `0.5/midi-of-not-string`
+
+### R15 — A `midi_of` names a driver of the maker of the file
+
+Another maker's driver is refused as `BadValue` at `/midi_of`.
+
+Cases: `0.5/midi-of-other-maker`
+
+### R16 — A `midi_of` names a driver of the same device
+
+A target whose `device.name` differs from the file's, when the file writes one, is refused as `BadValue` at `/midi_of`.
+
+Cases: `0.5/midi-of-other-device`
+
+### R17 — A `midi_of` whose target the catalogue does not hold is refused
+
+The fault is `LinkMissing`, at `/midi_of`.
+
+Cases: `0.4/midi-of-missing-refused`, `0.5/midi-of-target-missing`
+
+### R18 — At most 8 `midi_of` links are followed from one file
+
+A ninth is refused as `LinkTooDeep` at `/midi_of`, in the file that writes it.
+
+Cases: `0.4/midi-of-depth-8`, `0.4/midi-of-depth-9-refused`, `0.5/midi-of-too-deep`
+
+### R19 — Links that come back to a file already followed are refused
+
+The fault is `LinkCycle` at `/midi_of`, in the file that writes the link back.
+
+Cases: `0.4/midi-of-cycle-refused`, `0.5/midi-of-cycle`
+
+### R20 — Two versions are joined in the more recent one
+
+The older text is converted forward to the version of the newer one before the two are joined, so the document states the more recent version, each link being compared with its own target; a file of 0.5 keeps its `$schema` as the result's. A conversion that fails refuses the resolution in the file it fails in, with the fault of the conversion.
+
+Cases: `0.5/midi-of-older-target-converted`, `0.5/midi-of-newer-target-converts-the-file`, `0.5/midi-of-chain-older-targets-converted`, `0.5/midi-of-older-target-credit-kept`, `0.5/midi-of-older-target-not-convertible-refused`, `0.5/midi-of-schema-not-0-5-refused`
+
+### R21 — The profiles of the blocks are completed after the `midi_of` links
+
+Once the links are followed, each of the blocks `identity` and `programs` that names a `profile` is completed from it.
+
+Cases: `0.4/profile-own-keys-win`, `0.5/profile-own-keys-win`
+
+### R22 — A block naming a profile is the profile's block completed with the block's own keys
+
+The block's own keys stand in place of the profile's, and the block names the profile it wrote. The profile of a maker is the file `<maker>/_profile`, the profile of a family the file `<maker>/_profile.<family>`.
+
+Cases: `0.4/profile-own-keys-win`, `0.5/profile-own-keys-win`, `0.5/profile-family-file`
+
+### R23 — A key a block sets to null drops the profile's key
+
+Cases: `0.4/profile-null-removes-key`, `0.5/profile-null-drops-key`
+
+### R24 — A profile may itself name a profile and the nearest keys win
+
+A family profile completes its own block from the profile it names, before the driver's block is completed from it.
+
+Cases: `0.4/profile-of-a-family`, `0.5/profile-chain`
+
+### R25 — A profile is a profile of the maker of the file
+
+Another maker's profile is refused as `BadValue` at `/<block>/profile`.
+
+Cases: `0.5/profile-other-maker`
+
+### R26 — A profile is a string `<maker>` or `<maker>/<family>`
+
+A value that is no string, or an id of three parts, is refused as `BadValue` at `/<block>/profile`.
+
+Cases: `0.5/profile-id-malformed`, `0.5/profile-not-string`
+
+### R27 — A profile that the catalogue does not hold is refused
+
+The fault is `LinkMissing` at `/<block>/profile`.
+
+Cases: `0.4/profile-missing-refused`, `0.5/profile-file-missing`
+
+### R28 — A profile without the block named is refused
+
+The fault is `LinkMissing` at `/<block>/profile`.
+
+Cases: `0.4/profile-without-the-block-refused`, `0.5/profile-block-missing`
+
+### R29 — At most 8 profile links are followed from one block
+
+A ninth is refused as `LinkTooDeep` at `/<block>/profile`, in the file that writes it.
+
+Cases: `0.4/profile-depth-8`, `0.4/profile-depth-9-refused`, `0.5/profile-too-deep`
+
+### R30 — Profiles that name each other in a circle are refused
+
+The fault is `LinkCycle` at `/<block>/profile`, in the file that writes the link back.
+
+Cases: `0.4/profile-cycle-refused`, `0.5/profile-cycle`
+
+### R31 — Each file is read strictly before it is merged
+
+A target or a profile with a field its version does not define is refused by its reading, in its own file; a text that is not JSON is refused as `Syntax` at the root.
+
+Cases: `0.5/target-file-read-refused`, `0.5/syntax-refused`
+
+### R32 — A driver that the catalogue does not hold is refused
+
+The fault is `LinkMissing` at the root of the file asked for.
+
+Cases: `0.5/driver-missing`
+
 ## The guard
 
 - A checksum per published schema file, recorded at publication; CI fails on any change.
