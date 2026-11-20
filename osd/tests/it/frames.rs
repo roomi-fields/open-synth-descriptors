@@ -109,7 +109,9 @@ fn forms() -> Vec<(Value, Value)> {
         (json!("{member}"), json!({"identity": "member"})),
         (json!("{family:2}"), json!({"identity": "family", "index": 2})),
         (json!("{member:0}"), json!({"identity": "member", "index": 0})),
-        (json!("{checksum:twos@1}"), json!({"checksum": "twos7", "from": 1})),
+        (json!("{checksum:twos7@1}"), json!({"checksum": "twos7", "from": 1})),
+        (json!("{checksum:sum7@1+4}"), json!({"checksum": "sum7", "from": 1, "length": 4})),
+        (json!("{checksum:xor7@0x01}"), json!({"checksum": "xor7", "from": 1})),
         (json!(247), json!(247)),
     ]
 }
@@ -221,7 +223,7 @@ fn criterion_1_a_0_5_frame_of_every_form_reads_and_writes_back_key_for_key() {
 #[test]
 fn a_0_4_descriptor_still_reads_its_string_forms() {
     for place in PLACES {
-        let doc = place.device(json!([240, "{dev}", "{value:u14_msb}", "{checksum:twos@1}", 247]), false);
+        let doc = place.device(json!([240, "{dev}", "{value:u14_msb}", "{checksum:twos7@1}", 247]), false);
         let read = osd::read(&doc.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{place:?}: {f}"));
         assert_eq!(serde_json::from_str::<Value>(&osd::write(&read)).unwrap(), doc, "{place:?}");
     }
@@ -259,7 +261,7 @@ fn accepted_at(place: Place) {
 #[test]
 fn criterion_5_a_0_4_string_form_is_refused_at_each_place_by_the_schema_and_the_reader() {
     for place in PLACES {
-        for bad in ["{dev}", "{value}", "{v:u14_msb}", "{checksum:twos@1}", "{family}", "{any}"] {
+        for bad in ["{dev}", "{value}", "{v:u14_msb}", "{checksum:twos7@1}", "{family}", "{any}"] {
             let doc = place.device(json!([240, bad, 247]), true);
             refused_at(&doc, &ptr(place, 1), &FRAME_FAULTS);
         }
@@ -347,7 +349,31 @@ fn criterion_3_and_8_a_checksum_without_algorithm_and_a_function_are_faults_that
 }
 
 #[test]
-fn criterion_8_a_fault_leaves_no_partial_text_even_when_other_elements_convert() {
+fn a_checksum_algorithm_without_its_7_bit_suffix_is_refused_naming_the_three_algorithms_at_each_place() {
+    for place in PLACES {
+        for bad in ["{checksum:twos@1}", "{checksum:sum@1}", "{checksum:xor@1}", "{checksum:crc@1}"] {
+            let doc = place.device(json!([240, "{value}", bad, 247]), false);
+            let f = convert(&doc).expect_err(&format!("{place:?} {bad} converted"));
+            assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::NotConvertible, ptr(place, 2).as_str()), "{place:?} {bad}: {f}");
+            let text = f.to_string();
+            assert!(text.contains("twos7, sum7 or xor7"), "{place:?} {bad}: {text}");
+            assert!(!text.contains("twos, sum or xor"), "{place:?} {bad}: {text}");
+        }
+    }
+}
+
+#[test]
+fn a_checksum_without_algorithm_names_twos7_sum7_and_xor7() {
+    for place in PLACES {
+        let doc = place.device(json!([240, "{value}", "{checksum}", 247]), false);
+        let text = convert(&doc).expect_err("refused").to_string();
+        assert!(text.contains("twos7, sum7 or xor7"), "{place:?}: {text}");
+        assert!(!text.contains("twos, sum or xor"), "{place:?}: {text}");
+    }
+}
+
+#[test]
+fn a_fault_leaves_no_partial_text_even_when_other_elements_convert() {
     let doc = json!({
         "device": {"name": "T", "osc_prefix": "/t"},
         "params": {"get_frame": [240, "{dev}", 247], "set_frame": [240, 247], "value_type": "u7", "entries": []},

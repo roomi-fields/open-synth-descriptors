@@ -381,15 +381,15 @@ fn convert_placeholder(inner: &str, place: Place, _at: &At) -> Result<FramePart,
         ("dev", None) => Ok(FramePart::DeviceId),
         ("any", None) if place.recognises() => Ok(FramePart::Any),
         ("any", None) => Err("{any} is for a message recognised".into()),
-        ("checksum", None) => Err("{checksum} names no algorithm (twos, sum or xor)".into()),
+        ("checksum", None) => Err("{checksum} names no algorithm (twos7, sum7 or xor7)".into()),
         ("function", _) => Err("{function} has no structure in 0.5".into()),
         ("checksum", Some(spec)) => {
             let (algorithm, rest) = spec.split_once('@').ok_or("a checksum is {checksum:<algorithm>@<from>}")?;
             let algorithm = match algorithm {
-                "twos" => Algorithm::Twos7,
-                "sum" => Algorithm::Sum7,
-                "xor" => Algorithm::Xor7,
-                other => return Err(format!("the checksum algorithm {other:?} is not twos, sum or xor")),
+                "twos7" => Algorithm::Twos7,
+                "sum7" => Algorithm::Sum7,
+                "xor7" => Algorithm::Xor7,
+                other => return Err(format!("the checksum algorithm {other:?} is not twos7, sum7 or xor7")),
             };
             let (from, length) = match rest.split_once('+') {
                 Some((f, l)) => (f, Some(l)),
