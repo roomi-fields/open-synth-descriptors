@@ -1,0 +1,8 @@
+{
+  "_about": "A file write has an open step; without it the list is refused.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps"
+  }
+}

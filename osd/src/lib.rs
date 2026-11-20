@@ -11,6 +11,7 @@
 
 mod address;
 mod device;
+mod file_write;
 mod fingerprint;
 mod firmware;
 mod frame;
@@ -36,6 +37,7 @@ pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports,
 pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
+pub use file_write::{Coding, FileItem, NumberAs, ReplyToken, SendToken, Step, StepKind};
 pub use resource::{resource_path, CanSet, CarriedBy, FileWrite, PathSegment, PathVariable, Resource, ResourceVia, RESOURCE_EXPORTS};
 pub use role::{role_from_param_path, roles, Role, RoleEntry, RoleMeaning, RolePart};
 pub use role_vocabulary::{

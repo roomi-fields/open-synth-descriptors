@@ -488,6 +488,77 @@
   },
   "$defs": {
     "resource": {
+      "$defs": {
+        "file_write_step": {
+          "type": "object",
+          "required": ["step", "send"],
+          "additionalProperties": false,
+          "patternProperties": {
+            "^_": { "description": "A note for people (provenance, caveats, usage); never read by a program." }
+          },
+          "properties": {
+            "step": { "enum": ["open", "write", "close"], "description": "What the step does: open the file, write a chunk of it (once per chunk), or close it." },
+            "send": { "type": "array", "items": { "$ref": "#/$defs/resource/$defs/send_token" }, "description": "The message the step sends." },
+            "reply": { "type": "array", "items": { "$ref": "#/$defs/resource/$defs/reply_token" }, "description": "The reply awaited, element by element; absent when the step expects none." },
+            "reply_timeout_ms": { "type": "integer", "minimum": 0, "description": "How long the reply is awaited, in milliseconds; never shorter than delay_ms. Required with reply." },
+            "delay_ms": { "type": "integer", "minimum": 0, "description": "The pause before the next step, in milliseconds." },
+            "chunk_bytes": { "type": "integer", "minimum": 1, "description": "The most bytes of the file one write carries; the write step only." },
+            "coding": { "enum": ["mcoded7", "msb_first_7in8"], "description": "How the bytes of a chunk are coded in 7 bits in the message: mcoded7, the word of MIDI-CI Property Exchange; msb_first_7in8, the packing of sound_transfers (a byte of the high bits, then 7 bytes of 7 bits). A coding takes the name of its bit order, never of a device. The write step only." }
+          },
+          "dependentRequired": { "reply": ["reply_timeout_ms"], "reply_timeout_ms": ["reply"] },
+          "if": { "required": ["step"], "properties": { "step": { "const": "write" } } },
+          "then": { "required": ["chunk_bytes", "coding"] },
+          "else": { "properties": { "chunk_bytes": false, "coding": false } }
+        },
+        "send_token": {
+          "oneOf": [
+            { "$ref": "#/$defs/frame_token" },
+            {
+              "title": "text",
+              "description": "The ASCII text written as its bytes.",
+              "type": "object",
+              "required": ["text"],
+              "additionalProperties": false,
+              "properties": { "text": { "type": "string", "pattern": "^[ -~]+$" } }
+            },
+            {
+              "title": "file",
+              "description": "A datum of the file: its path, its size, the offset or the size of the chunk, or the chunk itself, coded as the write step says; as decimal writes a number as its ASCII digits.",
+              "type": "object",
+              "required": ["file"],
+              "additionalProperties": false,
+              "properties": {
+                "file": { "enum": ["path", "size", "offset", "chunk_size", "chunk"] },
+                "as": { "const": "decimal" }
+              }
+            },
+            {
+              "title": "captured",
+              "description": "A value the reply of the open step gave by capture_json, written as its ASCII digits with as decimal.",
+              "type": "object",
+              "required": ["captured"],
+              "additionalProperties": false,
+              "properties": {
+                "captured": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+                "as": { "const": "decimal" }
+              }
+            }
+          ]
+        },
+        "reply_token": {
+          "oneOf": [
+            { "$ref": "#/$defs/recognised_frame_token" },
+            {
+              "title": "capture_json",
+              "description": "A reply that is JSON text: the value of this key of the JSON object is kept under this name. A name only, no expression.",
+              "type": "object",
+              "required": ["capture_json"],
+              "additionalProperties": false,
+              "properties": { "capture_json": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" } }
+            }
+          ]
+        }
+      },
       "type": "object",
       "required": ["resource", "canSet", "export"],
       "additionalProperties": false,
@@ -552,6 +623,12 @@
                 "carried_by": {
                   "enum": ["sysex"],
                   "description": "What carries the write."
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": { "$ref": "#/$defs/resource/$defs/file_write_step" },
+                  "description": "How the file is written by MIDI: the steps open, write (played once per chunk, in order, to the end of the file) and close, each with its own message and the reply awaited. One open, one write and one close, a rule the reader checks. A reply time is never shorter than the delay_ms of its step, and a captured element names a capture_json of the reply of the open step: the reader checks both."
                 }
               }
             }

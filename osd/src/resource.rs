@@ -54,6 +54,8 @@ object! {
     FileWrite {
         "path" path: Vec<PathSegment> = list_of(PathSegmentCodec, 1, usize::MAX),
         "carried_by" carried_by: Option<CarriedBy> = Opt(closed()),
+        /// How the file is written by MIDI, step by step.
+        "steps" steps: Option<Vec<crate::file_write::Step>> = Opt(crate::file_write::StepsCodec),
     }
 }
 

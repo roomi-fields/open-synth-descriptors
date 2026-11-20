@@ -1,0 +1,9 @@
+{
+  "_about": "One write step only: the second is refused at its place.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps/2"
+  }
+}

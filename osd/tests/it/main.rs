@@ -14,6 +14,7 @@ mod convert;
 mod convert_midi_in_notes;
 mod draft_0_6;
 mod external_ids;
+mod file_write_steps;
 mod examples;
 mod faults;
 mod frames;

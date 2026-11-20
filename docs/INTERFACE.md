@@ -102,7 +102,41 @@ The Deluge (community firmware 1.3) reads `MIDI_DEVICES/DEFINITION/<vendor>/<dev
 }]
 ```
 
-`osd::resource_path` fills the variables from the `vendor` and the `name` of the identity of the device to place: the Minilogue (Korg, minilogue) gives `MIDI_DEVICES/DEFINITION/Korg/minilogue.xml`. A value that is empty or holds `/` or `\` is refused, naming the segment of the path and the field of the device. A new target is added by its description alone, with no code: its `resources` says the format it takes and where. The SysEx frames of a file write are not described here. A descriptor of 0.4 or 0.5 refuses `resources` as an unknown field; `osd::convert` from 0.5 adds none.
+`osd::resource_path` fills the variables from the `vendor` and the `name` of the identity of the device to place: the Minilogue (Korg, minilogue) gives `MIDI_DEVICES/DEFINITION/Korg/minilogue.xml`. A value that is empty or holds `/` or `\` is refused, naming the segment of the path and the field of the device. A new target is added by its description alone, with no code: its `resources` says the format it takes and where. A descriptor of 0.4 or 0.5 refuses `resources` as an unknown field; `osd::convert` from 0.5 adds none.
+
+### How the file is written by MIDI (0.6)
+
+A `file_write` may add `steps`, the messages by which the file is written, with no script. One `open`, one `write` and one `close` (the write is played once per chunk, in order, to the end of the file). Each step says:
+
+- `step`: `open`, `write` or `close`;
+- `send`: the message, a list of the elements of a frame (a byte, `device_id`, `identity`…) plus three of the file write: `{"text": "…"}` (printable ASCII, written as its bytes), `{"file": "path" | "size" | "offset" | "chunk_size" | "chunk"}` and `{"captured": "<name>"}`; `"as": "decimal"` writes a number as its ASCII digits. The variable parts are objects the schema checks, never a template in a string;
+- `reply`, when a reply is awaited: the recognised elements of a frame (`any`, `capture`…) plus `{"capture_json": "<key>"}`, which keeps the value of that key of a JSON text reply under that name (a name, no expression); `reply_timeout_ms` goes with it and is never shorter than the `delay_ms` of the step;
+- `delay_ms`: the pause before the next step.
+
+The `write` step also says `chunk_bytes` (1 or more) and `coding`: `mcoded7`, the word of MIDI-CI Property Exchange, or `msb_first_7in8`, the packing `sound_transfers` already names (a coding is named by its bit order, never by a device). A `captured` element names a `capture_json` of the reply of the `open` step. The Deluge opens the file by a JSON command and keeps the file id of its reply, writes at most 1024 bytes per message, then closes it; the 1000 ms wait for a reply is a choice of OSD, the firmware gives none. The messages are built from the code of the community firmware (DelugeFirmware at 680b93c), not observed on a device:
+
+```json
+"via": { "file_write": {
+  "path": ["MIDI_DEVICES", "DEFINITION", {"variable": "vendor"}, {"variable": "device", "suffix": ".xml"}],
+  "carried_by": "sysex",
+  "steps": [
+    { "step": "open",
+      "send": [240, 0, 33, 123, 1, 4, 0, {"text": "{\"open\":{\"path\":\""}, {"file": "path"}, {"text": "\",\"write\":1}}"}, 247],
+      "reply": [240, 0, 33, 123, 1, 5, "any", {"capture_json": "fid"}],
+      "reply_timeout_ms": 1000 },
+    { "step": "write", "chunk_bytes": 1024, "coding": "msb_first_7in8",
+      "send": [240, 0, 33, 123, 1, 4, 0, {"text": "{\"write\":{\"fid\":"}, {"captured": "fid", "as": "decimal"},
+               {"text": ",\"addr\":"}, {"file": "offset", "as": "decimal"}, {"text": ",\"size\":"},
+               {"file": "chunk_size", "as": "decimal"}, {"text": "}}"}, 0, {"file": "chunk"}, 247],
+      "reply": [240, 0, 33, 123, 1, 5, "any"], "reply_timeout_ms": 1000 },
+    { "step": "close",
+      "send": [240, 0, 33, 123, 1, 4, 0, {"text": "{\"close\":{\"fid\":"}, {"captured": "fid", "as": "decimal"}, {"text": "}}"}, 247],
+      "reply": [240, 0, 33, 123, 1, 5, "any"], "reply_timeout_ms": 1000 }
+  ]
+} }
+```
+
+A `file_write` with only its `path`, and a descriptor without `steps`, read as before. A step outside the three, a `chunk_bytes` of zero, a reply without `reply_timeout_ms`, a wait shorter than the pause, a missing or second `open`, `write` or `close`, and a `coding` outside the list are refused at their place.
 
 ## A sound read setting by setting (0.6)
 

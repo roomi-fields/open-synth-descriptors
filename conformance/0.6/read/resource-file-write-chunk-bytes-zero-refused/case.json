@@ -1,0 +1,8 @@
+{
+  "_about": "A chunk holds one byte at least; zero is refused at chunk_bytes.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps/1/chunk_bytes"
+  }
+}

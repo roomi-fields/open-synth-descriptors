@@ -1,0 +1,8 @@
+{
+  "_about": "A coding is a word of the list; another word is refused at coding.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps/1/coding"
+  }
+}
