@@ -213,3 +213,51 @@ fn the_import_is_read_strictly() {
     let t = import(&sample().to_string(), Format::OscQuery, &source()).unwrap();
     let _ = json_of(&t.value);
 }
+
+fn imported_ns(contents: Vec<(&str, Value)>) -> (Value, Vec<osd_formats::Loss>) {
+    imported(&namespace(contents))
+}
+
+#[test]
+fn a_segment_in_braces_with_a_valid_name_is_read_as_a_capture() {
+    let (d, lost) = imported_ns(vec![(
+        "track",
+        container(
+            "/synth/track",
+            vec![("{n}", container("/synth/track/{n}", vec![("volume", method("/synth/track/{n}/volume", "f", &[Some((0, 1))]))]))],
+        ),
+    )]);
+    assert_eq!(d["commands"].as_array().unwrap().len(), 1, "{d}");
+    assert_eq!(d["commands"][0]["osc"], json!(["/track/", {"capture": "n"}, "/volume"]));
+    assert!(lost.is_empty(), "{lost:?}");
+}
+
+#[test]
+fn a_capture_inside_a_text_segment_or_among_several_is_read_as_captures() {
+    let (d, _) = imported_ns(vec![(
+        "bank{k}",
+        container("/synth/bank{k}", vec![("go", json!({"FULL_PATH": "/synth/bank{k}/go", "ACCESS": 2}))]),
+    )]);
+    assert_eq!(d["commands"][0]["osc"], json!(["/bank", {"capture": "k"}, "/go"]));
+    let (d, _) = imported_ns(vec![(
+        "t",
+        container(
+            "/synth/t",
+            vec![(
+                "{n}",
+                container("/synth/t/{n}", vec![("s", container("/synth/t/{n}/s", vec![("{m}", method("/synth/t/{n}/s/{m}", "i", &[None]))]))]),
+            )],
+        ),
+    )]);
+    assert_eq!(d["commands"][0]["osc"], json!(["/t/", {"capture": "n"}, "/s/", {"capture": "m"}]));
+}
+
+#[test]
+fn a_segment_with_braces_that_is_no_valid_capture_is_not_imported_and_is_named_in_the_losses() {
+    for bad in ["{a,b}", "{1x}", "{a}{b}"] {
+        let (d, lost) = imported_ns(vec![("x", container("/synth/x", vec![(bad, method(&format!("/synth/x/{bad}"), "i", &[None]))]))]);
+        assert!(d.get("commands").is_none_or(|c| c.as_array().unwrap().is_empty()), "{bad}: {d}");
+        let place = format!("/CONTENTS/synth/CONTENTS/x/CONTENTS/{bad}");
+        assert!(lost.iter().any(|l| l.place.starts_with(&place)), "{bad}: {lost:?}");
+    }
+}

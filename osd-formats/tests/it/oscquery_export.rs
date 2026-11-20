@@ -184,3 +184,51 @@ fn the_example_devices_export_and_every_loss_has_a_pointer_and_a_reason() {
     assert!(node_at(&ns, "/test_synth/filter/cutoff").is_some(), "{ns}");
     assert!(t.lost.iter().any(|l| l.place == "/triggers"), "{:?}", t.lost);
 }
+
+fn capture_command(osc: Value, args: Value) -> Value {
+    json!({"osc": osc, "args": args, "frame": [240, 247]})
+}
+
+#[test]
+fn a_command_whose_segment_is_a_capture_is_written_with_its_parents_and_the_capture_kept_in_the_segment() {
+    let (ns, lost) = ns_of(json!({"commands": [
+        capture_command(json!(["/track/", {"capture": "n"}, "/volume"]), json!([{"name": "value", "type": "float", "range": [0, 1]}])),
+        capture_command(json!(["/scene/", {"capture": "n"}, "/fire"]), json!([])),
+    ]}));
+    let volume = node_at(&ns, "/trundler/track/{n}/volume").unwrap_or_else(|| panic!("{ns}"));
+    assert_eq!(volume["FULL_PATH"], "/trundler/track/{n}/volume");
+    assert_eq!(volume["ACCESS"], 2);
+    assert_eq!(volume["TYPE"], "f");
+    assert_eq!(volume["EXTENDED_TYPE"], json!(["value"]));
+    for parent in ["/trundler/track", "/trundler/track/{n}", "/trundler/scene", "/trundler/scene/{n}"] {
+        assert!(node_at(&ns, parent).is_some_and(|n| n["ACCESS"] == 0), "{parent}: {ns}");
+    }
+    assert!(node_at(&ns, "/trundler/scene/{n}/fire").is_some_and(|n| n["ACCESS"] == 2), "{ns}");
+    assert!(lost.iter().all(|l| !l.reason.contains("has a capture")), "{lost:?}");
+}
+
+#[test]
+fn a_command_with_several_captures_or_a_capture_inside_a_text_segment_keeps_each_capture_as_it_is() {
+    let (ns, lost) = ns_of(json!({"commands": [
+        capture_command(json!(["/track/", {"capture": "n"}, "/send/", {"capture": "m"}]), json!([{"name": "level", "type": "int", "range": [0, 10]}])),
+        capture_command(json!(["/bank", {"capture": "k"}, "/go"]), json!([])),
+    ]}));
+    let send = node_at(&ns, "/trundler/track/{n}/send/{m}").unwrap_or_else(|| panic!("{ns}"));
+    assert_eq!(send["TYPE"], "i");
+    assert_eq!(send["RANGE"], json!([{"MIN": 0, "MAX": 10}]));
+    assert!(node_at(&ns, "/trundler/track/{n}/send").is_some_and(|n| n["ACCESS"] == 0), "{ns}");
+    assert!(node_at(&ns, "/trundler/bank{k}/go").is_some_and(|n| n["ACCESS"] == 2), "{ns}");
+    assert!(lost.iter().all(|l| !l.reason.contains("has a capture")), "{lost:?}");
+}
+
+#[test]
+fn a_command_with_a_capture_that_the_namespace_cannot_hold_is_named_in_the_losses_with_its_place() {
+    let (ns, lost) = ns_of(json!({"commands": [
+        capture_command(json!(["/track/", {"capture": "n"}]), json!([])),
+        capture_command(json!(["/track/", {"capture": "n"}]), json!([])),
+        capture_command(json!(["/track/", {"capture": "n"}, "/volume"]), json!([])),
+    ]}));
+    assert_eq!(methods(&ns).len(), 1, "{ns}");
+    assert_eq!(lost_at(&lost, "/commands/1").len(), 1, "{lost:?}");
+    assert_eq!(lost_at(&lost, "/commands/2").len(), 1, "{lost:?}");
+}

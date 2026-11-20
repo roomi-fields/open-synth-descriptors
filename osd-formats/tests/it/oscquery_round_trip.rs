@@ -141,3 +141,43 @@ fn what_is_lost_in_the_export_is_absent_from_what_comes_back() {
     assert!(b.get("triggers").is_none() && b.get("cc_params").is_none(), "{b}");
     assert!(!b.to_string().contains("Filter") && !b.to_string().contains("Kick"), "{b}");
 }
+
+#[test]
+fn a_command_with_captures_comes_back_with_the_same_segments_and_arguments() {
+    let osc_list = [
+        json!(["/track/", {"capture": "n"}, "/volume"]),
+        json!(["/track/", {"capture": "n"}, "/send/", {"capture": "m"}]),
+        json!(["/bank", {"capture": "k"}, "/go"]),
+    ];
+    let d = device_with(json!({"commands": [
+        {"osc": osc_list[0], "args": [{"name": "value", "type": "float"}], "frame": [240, 247]},
+        {"osc": osc_list[1], "args": [{"name": "level", "type": "int", "range": [0, 10]}], "frame": [240, 247]},
+        {"osc": osc_list[2], "frame": [240, 247]},
+    ]}));
+    let (b, _) = back(&d);
+    let got: Vec<&Value> = b["commands"].as_array().unwrap().iter().map(|c| &c["osc"]).collect();
+    for osc in &osc_list {
+        assert!(got.contains(&osc), "{osc}: {b}");
+    }
+    let send = b["commands"].as_array().unwrap().iter().find(|c| c["osc"] == osc_list[1]).unwrap();
+    assert_eq!(send["args"][0]["name"], "level");
+    assert_eq!(send["args"][0]["range"], json!([0, 10]));
+}
+
+#[test]
+fn a_namespace_with_captures_exported_back_is_the_same_namespace() {
+    use crate::common::oscquery::{container, imported, method, namespace};
+    let ns = namespace(vec![(
+        "track",
+        container(
+            "/synth/track",
+            vec![("{n}", container("/synth/track/{n}", vec![("volume", method("/synth/track/{n}/volume", "f", &[Some((0, 1))]))]))],
+        ),
+    )]);
+    let (d, _) = imported(&ns);
+    let device = device_with(json!({"commands": d["commands"]}));
+    let out = export(&device, Format::OscQuery).unwrap();
+    let ns2: Value = serde_json::from_str(&out.value).unwrap();
+    let paths = |v: &Value| methods(v).into_iter().map(|(p, n)| (p, n["TYPE"].clone(), n["RANGE"].clone())).collect::<Vec<_>>();
+    assert_eq!(paths(&ns2).iter().map(|(p, t, r)| (p.replace("/trundler", "/synth"), t.clone(), r.clone())).collect::<Vec<_>>(), paths(&ns), "{}", out.value);
+}

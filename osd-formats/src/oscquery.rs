@@ -157,6 +157,38 @@ fn vals_loss(vals: &Value) -> &'static str {
     }
 }
 
+/// The `osc` of a command from a path: the string itself, or the segments when the path holds
+/// captures `{name}`; `None` when a brace is no capture (bad name, unclosed, two side by side).
+fn osc_of(path: &str) -> Option<Value> {
+    if !path.contains(['{', '}']) {
+        return Some(json!(path));
+    }
+    let mut parts: Vec<Value> = Vec::new();
+    let mut text = String::new();
+    let mut rest = path;
+    while let Some(i) = rest.find(['{', '}']) {
+        if rest.as_bytes()[i] == b'}' {
+            return None;
+        }
+        text.push_str(&rest[..i]);
+        let close = rest[i..].find('}')? + i;
+        let name = &rest[i + 1..close];
+        if !name_ok(name) || text.is_empty() && matches!(parts.last(), Some(Value::Object(_))) {
+            return None;
+        }
+        if !text.is_empty() {
+            parts.push(json!(std::mem::take(&mut text)));
+        }
+        parts.push(json!({"capture": name}));
+        rest = &rest[close + 1..];
+    }
+    text.push_str(rest);
+    if !text.is_empty() {
+        parts.push(json!(text));
+    }
+    Some(Value::Array(parts))
+}
+
 /// The command a method makes, `None` when its type has no argument type in the descriptor.
 fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<Loss>) -> Option<Value> {
     let ty = o.get("TYPE").and_then(Value::as_str).unwrap_or("");
@@ -207,8 +239,12 @@ fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<L
         }
         args.push(Value::Object(arg));
     }
+    let Some(osc) = osc_of(relative) else {
+        loss(losses, ptr, "the path has braces that are no capture ({name}, letters, digits and _, one per piece of text): the method is not imported");
+        return None;
+    };
     let mut c = Map::new();
-    c.insert("osc".into(), json!(relative));
+    c.insert("osc".into(), osc);
     if !args.is_empty() {
         c.insert("args".into(), Value::Array(args));
     }
@@ -398,14 +434,15 @@ fn place(device: &mut Value, prefix: &str, address: &str, node: Value) -> bool {
     true
 }
 
-fn address_text(a: &Address) -> Option<String> {
+/// The address as the namespace writes it: each capture stays `{name}` in its segment.
+fn address_text(a: &Address) -> String {
     match a {
-        Address::Text(s) => Some(s.clone()),
+        Address::Text(s) => s.clone(),
         Address::Segments(parts) => parts
             .iter()
             .map(|p| match p {
-                Segment::Text(t) => Some(t.as_str()),
-                Segment::Capture(_) => None,
+                Segment::Text(t) => t.clone(),
+                Segment::Capture(n) => format!("{{{n}}}"),
             })
             .collect(),
     }
@@ -422,10 +459,7 @@ fn tag_of(t: ArgType) -> char {
 
 fn command_node(n: usize, c: &Command, prefix: &str, losses: &mut Vec<Loss>) -> Option<(String, Value)> {
     let at = format!("/commands/{n}");
-    let Some(address) = address_text(&c.osc) else {
-        loss(losses, at, "the address has a capture: it is a pattern of addresses, not one address of a namespace");
-        return None;
-    };
+    let address = address_text(&c.osc);
     for (field, present) in [
         ("frame", c.frame.is_some()),
         ("forward", c.forward.is_some()),
