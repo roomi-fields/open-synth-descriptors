@@ -60,6 +60,15 @@
         "properties": { "capabilities": { "contains": { "const": "lua" } } },
         "required": ["capabilities"]
       }
+    },
+    {
+      "if": {
+        "required": ["params"],
+        "not": { "required": ["midi_of"] }
+      },
+      "then": {
+        "properties": { "params": { "required": ["get_frame", "set_frame", "value_type"] } }
+      }
     }
   ],
   "properties": {
@@ -314,12 +323,9 @@
       },
       "additionalProperties": false,
       "required": [
-        "get_frame",
-        "set_frame",
-        "value_type",
         "entries"
       ],
-      "description": "Parameters read and written by SysEx through one shared message shape."
+      "description": "Parameters read and written by SysEx through one shared message shape. get_frame, set_frame and value_type are required, except in a file with midi_of, which takes them from its target."
     },
     "commands": {
       "type": "array",

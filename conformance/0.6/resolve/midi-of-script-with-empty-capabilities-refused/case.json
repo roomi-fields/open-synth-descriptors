@@ -1,0 +1,9 @@
+{
+  "_about": "A file with midi_of that adds a script and declares no capability is refused: its list is not what its fields require.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/capabilities"
+  }
+}

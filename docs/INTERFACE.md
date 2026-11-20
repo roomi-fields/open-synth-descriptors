@@ -116,7 +116,9 @@ MAME states for each driver how well the emulation works (good, imperfect, preli
 
 ## Resolution
 
-Resolving a driver gives the device as its firmware runs it: the MIDI it shares from another driver (`midi_of`), then its blocks completed from maker profiles. A resolver takes a catalogue id and a source of files by id: a driver `maker/name` is the file `<maker>/<name>.json`, the profile `maker` is `<maker>/_profile` and the profile `maker/family` is `<maker>/_profile.<family>`. It returns the device, the ids of the files it read (the driver first) and its capabilities, or a fault of the kinds named above, in the file where it arises, at the pointer of the faulty place. The rules below hold for every version read; the cases that hold them are those of `conformance/0.4/resolve/` and `conformance/0.5/resolve/`, and 0.6 has no cases of its own. Each rule names its cases as `<version>/<case>`.
+Resolving a driver gives the device as its firmware runs it: the MIDI it shares from another driver (`midi_of`), then its blocks completed from maker profiles. A resolver takes a catalogue id and a source of files by id: a driver `maker/name` is the file `<maker>/<name>.json`, the profile `maker` is `<maker>/_profile` and the profile `maker/family` is `<maker>/_profile.<family>`. It returns the device, the ids of the files it read (the driver first) and its capabilities, or a fault of the kinds named above, in the file where it arises, at the pointer of the faulty place. The rules below hold for every version read; the cases that hold them are those of `conformance/0.4/resolve/`, `conformance/0.5/resolve/` and `conformance/0.6/resolve/`. Each rule names its cases as `<version>/<case>`.
+
+What a `midi_of` file may add and declare follows the version of its own text, read before any conversion (R3, R4, R7, R8, R12). In 0.6 it may add parameters (its `params` holds `entries` only), add scripted commands and declare `capabilities`. In 0.5 it may not: a 0.5 file with `midi_of` that declares `capabilities` is refused at `/capabilities` and one that gives `get_frame` in `params` is refused at `/params/get_frame`, even over a 0.6 target; a 0.6 file keeps the 0.6 rules over a 0.4 or 0.5 target, which is converted to 0.6 and then joined.
 
 ### R1 — A driver that names no other file is read as it is written
 
@@ -130,15 +132,15 @@ Cases: `0.4/midi-of-own-keys`, `0.5/midi-of-identity-kept`, `0.5/midi-of-own-key
 
 ### R3 — A file with `midi_of` adds route lists to its target's
 
-The lists are `commands` and `custom_commands`; the file's routes come after the target's.
+The lists are `commands` and `custom_commands`; the file's routes come after the target's. From 0.6 a file that adds a script (`custom_commands` with `script`) declares `capabilities: ["lua"]` itself, even when its target already brings Lua: without it, or with `[]`, it is refused at `/capabilities`.
 
-Cases: `0.5/midi-of-routes-appended`
+Cases: `0.5/midi-of-routes-appended`, `0.6/midi-of-custom-commands-with-lua`, `0.6/midi-of-script-without-lua-refused`, `0.6/midi-of-script-with-empty-capabilities-refused`
 
 ### R4 — A file with `midi_of` adds entries to the route tables of its target
 
-The tables are `params`, `cc_params` and `triggers`; only their `entries` are added, after the target's. A table the target does not have is taken from the file as it is.
+The tables are `params`, `cc_params` and `triggers`; only their `entries` are added, after the target's. A table the target does not have is taken from the file as it is. In 0.6 the `params` of a file with `midi_of` needs `entries` only, its message shape (`get_frame`, `set_frame`, `value_type`) coming from the target; a `params` taken as it is must then hold the three keys, and without one the resolution is refused as `Missing` at `/params/<key>`, in the file. A file without `midi_of` keeps the three keys required.
 
-Cases: `0.5/midi-of-routes-appended`, `0.5/midi-of-table-absent-in-target`
+Cases: `0.5/midi-of-routes-appended`, `0.5/midi-of-table-absent-in-target`, `0.6/midi-of-params-entries-added`, `0.6/midi-of-params-without-target-frames-refused`
 
 ### R5 — At the same OSC address the route of the file wins
 
@@ -154,15 +156,15 @@ Cases: `0.5/midi-of-own-block-replaces`
 
 ### R7 — A file with `midi_of` adds routes only and a key that is its target's is refused
 
-Any key other than `$schema`, `device`, `midi_of`, a `_` key, a route list, a route table and the two replaceable blocks is refused as `UnknownField` at that key.
+Any key other than `$schema`, `device`, `midi_of`, a `_` key, a route list, a route table and the two replaceable blocks is refused as `UnknownField` at that key; from 0.6 `capabilities` is one of the keys it may hold, and in 0.5 it is refused at `/capabilities`.
 
-Cases: `0.4/midi-of-target-keys-refused`, `0.5/midi-of-target-keys-refused`
+Cases: `0.4/midi-of-target-keys-refused`, `0.5/midi-of-target-keys-refused`, `0.6/midi-of-key-outside-the-list-refused`, `0.6/midi-of-0-5-file-on-0-6-target-refused`
 
 ### R8 — Where the target has the route table the file adds entries only
 
-Another key of that table is refused as `UnknownField` at that key.
+Another key of that table is refused as `UnknownField` at that key; from 0.6 this holds for `get_frame`, `set_frame` and `value_type` too, which the file takes from its target and may not give (`/params/<key>`).
 
-Cases: `0.5/midi-of-table-extra-key`
+Cases: `0.5/midi-of-table-extra-key`, `0.6/midi-of-params-target-key-refused`
 
 ### R9 — A route of the file has an OSC address
 
@@ -184,9 +186,9 @@ Cases: `0.4/midi-of-own-keys`, `0.5/midi-of-credit`
 
 ### R12 — The capabilities a driver declares are kept as declared
 
-They were checked on its own text; the merge keeps them, not its target's or a profile's. A capability that only the merge requires (a profile or a target that brings Lua) is inherited: reported, not demanded.
+They were checked on its own text; the merge keeps them, not its target's or a profile's. A capability that only the merge requires (a profile or a target that brings Lua) is inherited: reported, not demanded. From 0.6 a file with `midi_of` may declare `capabilities`, judged on its own text like any file: the list is the one its fields require, so a file that adds a script declares `["lua"]` and one that adds none declares `[]` or nothing, else `BadValue` at `/capabilities`. The resolved `capabilities` are what the merged device requires, so those of both files, and `inherited` is what only the target brings. In 0.5 a file with `midi_of` declares none.
 
-Cases: `0.5/midi-of-capabilities-declared-kept`, `0.5/profile-brings-lua`
+Cases: `0.5/midi-of-capabilities-declared-kept`, `0.5/profile-brings-lua`, `0.6/midi-of-capabilities-declared-over-target-lua`, `0.6/midi-of-lua-without-script-refused`, `0.6/midi-of-0-6-file-on-0-5-target`
 
 ### R13 — The links of `midi_of` are followed, the target first
 

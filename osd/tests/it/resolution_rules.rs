@@ -58,7 +58,7 @@ fn cited(line: &str) -> Vec<String> {
 
 fn existing_cases() -> BTreeSet<String> {
     let mut out = BTreeSet::new();
-    for version in ["0.4", "0.5"] {
+    for version in ["0.4", "0.5", "0.6"] {
         for case in std::fs::read_dir(common::repo().join(format!("conformance/{version}/resolve"))).unwrap() {
             out.insert(format!("{version}/{}", case.unwrap().file_name().to_string_lossy()));
         }
@@ -79,9 +79,31 @@ fn the_specification_has_a_resolution_section_of_numbered_rules() {
 }
 
 #[test]
-fn the_resolution_section_says_the_rules_hold_for_every_version_read_and_0_6_has_no_cases_of_its_own() {
+fn the_resolution_section_states_the_limit_of_0_5_and_the_cases_of_0_6() {
     let lines = section();
-    assert!(lines.iter().any(|l| l.contains("0.6") && l.contains("no cases of its own")), "no line says 0.6 has no cases of its own");
+    assert!(!lines.iter().any(|l| l.contains("no cases of its own")), "the section still says 0.6 has no cases of its own");
+    assert!(lines.iter().any(|l| l.contains("conformance/0.6/resolve/")), "no line names the cases of 0.6");
+    let limit = lines.iter().any(|l| l.contains("0.5") && l.contains("capabilities") && l.contains("get_frame"));
+    assert!(limit, "no line states the limit of 0.5: a midi_of file may not declare capabilities nor give get_frame in params");
+}
+
+#[test]
+fn the_rules_of_what_a_midi_of_file_adds_cite_the_cases_of_0_6_that_hold_them() {
+    let rules = rules();
+    let cases_of = |n: u32| cited(rules.iter().find(|r| r.number == n).and_then(|r| r.cases_line.as_deref()).unwrap_or(""));
+    let want: [(u32, &[&str]); 5] = [
+        (3, &["0.6/midi-of-custom-commands-with-lua", "0.6/midi-of-script-without-lua-refused", "0.6/midi-of-script-with-empty-capabilities-refused"]),
+        (4, &["0.6/midi-of-params-entries-added", "0.6/midi-of-params-without-target-frames-refused"]),
+        (7, &["0.6/midi-of-key-outside-the-list-refused", "0.6/midi-of-0-5-file-on-0-6-target-refused"]),
+        (8, &["0.6/midi-of-params-target-key-refused"]),
+        (12, &["0.6/midi-of-capabilities-declared-over-target-lua", "0.6/midi-of-lua-without-script-refused", "0.6/midi-of-0-6-file-on-0-5-target"]),
+    ];
+    let mut failures = Vec::new();
+    for (n, names) in want {
+        let got = cases_of(n);
+        failures.extend(names.iter().filter(|c| !got.iter().any(|g| g == *c)).map(|c| format!("R{n} does not cite `{c}`")));
+    }
+    common::report("rules that miss their 0.6 cases", failures);
 }
 
 #[test]
@@ -105,7 +127,7 @@ fn each_rule_names_the_conformance_cases_that_hold_it_and_each_cited_case_exists
 }
 
 #[test]
-fn each_resolution_case_of_0_4_and_0_5_is_named_by_a_rule() {
+fn each_resolution_case_of_0_4_0_5_and_0_6_is_named_by_a_rule() {
     assert!(!rules().is_empty(), "the Resolution section has no rule");
     let named: BTreeSet<String> = rules().iter().filter_map(|r| r.cases_line.as_deref()).flat_map(cited).collect();
     let failures = existing_cases().into_iter().filter(|c| !named.contains(c)).map(|c| format!("`{c}` is named by no rule")).collect();

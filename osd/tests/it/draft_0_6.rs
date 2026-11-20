@@ -234,6 +234,18 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             // The further ways of a control (`also`, and their definition) are 0.6's own.
             assert!(props.remove("also").is_some(), "cc_entry has no also");
             assert!(now["$defs"].as_object_mut().unwrap().remove("cc_way").is_some(), "no def cc_way");
+            // A file with `midi_of` takes the frame and the value type of `params` from its target:
+            // 0.6 requires only `entries` there, and asks the three keys of a file without `midi_of`.
+            let params = now["properties"]["params"].as_object_mut().unwrap();
+            assert_eq!(params["required"], json!(["entries"]));
+            params.insert("required".into(), json!(["get_frame", "set_frame", "value_type", "entries"]));
+            let text = params["description"].as_str().unwrap();
+            assert!(text.contains("midi_of"));
+            params.insert("description".into(), json!("Parameters read and written by SysEx through one shared message shape."));
+            let all_of = now["allOf"].as_array_mut().unwrap();
+            assert_eq!(all_of.len(), 2, "allOf holds the lua rule and the params rule");
+            assert!(all_of[1]["if"]["not"]["required"] == json!(["midi_of"]));
+            all_of.pop();
             // The `values` of a param entry stays, its description saying the range check is 0.6's.
             let values = now["$defs"]["param_entry"]["properties"]["values"].as_object_mut().unwrap();
             assert!(values["description"].as_str().unwrap().contains("range"));

@@ -28,6 +28,7 @@ mod release_readme;
 mod release_workflow;
 mod resolution_rules;
 mod resolve_capabilities;
+mod resolve_midi_of_06;
 mod resolve_versions;
 mod role_path_vocabulary;
 mod role_vocabulary;

@@ -500,7 +500,33 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
-    every_case(&common::repo().join("conformance/0.6/read"), 66, run_read);
+    every_case(&common::repo().join("conformance/0.6/read"), 68, run_read);
+}
+
+#[test]
+fn every_resolution_case_of_0_6_passes() {
+    every_case(&common::repo().join("conformance/0.6/resolve"), 11, run_resolve);
+}
+
+#[test]
+fn every_file_of_a_0_6_resolution_case_that_expects_a_result_validates_against_the_schema_of_its_own_version() {
+    let (s5, s6) = (common::Schemas::load("0.5"), common::Schemas::load("0.6"));
+    let mut failures = Vec::new();
+    for case in std::fs::read_dir(common::repo().join("conformance/0.6/resolve")).unwrap() {
+        let case = case.unwrap().path();
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+        if spec.get("result").is_none() {
+            continue;
+        }
+        for (id, text) in files(&case.join("files")) {
+            let doc: Value = serde_json::from_str(&text).unwrap();
+            let schemas = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.5/")) { &s5 } else { &s6 };
+            if let Some(e) = schemas.check(osd::Kind::Device, &doc) {
+                failures.push(format!("{}: {id}: {e}", case.file_name().unwrap().to_string_lossy()));
+            }
+        }
+    }
+    common::report("files do not validate", failures);
 }
 
 #[test]

@@ -1,0 +1,31 @@
+{
+  "_about": "A file with midi_of adds entries to the params of its target and takes get_frame, set_frame and value_type from it (0.6).",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "midi_of": "acme/b",
+    "params": {
+      "get_frame": [
+        240,
+        247
+      ],
+      "set_frame": [
+        240,
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/p1"
+        },
+        {
+          "osc": "/p2"
+        }
+      ]
+    }
+  }
+}

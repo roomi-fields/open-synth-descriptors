@@ -93,7 +93,8 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
         Descriptor::Device(d) if !linked => *d,
         _ => {
             let declared = doc.get("capabilities").cloned();
-            let mut doc = follow(id, doc, files, &mut Vec::new(), &mut read)?;
+            let text_version = version_of(&doc);
+            let mut doc = follow(id, doc, text_version, files, &mut Vec::new(), &mut read)?;
             let maker = maker_of(id).unwrap_or_default().to_string();
             for key in OWN_BLOCKS {
                 if let Some(block) = doc.get(key).cloned() {
@@ -153,8 +154,12 @@ fn upgrade(doc: &Value, to: Version, file: &str) -> Result<Value, Fault> {
 }
 
 /// The document of `id` joined to its `midi_of` target, followed to the end:
-/// rules R2 to R20 of the section Resolution of `docs/INTERFACE.md`.
-fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
+/// rules R2 to R20 of the section Resolution of `docs/INTERFACE.md`. What the
+/// file may add is judged by `text_version`, the version of its own text read
+/// before any conversion (R3, R4, R7, R8, R12): from 0.6 `capabilities`, and
+/// a `params` table without its three shape keys when the target has one.
+fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
+    let from_06 = text_version >= Version::V0_6;
     let Some(target) = doc.get("midi_of") else { return Ok(doc) };
     let fault = |kind: FaultKind, pointer: String, why: String| Fault { kind, file: Some(id.to_string()), pointer, rule: format!("midi_of {target}: {why}") };
     let link = |kind: FaultKind, why: &str| fault(kind, "/midi_of".into(), why.into());
@@ -167,7 +172,7 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
         return Err(link(FaultKind::BadValue, "names another maker's driver"));
     }
     let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k)
-        || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
+        || (from_06 && k == "capabilities") || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
     if let Some(own) = doc.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
         return Err(fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)")));
     }
@@ -191,7 +196,8 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     // The older of the two texts is carried to the newer one's version before
     // they are joined (the target here, the file after its target is followed).
     let own_version = version_of(&doc);
-    if version_of(&out) < own_version {
+    let target_text_version = version_of(&out);
+    if target_text_version < own_version {
         out = upgrade(&out, own_version, tid)?;
     }
     chain.push(id.to_string());
@@ -201,7 +207,7 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     if chain.len() > MIDI_OF_DEPTH {
         return Err(link(FaultKind::LinkTooDeep, &format!("more than {MIDI_OF_DEPTH} links")));
     }
-    let mut out = follow(tid, out, files, chain, read)?;
+    let mut out = follow(tid, out, target_text_version, files, chain, read)?;
     let target_version = version_of(&out);
     let doc = if own_version < target_version { upgrade(&doc, target_version, id)? } else { doc.clone() };
     let name = |d: &Value| d.pointer("/device/name").and_then(Value::as_str).map(str::to_string);
@@ -247,7 +253,14 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
                     let base = match table.get_mut("entries").map(Value::take) { Some(Value::Array(a)) => a, _ => Vec::new() };
                     table["entries"] = Value::Array(merge(base, entries_of(&doc, k)));
                 }
-                None => { obj.insert(k.clone(), v.clone()); }
+                None => {
+                    // Taken as it is: from 0.6 it must then hold the shape keys its target would have given.
+                    if k == "params" && from_06 {
+                        let table = crate::device::Params::read(v, &At::Key(&At::Root, "params")).map_err(|f| f.in_file(id))?;
+                        crate::device::check_params_shape(&table).map_err(|f| f.in_file(id))?;
+                    }
+                    obj.insert(k.clone(), v.clone());
+                }
             }
         } else {
             obj.insert(k.clone(), v.clone());

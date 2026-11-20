@@ -104,10 +104,12 @@ words! {
 
 object! {
     /// Parameters read and written by SysEx through one shared message shape.
+    /// The three shape keys are required, except in a 0.6 file with `midi_of`,
+    /// which takes them from its target (`check_params_shape`).
     Params {
-        "get_frame" get_frame: Vec<FrameToken> = list(FRAME_TOKEN),
-        "set_frame" set_frame: Vec<FrameToken> = list(FRAME_TOKEN),
-        "value_type" value_type: ValueType = closed(),
+        "get_frame" get_frame: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        "set_frame" set_frame: Option<Vec<FrameToken>> = Opt(list(FRAME_TOKEN)),
+        "value_type" value_type: Option<ValueType> = Opt(closed()),
         "entries" entries: Vec<ParamEntry> = list(obj()),
     }
 }
@@ -514,10 +516,25 @@ fn check_ways(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
+/// The three keys that give `params` its message shape, each present
+/// (R4, R8 of the section Resolution of `docs/INTERFACE.md`): `Missing` at the first absent one.
+pub(crate) fn check_params_shape(p: &Params) -> Result<(), Fault> {
+    let absent = [("get_frame", p.get_frame.is_none()), ("set_frame", p.set_frame.is_none()), ("value_type", p.value_type.is_none())];
+    match absent.iter().find(|(_, a)| *a) {
+        Some((key, _)) => Err(Fault { kind: FaultKind::Missing, file: None, pointer: format!("/params/{key}"), rule: format!("{key} is required") }),
+        None => Ok(()),
+    }
+}
+
 /// Whether the frames and expressions of a descriptor are the forms of its
 /// version: strings in 0.4 (no `$schema`), structures in 0.5.
 fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     let v05 = crate::is_05_form(d.schema);
+    if let Some(p) = &d.params {
+        if !(d.schema >= Some(Version::V0_6) && d.midi_of.is_some()) {
+            check_params_shape(p)?;
+        }
+    }
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
     crate::sound_transfer::check_version(d)?;
     check_roles(d)?;
@@ -540,8 +557,12 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
         programs_frames(p, "/programs", &mut frames);
     }
     if let Some(p) = &d.params {
-        frames.push(("/params/get_frame".into(), Place::Sent, &p.get_frame));
-        frames.push(("/params/set_frame".into(), Place::Sent, &p.set_frame));
+        if let Some(f) = &p.get_frame {
+            frames.push(("/params/get_frame".into(), Place::Sent, f));
+        }
+        if let Some(f) = &p.set_frame {
+            frames.push(("/params/set_frame".into(), Place::Sent, f));
+        }
     }
     for (n, c) in d.commands.iter().flatten().enumerate() {
         check_address(&c.osc, AddressPlace::Command, &format!("/commands/{n}/osc"), v05)?;
@@ -711,8 +732,12 @@ impl Device {
         }
         if let Some(p) = &mut self.params {
             let at = At::Key(&root, "params");
-            convert_frame(&mut p.get_frame, Place::Sent, &At::Key(&at, "get_frame"))?;
-            convert_frame(&mut p.set_frame, Place::Sent, &At::Key(&at, "set_frame"))?;
+            if let Some(f) = &mut p.get_frame {
+                convert_frame(f, Place::Sent, &At::Key(&at, "get_frame"))?;
+            }
+            if let Some(f) = &mut p.set_frame {
+                convert_frame(f, Place::Sent, &At::Key(&at, "set_frame"))?;
+            }
         }
         let commands = At::Key(&root, "commands");
         for (n, c) in self.commands.iter_mut().flatten().enumerate() {
