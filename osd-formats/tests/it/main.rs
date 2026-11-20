@@ -4,6 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod budget_device;
 mod deluge_export;
 mod deluge_table;
 mod electra_export;

@@ -1,16 +1,14 @@
 //! Docs/CADRE.md R17: translating one device of about 200 controls to or from OSCQuery takes
 //! under 10 ms. A time budget: played at rest, by name; a failure under load is to be replayed.
 
-use crate::common::midnam::device_with;
+use crate::common::midnam::device_of_200_controls;
 use crate::common::oscquery::source;
 use osd_formats::{export, import, Format};
-use serde_json::json;
 use std::time::{Duration, Instant};
 
 #[test]
 fn exporting_and_importing_a_device_of_200_controls_to_oscquery_each_take_under_10_ms() {
-    let entries: Vec<_> = (0..200).map(|n| json!({"osc": format!("/section/parameter_{n}"), "cc": n % 128, "range": [0, 127]})).collect();
-    let device = device_with(json!({"cc_params": {"entries": entries}}));
+    let device = device_of_200_controls();
     let src = source();
     let (mut best_export, mut best_import) = (Duration::MAX, Duration::MAX);
     for _ in 0..5 {

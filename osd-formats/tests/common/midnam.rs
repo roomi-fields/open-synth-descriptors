@@ -554,3 +554,19 @@ pub fn imported(text: &str) -> (Value, Vec<osd_formats::Loss>) {
 pub fn lost_at<'a>(lost: &'a [osd_formats::Loss], place: &str) -> Vec<&'a osd_formats::Loss> {
     lost.iter().filter(|l| l.place == place).collect()
 }
+
+/// The device the time budgets translate: 200 controls, each reached by a message of its own and
+/// none by a channel; the first 128 on the CC 0 to 127, the 72 after on the NRPN 0/0 to 0/71.
+pub fn device_of_200_controls() -> osd::Resolved {
+    let entries: Vec<Value> = (0..200u8)
+        .map(|n| {
+            let osc = format!("/section/parameter_{n}");
+            if n < 128 {
+                json!({"osc": osc, "cc": n, "range": [0, 127]})
+            } else {
+                json!({"osc": osc, "nrpn_msb": 0, "nrpn_lsb": n - 128, "range": [0, 127]})
+            }
+        })
+        .collect();
+    device_with(json!({"cc_params": {"entries": entries}}))
+}
