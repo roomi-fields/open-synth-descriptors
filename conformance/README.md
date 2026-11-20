@@ -29,7 +29,11 @@ param_path, outcome}` per setting, `outcome` being `equal`, `differ` or
 
 A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
-one schema error, at the pointer the fault names. A case with
+one schema error, at the pointer the fault names. The optional
+`schema_pointer` gives the place where the schema signals that error when it
+differs from the `pointer` of the `fault` (a dependency between fields, which
+the schema signals at the object that holds them, or at the field it constrains);
+absent, the reader of the case compares with the `pointer` of the `fault`. A case with
 `"schema_accepts": true` is the exception: its fault is one the schema cannot
 express (a declared list that differs from the derived one), so the
 descriptor validates against the schema and only the reader refuses it.
