@@ -1,0 +1,5 @@
+{
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "_sources": [{ "type": "vendor-doc", "name": "Acme manual A" }],
+  "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }] }
+}

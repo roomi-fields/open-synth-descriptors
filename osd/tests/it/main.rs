@@ -27,6 +27,7 @@ mod release_manifests;
 mod release_readme;
 mod release_workflow;
 mod resolve_capabilities;
+mod resolve_versions;
 mod role_path_vocabulary;
 mod role_vocabulary;
 mod roles;

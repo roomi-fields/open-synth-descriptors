@@ -53,7 +53,9 @@ descriptor validates against the schema and only the reader refuses it.
     the link refused.
 
 A resolution case that expects a result reads files valid against their
-version's schemas.
+version's schemas; a file without `$schema` is a 0.4 file, judged by the 0.4
+schemas. A case may hold files of two versions: the older is converted to the
+newer's version before they are joined, and the result states that version.
 
 A maker profile `acme` is the file `acme/_profile`, and `acme/keys` the
 file `acme/_profile.keys`.

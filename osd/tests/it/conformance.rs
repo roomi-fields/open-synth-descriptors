@@ -316,7 +316,35 @@ fn every_resolution_case_of_0_4_passes() {
 
 #[test]
 fn every_resolution_case_of_0_5_passes() {
-    every_case(&common::repo().join("conformance/0.5/resolve"), 37, run_resolve);
+    every_case(&common::repo().join("conformance/0.5/resolve"), 42, run_resolve);
+}
+
+/// The resolution cases whose files are of two versions: a file without
+/// `$schema` is a 0.4 file.
+const MIXED_VERSION_CASES: [&str; 5] = [
+    "midi-of-older-target-converted", "midi-of-newer-target-converts-the-file", "midi-of-chain-older-targets-converted",
+    "midi-of-older-target-credit-kept", "midi-of-older-target-not-convertible-refused",
+];
+
+#[test]
+fn the_mixed_version_cases_resolve_into_one_stated_version_or_refuse_where_the_conversion_fails() {
+    let root = common::repo().join("conformance/0.5/resolve");
+    for name in MIXED_VERSION_CASES {
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(root.join(name).join("case.json")).unwrap_or_else(|_| panic!("no case {name}"))).unwrap();
+        let texts = files(&root.join(name).join("files"));
+        let (mut older, mut newer) = (0, 0);
+        for text in texts.values() {
+            if text.contains("\"$schema\"") { newer += 1 } else { older += 1 }
+        }
+        assert!(older >= 1 && newer >= 1, "{name}: files of two versions ({older} without $schema, {newer} with)");
+        if name == "midi-of-older-target-not-convertible-refused" {
+            assert_eq!(spec["fault"], serde_json::json!({"kind": "NotConvertible", "file": "acme/fw-1", "pointer": "/params/get_frame/1"}));
+        } else {
+            assert_eq!(spec["result"]["$schema"], "https://w3id.org/osd/0.5/device.schema.json", "{name}");
+        }
+    }
+    let credit: Value = serde_json::from_str(&std::fs::read_to_string(root.join("midi-of-older-target-credit-kept/case.json")).unwrap()).unwrap();
+    assert!(credit["result"]["_sources"].is_array() && credit["result"]["_midi_of_sources"].is_array());
 }
 
 /// The resolution cases of 0.5 that expect a result, one folder each.
@@ -393,6 +421,7 @@ const RESOLVE_CASES_WITH_FILES_THE_SCHEMA_REFUSES: [&str; 7] = [
 #[test]
 fn every_file_of_a_resolution_case_of_0_5_validates_except_those_whose_refusal_the_schema_states() {
     let schemas = common::Schemas::load("0.5");
+    let schemas_04 = common::Schemas::load("0.4");
     let root = common::repo().join("conformance/0.5/resolve");
     let mut failures = Vec::new();
     let names = case_names(&root);
@@ -405,7 +434,9 @@ fn every_file_of_a_resolution_case_of_0_5_validates_except_those_whose_refusal_t
             match serde_json::from_str::<Value>(&text) {
                 Err(e) => failures.push(format!("{case}: {id}: not JSON: {e}")),
                 Ok(doc) => {
-                    if let Some(e) = schemas.check(kind, &doc) {
+                    // A file without `$schema` is a 0.4 file, which the 0.4 schemas judge.
+                    let own = if doc.get("$schema").is_none() { &schemas_04 } else { &schemas };
+                    if let Some(e) = own.check(kind, &doc) {
                         failures.push(format!("{case}: {id}: {e}"));
                     }
                 }
@@ -444,7 +475,8 @@ fn the_resolution_cases_of_0_5_carry_schema_and_cover_a_result_a_target_key_and_
         let case = case.unwrap().path();
         let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
         for (id, text) in files(&case.join("files")) {
-            assert!(text.contains("\"$schema\""), "{}: {id} carries its `$schema`", case.display());
+            let mixed = MIXED_VERSION_CASES.iter().any(|m| case.ends_with(m));
+            assert!(mixed || text.contains("\"$schema\""), "{}: {id} carries its `$schema`", case.display());
         }
         if spec["result"]["$schema"] == "https://w3id.org/osd/0.5/device.schema.json" {
             result += 1;

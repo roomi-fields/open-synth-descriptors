@@ -4,7 +4,7 @@
 //! the rules the conformance cases of `conformance/0.4/resolve/` fix.
 
 use crate::json::{At, Object};
-use crate::{read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind};
+use crate::{convert_to, read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind, Version, VERSIONS};
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -65,7 +65,11 @@ const PROFILE_DEPTH: usize = 8;
 /// name another, up to `MIDI_OF_DEPTH` links and never in a circle. The
 /// file may add routes of its own (`OWN_LISTS`, the `entries` of
 /// `OWN_TABLES`), appended to the target's, its own winning on the same
-/// OSC address; its own `OWN_BLOCKS` replace the target's. Then each block
+/// OSC address; its own `OWN_BLOCKS` replace the target's. The two files may
+/// be of two versions: the older text is converted to the newer one's version
+/// (`convert_to`, forward only) before they are joined, so the document states
+/// the more recent of the two; a conversion that fails refuses the resolution
+/// in the file it fails in. Then each block
 /// naming a maker profile is completed from it (`complete`).
 pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
     let mut read = Vec::new();
@@ -126,6 +130,21 @@ fn fetch(id: &str, files: &dyn Files, kind: Kind, read: &mut Vec<String>) -> Res
     Ok(Some((doc, typed)))
 }
 
+/// The version a document states in its `$schema`; 0.4 when it has none (a
+/// document already read strictly names a version this crate reads).
+fn version_of(doc: &Value) -> Version {
+    doc.get("$schema").and_then(Value::as_str)
+        .and_then(|s| VERSIONS.iter().copied().find(|v| v.address("device") == s))
+        .unwrap_or(Version::V0_4)
+}
+
+/// The document `doc` of file `file` carried forward to version `to`; a
+/// conversion that fails is the fault of that file.
+fn upgrade(doc: &Value, to: Version, file: &str) -> Result<Value, Fault> {
+    let text = convert_to(&doc.to_string(), Kind::Device, to).map_err(|f| f.in_file(file))?;
+    serde_json::from_str(&text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()).in_file(file))
+}
+
 fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
     let Some(target) = doc.get("midi_of") else { return Ok(doc) };
     let fault = |kind: FaultKind, pointer: String, why: String| Fault { kind, file: Some(id.to_string()), pointer, rule: format!("midi_of {target}: {why}") };
@@ -159,7 +178,13 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
             }
         }
     }
-    let (out, _) = fetch(tid, files, Kind::Device, read)?.ok_or_else(|| link(FaultKind::LinkMissing, &format!("no file {tid}")))?;
+    let (mut out, _) = fetch(tid, files, Kind::Device, read)?.ok_or_else(|| link(FaultKind::LinkMissing, &format!("no file {tid}")))?;
+    // The older of the two texts is carried to the newer one's version before
+    // they are joined (the target here, the file after its target is followed).
+    let own_version = version_of(&doc);
+    if version_of(&out) < own_version {
+        out = upgrade(&out, own_version, tid)?;
+    }
     chain.push(id.to_string());
     if chain.iter().any(|p| p == tid) {
         return Err(link(FaultKind::LinkCycle, "the links come back to this file (a circle)"));
@@ -168,6 +193,8 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
         return Err(link(FaultKind::LinkTooDeep, &format!("more than {MIDI_OF_DEPTH} links")));
     }
     let mut out = follow(tid, out, files, chain, read)?;
+    let target_version = version_of(&out);
+    let doc = if own_version < target_version { upgrade(&doc, target_version, id)? } else { doc.clone() };
     let name = |d: &Value| d.pointer("/device/name").and_then(Value::as_str).map(str::to_string);
     if name(&doc).is_some() && name(&doc) != name(&out) {
         return Err(link(FaultKind::BadValue, "the target is another device"));
@@ -185,7 +212,7 @@ fn follow(id: &str, doc: Value, files: &dyn Files, chain: &mut Vec<String>, read
     let mut device = obj.remove("device").unwrap_or_else(|| Value::Object(Default::default()));
     for (k, v) in doc.as_object().into_iter().flatten() {
         if k == "$schema" {
-            // The version is the target's; the file's own was read as 0.5 when fetched.
+            // Both texts are of one version by now (the older was converted): the target's stands.
         } else if k == "role_vocabulary" {
             // Each file's roles are read against the state it names: states are never merged.
             if obj.get(k).is_some_and(|t| t != v) {
