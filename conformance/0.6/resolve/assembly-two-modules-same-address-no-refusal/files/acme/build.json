@@ -1,5 +1,5 @@
 {
   "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
-  "stock": "acme/stock",
-  "modules": ["acme/mod-a", "acme/mod-b"]
+  "stock": {"firmware": "acme/stock", "version": "1.0"},
+  "modules": [{"module": "acme/mod-a", "version": "1.0"}, {"module": "acme/mod-b", "version": "1.0"}]
 }

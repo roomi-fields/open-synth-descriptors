@@ -1,0 +1,5 @@
+{
+  "_about": "The sound needs mod-z, which the assembly does not pin: the need is not satisfied.",
+  "judge_needs": true,
+  "result": [{ "module": "acme/mod-z", "verdict": "not_satisfied" }]
+}

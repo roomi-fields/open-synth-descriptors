@@ -3,6 +3,6 @@
   "read": "sound",
   "fault": {
     "kind": "BadValue",
-    "pointer": "/modules/0/module"
+    "pointer": "/needs/0/module"
   }
 }

@@ -1,0 +1,5 @@
+{
+  "_about": "The assembly pins mod-a at \"nightly\", a version the comparison of versions cannot read: whether it is at least 1.2 is unknown.",
+  "judge_needs": true,
+  "result": [{ "module": "acme/mod-a", "verdict": "unknown" }]
+}

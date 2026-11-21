@@ -337,6 +337,11 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             let before_len = methods.len();
             methods.retain(|m| m != "builder");
             assert_eq!(methods.len() + 1, before_len, "install.method has no builder example");
+            // The kind `module` (a plug-in applied to a stock firmware) is 0.6's own.
+            let kinds = now["properties"]["kind"]["enum"].as_array_mut().unwrap();
+            let kinds_len = kinds.len();
+            kinds.retain(|k| k != "module");
+            assert_eq!(kinds.len() + 1, kinds_len, "kind has no module");
             let root = now.as_object_mut().unwrap();
             for key in ["if", "then"] {
                 assert!(root.remove(key).is_some(), "firmware has no {key}");
@@ -345,7 +350,7 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
         }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {
-            for own in ["external_ids", "modules", "made_on"] {
+            for own in ["external_ids", "needs", "made_on"] {
                 assert!(now["properties"].as_object_mut().unwrap().remove(own).is_some(), "sound has no {own}");
             }
         }

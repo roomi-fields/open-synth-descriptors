@@ -53,6 +53,13 @@ descriptor validates against the schema and only the reader refuses it.
     `pointer` of the element of the previous version refused; no text is
     returned.
 
+## Judgement of needs (`0.6/judge_needs/<case>/`)
+
+- `sound.json` and `assembly.json`: a sound and an assembly, each valid against its schema.
+- `case.json`: `judge_needs: true`, `_about`, and `result`: one `{module, verdict}` per entry of the
+  sound's `needs`, in order, the verdict being `satisfied`, `not_satisfied` or `unknown`. Only the
+  assembly is read, the version it pins for the module; no catalogue is.
+
 ## Resolution (`<version>/resolve/<case>/`)
 
 - `files/<maker>/<name>.json`: the catalogue the case reads, each file by

@@ -1,0 +1,5 @@
+{
+  "_about": "The assembly pins mod-a at 1.3, the sound needs at least 1.2: the need is satisfied. Only the pinned version counts, never a catalogue descriptor.",
+  "judge_needs": true,
+  "result": [{ "module": "acme/mod-a", "verdict": "satisfied" }]
+}

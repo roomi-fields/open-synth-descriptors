@@ -1,6 +1,6 @@
 {
   "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
-  "stock": "acme/stock",
+  "stock": {"firmware": "acme/stock", "version": "1.0"},
   "modules": [],
   "colour": "red"
 }

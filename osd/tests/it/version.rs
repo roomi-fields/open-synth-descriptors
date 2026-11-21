@@ -31,7 +31,7 @@ fn bare(kind: Kind) -> Value {
         Kind::Sound => from_file("examples/warm-pad.sound.json"),
         Kind::Fingerprint => from_file("examples/minilogue.fingerprint.json"),
         Kind::Firmware => from_file("examples/tribe-0.3-beta.firmware.json"),
-        Kind::Assembly => json!({"stock": "acme/stock", "modules": []}),
+        Kind::Assembly => json!({"stock": {"firmware": "acme/stock", "version": "1.0"}, "modules": []}),
     }
 }
 

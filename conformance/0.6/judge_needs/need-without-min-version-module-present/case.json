@@ -1,0 +1,5 @@
+{
+  "_about": "A need without min_version is satisfied when the module figures in the assembly, at whatever version.",
+  "judge_needs": true,
+  "result": [{ "module": "acme/mod-a", "verdict": "satisfied" }]
+}

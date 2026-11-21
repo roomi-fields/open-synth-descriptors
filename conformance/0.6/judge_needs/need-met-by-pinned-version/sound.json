@@ -3,8 +3,6 @@
   "name": "Warm pad",
   "kind": "sound",
   "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
-  "content": {
-    "settings": { "/amp/attack": [90] }
-  },
-  "modules": [{ "module": "" }]
+  "content": { "settings": { "/amp/attack": [90] } },
+  "needs": [{ "module": "acme/mod-a", "min_version": "1.2" }]
 }

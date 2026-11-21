@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 
 words! {
     /// What a firmware descriptor describes.
-    FirmwareKind { Firmware = "firmware", Mod = "mod", Script = "script", Extension = "extension", }
+    FirmwareKind { Firmware = "firmware", Mod = "mod", Module = "module", Script = "script", Extension = "extension", }
 }
 
 words! {
@@ -79,6 +79,9 @@ fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
             return Err(At::Key(at, "builder").fault(FaultKind::Missing, "install.method builder requires a builder"));
         }
     } else {
+        if f.kind == Some(FirmwareKind::Module) {
+            return Err(At::Key(at, "kind").fault(FaultKind::BadValue, "the kind module exists from 0.6"));
+        }
         if f.builder.is_some() {
             return Err(At::Key(at, "builder").fault(FaultKind::UnknownField, "builder is not a field before 0.6"));
         }

@@ -6,5 +6,5 @@
   "content": {
     "settings": { "/amp/attack": [90] }
   },
-  "made_on": { "stock": "acme/stock", "modules": ["acme/mod-a", "acme/mod-b"] }
+  "made_on": { "stock": { "firmware": "acme/stock", "version": "1.0" }, "modules": [{ "module": "acme/mod-a", "version": "1.0" }, { "module": "acme/mod-b", "version": "2.0" }] }
 }

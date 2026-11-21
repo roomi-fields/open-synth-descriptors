@@ -2,6 +2,6 @@
   "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
   "name": "Mod X",
   "version": "1.0",
-  "kind": "mod",
+  "kind": "module",
   "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}, "midi": {"same_as": "acme/other-synth"}}]
 }

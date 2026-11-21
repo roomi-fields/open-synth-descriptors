@@ -53,7 +53,7 @@ object! {
         /// The identities other tools give this sound (0.6); never OSD's own.
         "external_ids" external_ids: Option<Vec<ExternalId>> = Opt(list(obj())),
         /// The modules it needs (0.6), beside `firmware` in words; never compared with it.
-        "modules" modules: Option<Vec<ModuleNeed>> = Opt(list(obj())),
+        "needs" needs: Option<Vec<ModuleNeed>> = Opt(list(obj())),
         /// The exact assembly its author made it on (0.6), as written; provenance only.
         "made_on" made_on: Option<Assembly> = Opt(obj()),
     }
@@ -81,7 +81,7 @@ fn module_need_form(m: &ModuleNeed, at: &At) -> Result<(), Fault> {
     Ok(())
 }
 
-fn check_modules_and_made_on(s: &Sound, at: &At) -> Result<(), Fault> {
+fn check_needs_and_made_on(s: &Sound, at: &At) -> Result<(), Fault> {
     if s.schema >= Some(Version::V0_6) {
         if let Some(a) = &s.made_on {
             if a.schema.is_some() {
@@ -90,8 +90,8 @@ fn check_modules_and_made_on(s: &Sound, at: &At) -> Result<(), Fault> {
         }
         return Ok(());
     }
-    for key in ["modules", "made_on"] {
-        let present = if key == "modules" { s.modules.is_some() } else { s.made_on.is_some() };
+    for key in ["needs", "made_on"] {
+        let present = if key == "needs" { s.needs.is_some() } else { s.made_on.is_some() };
         if present {
             return Err(At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field before 0.6")));
         }
@@ -164,7 +164,7 @@ fn check_external_ids(s: &Sound, at: &At) -> Result<(), Fault> {
 
 fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
     check_external_ids(s, at)?;
-    check_modules_and_made_on(s, at)?;
+    check_needs_and_made_on(s, at)?;
     if crate::is_05_form(s.schema) {
         crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
     }

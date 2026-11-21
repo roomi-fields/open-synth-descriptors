@@ -95,7 +95,7 @@ fn a_module_names_several_targets_of_different_devices_and_forms() {
 
 #[test]
 fn every_kind_of_firmware_writes_targets() {
-    for kind in ["firmware", "mod", "script", "extension"] {
+    for kind in ["firmware", "mod", "module", "script", "extension"] {
         let mut doc = one_target(json!(["1.0"]));
         doc["kind"] = json!(kind);
         valid_in_06(&doc);

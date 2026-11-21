@@ -1,0 +1,5 @@
+{
+  "_about": "A module of an assembly is pinned at an exact version: a module without `version` is refused.",
+  "read": "assembly",
+  "fault": {"kind": "Missing", "pointer": "/modules/0/version"}
+}

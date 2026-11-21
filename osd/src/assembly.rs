@@ -3,21 +3,97 @@
 //! written by the builder of the firmware they make. Its MIDI is the stock
 //! MIDI followed by each module's own routes, in the listed order.
 
-use crate::json::{list, object, At, Opt, STRING};
+use crate::json::{list, obj, object, At, Opt, STRING};
 use crate::resolve::{fetch, Files, Overlay, Resolved};
-use crate::{resolve, Descriptor, Fault, FaultKind, Firmware, FirmwareKind, Kind, SchemaUrl, Version};
+use crate::{compare_versions, resolve, Descriptor, Fault, FaultKind, Firmware, FirmwareKind, Kind, SchemaUrl, Sound, Version};
 use serde_json::Value;
+use std::cmp::Ordering;
 
 object! {
     /// The firmware a builder made: the stock firmware it started from and the modules it applied.
     Assembly {
         "$schema" schema: Option<Version> = Opt(SchemaUrl("assembly")),
-        /// The catalogue id of the stock firmware's descriptor.
-        "stock" stock: String = STRING,
-        /// The catalogue ids of the modules' firmware descriptors, in the order applied.
-        "modules" modules: Vec<String> = list(STRING),
+        /// The stock firmware, by its catalogue id and its exact version.
+        "stock" stock: PinnedFirmware = obj(),
+        /// The modules applied, each by its catalogue id and its exact version, in the order applied.
+        "modules" modules: Vec<PinnedModule> = list(obj()),
     }
     check from_0_6
+}
+
+object! {
+    /// The stock firmware of an assembly, pinned: its descriptor's catalogue id and its exact version.
+    PinnedFirmware {
+        /// The catalogue id of the stock firmware's descriptor (kind `firmware`).
+        "firmware" firmware: String = STRING,
+        /// The exact version of the stock firmware.
+        "version" version: String = STRING,
+    }
+}
+
+object! {
+    /// A module of an assembly, pinned: its descriptor's catalogue id and its exact version.
+    PinnedModule {
+        /// The catalogue id of the module's descriptor (kind `module`).
+        "module" module: String = STRING,
+        /// The exact version of the module.
+        "version" version: String = STRING,
+    }
+}
+
+/// What a sound needs of a module, judged against an assembly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Verdict {
+    /// The assembly pins the module, at a version not lower than the minimum if one is written.
+    Satisfied,
+    /// The assembly lacks the module, or pins a version lower than the minimum.
+    NotSatisfied,
+    /// A version the comparison cannot read: neither can be told.
+    Unknown,
+}
+
+/// The verdict on one need of a sound.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeedJudgement {
+    /// The module the need names.
+    pub module: String,
+    pub verdict: Verdict,
+}
+
+/// Whether `v` is a version `compare_versions` reads: each component is digits then optional letters.
+fn readable(v: &str) -> bool {
+    !v.is_empty()
+        && v.split('.').all(|c| {
+            let digits = c.find(|ch: char| !ch.is_ascii_digit()).unwrap_or(c.len());
+            digits > 0 && c[digits..].chars().all(|ch| ch.is_ascii_alphabetic())
+        })
+}
+
+/// The needs of `sound` judged against `assembly`, one per need in the sound's order. Only the
+/// assembly is read: the version pinned for the module, never a catalogue descriptor.
+pub fn judge_needs(sound: &Sound, assembly: &Assembly) -> Vec<NeedJudgement> {
+    sound
+        .needs
+        .iter()
+        .flatten()
+        .map(|need| {
+            let verdict = match assembly.modules.iter().find(|m| m.module == need.module) {
+                None => Verdict::NotSatisfied,
+                Some(pinned) => match need.min_version.as_deref() {
+                    None => Verdict::Satisfied,
+                    Some(min) if readable(min) && readable(&pinned.version) => {
+                        if compare_versions(&pinned.version, min) == Ordering::Less {
+                            Verdict::NotSatisfied
+                        } else {
+                            Verdict::Satisfied
+                        }
+                    }
+                    Some(_) => Verdict::Unknown,
+                },
+            };
+            NeedJudgement { module: need.module.clone(), verdict }
+        })
+        .collect()
 }
 
 /// An assembly exists from 0.6: its `$schema` names that version.
@@ -40,7 +116,7 @@ fn from_0_6(a: &Assembly, at: &At) -> Result<(), Fault> {
 fn midi_of(file: &str, fw: &Firmware, kind: FirmwareKind, device: Option<&str>) -> Result<(usize, Option<String>, Option<String>), Fault> {
     let got = fw.kind.unwrap_or(FirmwareKind::Firmware);
     if got != kind {
-        let want = if kind == FirmwareKind::Mod { "mod" } else { "firmware" };
+        let want = if kind == FirmwareKind::Module { "module" } else { "firmware" };
         return Err(At::Key(&At::Root, "kind").fault(FaultKind::BadValue, format!("an assembly names a {want} here")).in_file(file));
     }
     let targets = fw.targets.as_deref().unwrap_or_default();
@@ -84,18 +160,20 @@ pub fn resolve_assembly(id: &str, device: Option<&str>, files: &dyn Files) -> Re
     let Some((_, Descriptor::Assembly(asm))) = fetch(id, files, Kind::Assembly, &mut read)? else {
         return Err(At::Root.fault(FaultKind::LinkMissing, format!("no file {id}")).in_file(id));
     };
-    let stock = firmware(&asm.stock, files, &mut read)?;
+    let stock_id = asm.stock.firmware.as_str();
+    let stock = firmware(stock_id, files, &mut read)?;
     let bad = |file: &str, pointer: &str, why: &str| Fault { kind: FaultKind::BadValue, file: Some(file.to_string()), pointer: pointer.into(), rule: why.into() };
-    let (at, stock_midi, _) = midi_of(&asm.stock, &stock, FirmwareKind::Firmware, device)?;
+    let (at, stock_midi, _) = midi_of(stock_id, &stock, FirmwareKind::Firmware, device)?;
     let device = device.map(str::to_string).or_else(|| stock.targets.as_deref().and_then(|t| t[at].device.descriptor.clone()));
-    let stock_midi = stock_midi.ok_or_else(|| bad(&asm.stock, &format!("/targets/{at}/midi/descriptor"), "the stock firmware of an assembly names its MIDI descriptor"))?;
+    let stock_midi = stock_midi.ok_or_else(|| bad(stock_id, &format!("/targets/{at}/midi/descriptor"), "the stock firmware of an assembly names its MIDI descriptor"))?;
     let base = resolve(&stock_midi, files)?;
     let mut identity = serde_json::from_str::<Value>(&crate::write(&Descriptor::Device(Box::new(base.device.clone())))).unwrap_or_default();
     identity.as_object_mut().map(|o| o.remove("midi_of"));
     let mut acc = identity.clone();
-    for module in &asm.modules {
+    for pinned in &asm.modules {
+        let module = pinned.module.as_str();
         let fw = firmware(module, files, &mut read)?;
-        let (at, descriptor, same_as) = midi_of(module, &fw, FirmwareKind::Mod, device.as_deref())?;
+        let (at, descriptor, same_as) = midi_of(module, &fw, FirmwareKind::Module, device.as_deref())?;
         match (descriptor, same_as) {
             (None, Some(s)) if s == stock_midi => {}
             (None, Some(_)) => return Err(bad(module, &format!("/targets/{at}/midi/same_as"), "a module is made for this stock firmware: its MIDI is the same as the stock's")),

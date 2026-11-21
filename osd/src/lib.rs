@@ -39,7 +39,7 @@ pub use firmware::{
     compare_versions, version_in_target, BaseVersions, BasedOn, Builder, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Fit,
     Install, Release, RunsOn, Target, VersionRange,
 };
-pub use assembly::{resolve_assembly, Assembly};
+pub use assembly::{judge_needs, resolve_assembly, Assembly, NeedJudgement, PinnedFirmware, PinnedModule, Verdict};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
 pub use file_write::{Coding, FileItem, NumberAs, ReplyToken, SendToken, Step, StepKind};

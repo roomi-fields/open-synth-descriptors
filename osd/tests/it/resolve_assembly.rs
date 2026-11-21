@@ -1,6 +1,7 @@
-//! The assembly descriptor of 0.6: a stock firmware and the modules applied to it, by catalogue id,
-//! written by the builder of the firmware. Reading it strictly; resolving its MIDI as the stock
-//! routes followed by each module's own routes, in the listed order (`midi_of`, module after module).
+//! The assembly descriptor of 0.6: a stock firmware and the modules applied to it, each by catalogue
+//! id and exact version (the lockfile of the firmware), written by the builder. Reading it strictly;
+//! resolving its MIDI as the stock routes followed by each module's own routes, in the listed
+//! order (`midi_of`, module after module).
 
 use crate::common;
 
@@ -11,6 +12,14 @@ use std::collections::BTreeMap;
 const ASSEMBLY: &str = "https://w3id.org/osd/0.6/assembly.schema.json";
 const FIRMWARE: &str = "https://w3id.org/osd/0.6/firmware.schema.json";
 const DEVICE: &str = "https://w3id.org/osd/0.6/device.schema.json";
+
+fn stock_pin() -> Value {
+    json!({"firmware": "acme/stock", "version": "1.0"})
+}
+
+fn pins(ids: &[&str]) -> Value {
+    Value::Array(ids.iter().map(|m| json!({"module": m, "version": "1.0"})).collect())
+}
 
 fn assembly(stock: Value, modules: Value) -> Value {
     json!({"$schema": ASSEMBLY, "stock": stock, "modules": modules})
@@ -31,14 +40,14 @@ fn refused(doc: &Value, kind: FaultKind, pointer: &str) {
 }
 
 #[test]
-fn an_assembly_names_a_stock_firmware_and_its_modules_in_order_and_is_read_as_written() {
-    let doc = assembly(json!("acme/stock"), json!(["acme/mod-b", "acme/mod-a"]));
+fn an_assembly_pins_a_stock_firmware_and_its_modules_each_with_its_version_in_order_and_is_read_as_written() {
+    let doc = assembly(json!({"firmware": "acme/stock", "version": "2.1"}), json!([{"module": "acme/mod-b", "version": "1.3"}, {"module": "acme/mod-a", "version": "1.0"}]));
     let d = read(&doc).unwrap_or_else(|f| panic!("{f}"));
     assert_eq!(d.kind(), Kind::Assembly);
     assert_eq!(d.schema(), Some(Version::V0_6));
     assert_eq!(serde_json::from_str::<Value>(&osd::write(&d)).unwrap(), doc);
     assert_eq!(common::Schemas::load("0.6").check(Kind::Assembly, &doc), None);
-    assert!(read(&assembly(json!("acme/stock"), json!([]))).is_ok());
+    assert!(read(&assembly(stock_pin(), json!([]))).is_ok());
 }
 
 #[test]
@@ -47,29 +56,61 @@ fn an_assembly_without_a_stock_is_refused() {
 }
 
 #[test]
+fn a_stock_without_a_version_is_refused_at_the_version() {
+    refused(&assembly(json!({"firmware": "acme/stock"}), json!([])), FaultKind::Missing, "/stock/version");
+}
+
+#[test]
+fn a_stock_without_a_firmware_is_refused_at_the_firmware() {
+    refused(&assembly(json!({"version": "1.0"}), json!([])), FaultKind::Missing, "/stock/firmware");
+}
+
+#[test]
+fn a_stock_that_stays_a_text_is_refused() {
+    refused(&assembly(json!("acme/stock"), json!([])), FaultKind::BadValue, "/stock");
+}
+
+#[test]
+fn a_module_without_a_version_is_refused_at_the_version() {
+    refused(&assembly(stock_pin(), json!([{"module": "acme/mod-a", "version": "1.0"}, {"module": "acme/mod-b"}])), FaultKind::Missing, "/modules/1/version");
+}
+
+#[test]
+fn a_module_that_stays_a_text_is_refused() {
+    refused(&assembly(stock_pin(), json!(["acme/mod-a"])), FaultKind::BadValue, "/modules/0");
+}
+
+#[test]
+fn a_module_entry_without_a_module_or_with_an_unknown_key_or_a_version_that_is_not_text_is_refused() {
+    refused(&assembly(stock_pin(), json!([{"version": "1.0"}])), FaultKind::Missing, "/modules/0/module");
+    refused(&assembly(stock_pin(), json!([{"module": "acme/a", "version": "1.0", "colour": "red"}])), FaultKind::UnknownField, "/modules/0/colour");
+    refused(&assembly(stock_pin(), json!([{"module": "acme/a", "version": 1}])), FaultKind::BadValue, "/modules/0/version");
+    refused(&assembly(json!({"firmware": "acme/stock", "version": 1}), json!([])), FaultKind::BadValue, "/stock/version");
+}
+
+#[test]
 fn an_assembly_with_an_unknown_field_is_refused() {
-    let mut doc = assembly(json!("acme/stock"), json!([]));
+    let mut doc = assembly(stock_pin(), json!([]));
     doc["colour"] = json!("red");
     refused(&doc, FaultKind::UnknownField, "/colour");
 }
 
 #[test]
 fn an_assembly_notes_for_people_are_kept_out_of_the_refusals() {
-    let mut doc = assembly(json!("acme/stock"), json!([]));
+    let mut doc = assembly(stock_pin(), json!([]));
     doc["_about"] = json!("built by acme");
     assert!(read(&doc).is_ok());
 }
 
 #[test]
-fn an_assembly_whose_stock_or_modules_are_ill_formed_is_refused() {
+fn an_assembly_whose_modules_are_not_a_list_is_refused() {
+    refused(&assembly(stock_pin(), json!("acme/mod-a")), FaultKind::BadValue, "/modules");
     refused(&assembly(json!(3), json!([])), FaultKind::BadValue, "/stock");
-    refused(&assembly(json!("acme/stock"), json!("acme/mod-a")), FaultKind::BadValue, "/modules");
-    refused(&assembly(json!("acme/stock"), json!(["acme/mod-a", 3])), FaultKind::BadValue, "/modules/1");
 }
 
 #[test]
 fn an_assembly_converts_to_its_own_version_unchanged_and_is_never_carried_back() {
-    let doc = assembly(json!("acme/stock"), json!(["acme/mod-a"]));
+    let doc = assembly(stock_pin(), pins(&["acme/mod-a"]));
     let out = osd::convert_to(&doc.to_string(), Kind::Assembly, Version::V0_6).unwrap_or_else(|f| panic!("{f}"));
     assert_eq!(serde_json::from_str::<Value>(&out).unwrap(), doc);
     assert!(osd::convert_to(&doc.to_string(), Kind::Assembly, Version::V0_5).is_err());
@@ -77,7 +118,17 @@ fn an_assembly_converts_to_its_own_version_unchanged_and_is_never_carried_back()
 
 #[test]
 fn the_kind_an_assembly_declares_is_the_assembly_kind() {
-    assert_eq!(osd::declared_kind(&assembly(json!("acme/stock"), json!([])).to_string()), Some(Kind::Assembly));
+    assert_eq!(osd::declared_kind(&assembly(stock_pin(), json!([])).to_string()), Some(Kind::Assembly));
+}
+
+#[test]
+fn a_firmware_of_kind_module_reads_in_0_6_and_a_0_5_firmware_refuses_it() {
+    let target = json!([{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}}]);
+    let m = json!({"$schema": FIRMWARE, "name": "M", "version": "1", "kind": "module", "targets": target});
+    assert!(osd::read(&m.to_string(), Kind::Firmware).is_ok());
+    assert_eq!(common::Schemas::load("0.6").check(Kind::Firmware, &m), None);
+    let old = json!({"$schema": "https://w3id.org/osd/0.5/firmware.schema.json", "name": "M", "version": "1", "kind": "module", "device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}});
+    assert!(osd::read(&old.to_string(), Kind::Firmware).is_err());
 }
 
 #[test]
@@ -121,7 +172,7 @@ fn catalogue(modules: &[(&str, Value)]) -> Catalogue {
         let mut own = extra.clone();
         own["midi_of"] = json!("acme/synth");
         put(&format!("acme/{name}-midi"), device(own));
-        put(&format!("acme/{name}"), firmware("mod", json!({"descriptor": format!("acme/{name}-midi")})));
+        put(&format!("acme/{name}"), firmware("module", json!({"descriptor": format!("acme/{name}-midi")})));
     }
     files
 }
@@ -137,7 +188,8 @@ fn entries(extra: &[&str]) -> Value {
 fn resolve(files: &Catalogue, modules: &[&str]) -> Result<osd::Resolved, osd::Fault> {
     let mut files = files.clone();
     let list: Vec<String> = modules.iter().map(|m| format!("acme/{m}")).collect();
-    add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(list)));
+    let list: Vec<&str> = list.iter().map(String::as_str).collect();
+    add(&mut files, "acme/build", assembly(stock_pin(), pins(&list)));
     osd::resolve_assembly("acme/build", None, &files)
 }
 
@@ -175,6 +227,16 @@ fn a_module_adds_only_its_own_routes_never_the_stock_ones_it_followed() {
 }
 
 #[test]
+fn the_files_an_assembly_reads_are_the_assembly_the_stock_and_each_module_by_its_id() {
+    let files = catalogue(&[("mod-a", entries(&["/p3"]))]);
+    let r = resolve(&files, &["mod-a"]).unwrap_or_else(|f| panic!("{f}"));
+    for id in ["acme/build", "acme/stock", "acme/mod-a", "acme/mod-a-midi", "acme/synth"] {
+        assert!(r.files.iter().any(|f| f == id), "{id} in {:?}", r.files);
+    }
+    assert_eq!(r.files[0], "acme/build");
+}
+
+#[test]
 fn a_module_adds_routes_to_a_list_and_a_table_of_entries() {
     let own = json!({"commands": [{"osc": "/go"}], "cc_params": {"entries": [{"osc": "/cc1"}]}});
     let mut files = catalogue(&[("mod-a", own)]);
@@ -204,7 +266,7 @@ fn an_empty_module_list_resolves_to_the_stock_midi_as_it_is() {
 #[test]
 fn a_module_whose_midi_is_the_stocks_adds_nothing() {
     let mut files = catalogue(&[("mod-b", entries(&["/p4"]))]);
-    add(&mut files, "acme/same", firmware("mod", json!({"same_as": "acme/synth"})));
+    add(&mut files, "acme/same", firmware("module", json!({"same_as": "acme/synth"})));
     let r = resolve(&files, &["same", "mod-b", "same"]).unwrap_or_else(|f| panic!("{f}"));
     assert_eq!(addresses(&r), ["/p1", "/p2", "/p4"]);
     let alone = resolve(&files, &["same"]).unwrap_or_else(|f| panic!("{f}"));
@@ -215,9 +277,36 @@ fn a_module_whose_midi_is_the_stocks_adds_nothing() {
 fn a_module_whose_same_as_names_another_descriptor_is_refused_in_its_firmware_file() {
     let mut files = catalogue(&[]);
     add(&mut files, "acme/other-synth", device(json!({})));
-    add(&mut files, "acme/same", firmware("mod", json!({"same_as": "acme/other-synth"})));
+    add(&mut files, "acme/same", firmware("module", json!({"same_as": "acme/other-synth"})));
     let f = resolve(&files, &["same"]).expect_err("refused");
     assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/same"), "/targets/0/midi/same_as"), "{f}");
+}
+
+#[test]
+fn a_module_whose_descriptor_is_not_of_the_kind_module_is_refused_in_its_firmware_file() {
+    for kind in ["mod", "firmware", "script", "extension"] {
+        let mut files = catalogue(&[("mod-a", entries(&["/p3"]))]);
+        add(&mut files, "acme/mod-a", firmware(kind, json!({"descriptor": "acme/mod-a-midi"})));
+        let f = resolve(&files, &["mod-a"]).expect_err(kind);
+        assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/mod-a"), "/kind"), "{kind}: {f}");
+    }
+    // A firmware without `kind` is a firmware, not a module.
+    let mut files = catalogue(&[("mod-a", entries(&["/p3"]))]);
+    let mut bare = firmware("module", json!({"descriptor": "acme/mod-a-midi"}));
+    bare.as_object_mut().unwrap().remove("kind");
+    add(&mut files, "acme/mod-a", bare);
+    let f = resolve(&files, &["mod-a"]).expect_err("no kind");
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/kind"), "{f}");
+}
+
+#[test]
+fn a_stock_whose_descriptor_is_not_of_the_kind_firmware_is_refused_in_its_firmware_file() {
+    for kind in ["module", "mod"] {
+        let mut files = catalogue(&[]);
+        add(&mut files, "acme/stock", firmware(kind, json!({"descriptor": "acme/synth"})));
+        let f = resolve(&files, &[]).expect_err(kind);
+        assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/stock"), "/kind"), "{kind}: {f}");
+    }
 }
 
 #[test]
@@ -265,7 +354,7 @@ fn a_module_midi_of_another_device_or_another_maker_is_refused_in_its_own_file()
     let mut foreign = device(entries(&["/p3"]));
     foreign["midi_of"] = json!("acme/synth");
     add(&mut files, "rival/mod-x-midi", foreign);
-    add(&mut files, "acme/mod-x", firmware("mod", json!({"descriptor": "rival/mod-x-midi"})));
+    add(&mut files, "acme/mod-x", firmware("module", json!({"descriptor": "rival/mod-x-midi"})));
     let f = resolve(&files, &["mod-x"]).expect_err("another maker");
     assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("rival/mod-x-midi"), "/midi_of"), "{f}");
 }
@@ -276,7 +365,7 @@ fn a_module_midi_that_does_not_follow_the_stock_midi_is_refused() {
     let mut stray = synth();
     stray["params"]["entries"] = json!([{"osc": "/z"}]);
     add(&mut files, "acme/stray", stray);
-    add(&mut files, "acme/mod-x", firmware("mod", json!({"descriptor": "acme/stray"})));
+    add(&mut files, "acme/mod-x", firmware("module", json!({"descriptor": "acme/stray"})));
     assert!(resolve(&files, &["mod-x"]).is_err(), "a module's MIDI is a file that follows the stock's");
 }
 
@@ -286,7 +375,7 @@ fn an_assembly_that_names_a_missing_file_is_refused_at_its_link() {
     let f = resolve(&files, &["ghost"]).expect_err("refused");
     assert_eq!(f.kind, FaultKind::LinkMissing, "{f}");
     let mut files = files;
-    add(&mut files, "acme/build", assembly(json!("acme/nostock"), json!([])));
+    add(&mut files, "acme/build", assembly(json!({"firmware": "acme/nostock", "version": "1.0"}), json!([])));
     let f = osd::resolve_assembly("acme/build", None, &files).expect_err("refused");
     assert_eq!(f.kind, FaultKind::LinkMissing, "{f}");
 }
@@ -316,11 +405,11 @@ fn two_devices() -> Catalogue {
         target("acme/synth", "Synth", json!({"descriptor": "acme/synth"})),
         target("acme/keys", "Synth Keys", json!({"descriptor": "acme/keys"})),
     ])));
-    add(&mut files, "acme/mod", fw("mod", json!([
+    add(&mut files, "acme/mod", fw("module", json!([
         target("acme/synth", "Synth", json!({"descriptor": "acme/mod-synth-midi"})),
         target("acme/keys", "Synth Keys", json!({"descriptor": "acme/mod-keys-midi"})),
     ])));
-    add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(["acme/mod"])));
+    add(&mut files, "acme/build", assembly(stock_pin(), pins(&["acme/mod"])));
     files
 }
 
@@ -374,7 +463,7 @@ fn a_firmware_whose_two_targets_name_the_same_device_is_refused() {
 fn the_device_may_be_given_when_the_stock_has_one_target_and_must_then_be_its_device() {
     let files = catalogue(&[("mod-a", entries(&["/p3"]))]);
     let mut files = files;
-    add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(["acme/mod-a"])));
+    add(&mut files, "acme/build", assembly(stock_pin(), pins(&["acme/mod-a"])));
     let given = osd::resolve_assembly("acme/build", Some("acme/synth"), &files).unwrap_or_else(|f| panic!("{f}"));
     assert_eq!(addresses(&given), ["/p1", "/p2", "/p3"]);
     let f = osd::resolve_assembly("acme/build", Some("acme/elsewhere"), &files).expect_err("not its device");

@@ -183,7 +183,7 @@ A known algorithm fixes the form of the value (names read without case): `md5` 3
 
 ## The devices and base versions a firmware is made for (0.6)
 
-A 0.6 firmware descriptor (of any `kind`: `firmware`, `mod`, `script`, `extension`) names `targets`, a non-empty list; the `device`, the `based_on` and the `midi` of 0.4 and 0.5 are no longer fields of it, and a 0.6 descriptor that holds one is refused (`UnknownField`): each is written in a target. One module that runs on several devices and several base versions says so once, a target per device.
+A 0.6 firmware descriptor (of any `kind`: `firmware`, `mod`, `module`, `script`, `extension`) names `targets`, a non-empty list; the `device`, the `based_on` and the `midi` of 0.4 and 0.5 are no longer fields of it, and a 0.6 descriptor that holds one is refused (`UnknownField`): each is written in a target. One module that runs on several devices and several base versions says so once, a target per device.
 
 A target is `{device, midi, based_on, runs_on}`. `device` is `{vendor, model}` with the optional `descriptor` (`maker/file`), required. `midi` is optional and is what the firmware's `midi` was: `{descriptor, same_as, changes}`, here for this device alone. `based_on` is optional and is the lineage only: `{name, version, url}`, `name` required, `version` one text, the firmware it was forked or built from; it says nothing of what the target runs on (the model is a package manifest, which keeps a compatible range per target apart from the fork's origin). `runs_on` is optional: `{name, versions}`, `name` required, no `url`; `versions` is written in one of two forms (a `based_on` that holds `versions` is refused, `UnknownField`):
 
@@ -214,21 +214,23 @@ Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-
 
 ## The firmware a builder made: the assembly (0.6)
 
-An assembly descriptor (`schemas/0.6/assembly.schema.json`, from 0.6 only) says which firmware a person runs: a stock firmware and the modules applied to it. It is written by the builder of that firmware, for the firmware it built, as a lockfile records the exact combination a tool built. OSD does not build an assembly, does not verify that one is a sound combination and does not choose one: it reads what the builder wrote.
+An assembly descriptor (`schemas/0.6/assembly.schema.json`, from 0.6 only) says which firmware a person runs: a stock firmware and the modules applied to it, each at its exact version. It is written by the builder of that firmware, for the firmware it built, as a lockfile records the exact combination a tool built (each entry of Cargo.lock is a name and an exact version). OSD does not build an assembly, does not verify that one is a sound combination and does not choose one: it reads what the builder wrote.
+
+The kinds of firmware that an assembly uses: `firmware` is a stock firmware, the one a device ships with or a vendor releases; `mod` is a whole modified firmware, a firmware that is itself the result of changing a stock one and that is installed in its place; `module` is a plug-in applied to a stock firmware, one among several that an assembly stacks on it. An assembly's `stock` is of kind `firmware` and its modules are of kind `module`; `mod` is neither.
 
 | Field | Form | Meaning |
 |---|---|---|
 | `$schema` | the 0.6 assembly address | required |
-| `stock` | catalogue id, required | the stock firmware's descriptor (a firmware of kind `firmware`) |
-| `modules` | list of catalogue ids, required, may be empty | the modules' descriptors (firmwares of kind `mod`), in the order applied |
+| `stock` | `{firmware, version}`, required | the stock firmware: the catalogue id of its descriptor (kind `firmware`) and its exact version |
+| `modules` | list of `{module, version}`, required, may be empty | the modules: the catalogue id of each descriptor (kind `module`) and the exact version applied, in the order applied |
 
-An unknown field, an absent `stock` or `modules`, and a list that is not a list of text are refused (`UnknownField`, `Missing`, `BadValue`), by the reader and by the schema. Keys starting with `_` are notes for people.
+An unknown field, an absent `stock` or `modules`, a `stock` or a module without `version` (or `firmware`, `module`), a `stock` that is text and a list that is not a list of objects are refused (`UnknownField`, `Missing`, `BadValue`) at the address of the fault, by the reader and by the schema. Keys starting with `_` are notes for people.
 
 Resolving an assembly gives the device as that firmware speaks MIDI, by the rules of `midi_of` applied once per module, in the listed order:
 
 0. The device the assembly is resolved for is a parameter of the reader, not a field of the assembly: the descriptor id of a device (`elektron/digitone`). Each firmware of the assembly is read through its target for that device (R38). It may be left out when the stock firmware has one target.
-1. The `midi.descriptor` of the stock firmware's target for that device is resolved as a driver.
-2. Each module's firmware names, in its target for that device, its MIDI either by `midi.descriptor`, a device descriptor whose `midi_of` is the stock firmware's MIDI descriptor, or by `midi.same_as`, which must name that same descriptor. A `same_as` adds nothing; one that names another descriptor is refused (`BadValue` at `/targets/N/midi/same_as`, N the index of that target, in the module's file): the module is not made for this stock firmware.
+1. The `midi.descriptor` of the stock firmware's target for that device is resolved as a driver; a `stock.firmware` that is not of kind `firmware` is refused (`BadValue` at `/kind`, in its file).
+2. Each module's firmware (kind `module`, else refused `BadValue` at `/kind`, in its file) names, in its target for that device, its MIDI either by `midi.descriptor`, a device descriptor whose `midi_of` is the stock firmware's MIDI descriptor, or by `midi.same_as`, which must name that same descriptor. A `same_as` adds nothing; one that names another descriptor is refused (`BadValue` at `/targets/N/midi/same_as`, N the index of that target, in the module's file): the module is not made for this stock firmware.
 3. A `descriptor` adds only its own routes (the lists and tables of `midi_of`: `commands`, `custom_commands`, the `entries` of `params`, `cc_params` and `triggers`), never what its chain resolves to. Its routes follow those already there, and replace one at the same OSC address.
 4. The guards of `midi_of` hold for each module and each fault is in the module's MIDI file: a descriptor that touches more than routes, that names another maker's or another device's, or that repeats an address in its own file is refused.
 
@@ -236,13 +238,13 @@ An empty list resolves to the stock MIDI as it is. Two modules that touch the sa
 
 ```json
 {"$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
- "stock": "acme/stock",
- "modules": ["acme/mod-a", "acme/mod-b"]}
+ "stock": {"firmware": "acme/stock", "version": "1.0"},
+ "modules": [{"module": "acme/mod-a", "version": "1.3"}, {"module": "acme/mod-b", "version": "2.0"}]}
 ```
 
 With the stock MIDI `acme/synth` (routes `/p1`, `/p2`), `mod-a` whose MIDI descriptor adds `/p3` and `mod-b` whose adds `/p4`, the assembly resolves to the routes `/p1`, `/p2`, `/p3`, `/p4`.
 
-Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` and `0.6/assembly-one-module-on-digitone`, `0.6/assembly-one-module-on-digitone-keys`, `0.6/assembly-module-without-target-for-device-refused` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`, and the device in `device`).
+Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused`, `0.6/assembly-stock-version-absent-refused`, `0.6/assembly-stock-text-refused`, `0.6/assembly-module-version-absent-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` and `0.6/assembly-one-module-on-digitone`, `0.6/assembly-one-module-on-digitone-keys`, `0.6/assembly-module-without-target-for-device-refused` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`, and the device in `device`).
 
 ## The modules a sound needs and the assembly it was made on (0.6)
 
@@ -251,22 +253,27 @@ A 0.6 sound descriptor says three things about firmware, each optional and none 
 | Field | Form | Meaning |
 |---|---|---|
 | `firmware` | text | the firmware it was made on, in words, for people |
-| `modules` | list of `{module, min_version?}` | the need: the modules the sound uses, which a reader judges |
+| `needs` | list of `{module, min_version?}` | the need: the modules the sound uses, which a reader judges |
 | `made_on` | an assembly without its `$schema`, defined once in `schemas/0.6/assembly.schema.json` | the provenance: the exact assembly of its author, read as written |
 
-`module` is the catalogue id of a module's firmware descriptor; `min_version` is the least version of that module the sound needs. An empty `module` or `min_version`, an entry without `module`, and an unknown key of an entry are refused (`BadValue`, `Missing`, `UnknownField`) at the address of the fault, by the reader and by the schema; `made_on` follows the assembly's own form, and a `$schema` inside it is refused. A sound without `modules` needs no module. A descriptor of 0.4 or 0.5 refuses both fields as unknown; `osd::convert` from 0.5 adds none. The word `modules` here is what the sound needs; `requires` stays what a device's programs need first.
+`module` is the catalogue id of a module's firmware descriptor (kind `module`); `min_version` is the least version of that module the sound needs. An empty `module` or `min_version`, an entry without `module`, and an unknown key of an entry are refused (`BadValue`, `Missing`, `UnknownField`) at the address of the fault, by the reader and by the schema; `made_on` follows the assembly's own form, and a `$schema` inside it is refused. A sound without `needs` needs no module. A descriptor of 0.4 or 0.5 refuses both fields as unknown, and a 0.6 sound has no `modules` field (refused as unknown); `osd::convert` from 0.5 adds none. `requires` stays what a device's programs need first.
 
-**How a reader tells a sound playable on an assembly.** No function of the reader does it: OSD neither verifies nor chooses an assembly. A tool that holds an assembly (the `modules` of its descriptor) judges each entry of `modules`:
+`made_on.stock` is the stock firmware of the sound's `device`: the firmware that device ships with, on which the modules of `made_on.modules` were applied. The sound's `device` and `made_on.stock` are two statements of one fact; the reader does not compare them.
 
-- satisfied when its `module` figures in the `modules` of the assembly and, if `min_version` is written, when the `version` field of that module's descriptor, resolved in the catalogue, is not lower by the comparison of versions above (see the base versions of a firmware);
-- unknown when the version of the module is missing or the descriptor does not resolve: neither satisfied nor refused;
-- an entry without `min_version` asks only that the module is present.
+**How a reader tells a sound playable on an assembly.** The reader judges the needs of a sound against an assembly: `osd::judge_needs(&sound, &assembly)` gives, for each entry of `needs` in order, a verdict, and reads nothing but the two documents. A need is judged on the version the assembly pins for the module (`modules[].version`), never on a catalogue descriptor: a sound made with mod-a 1.0 on a catalogue now at 1.3 is judged on the version of the assembly asked about.
 
-The sound is playable when no entry is refused and none unknown; a tool may show the unknown ones. `made_on` never enters this judgement.
+- satisfied when its `module` figures in the `modules` of the assembly and, if `min_version` is written, when the version pinned there is not lower by the comparison of versions above (see the base versions of a firmware);
+- not satisfied when the module is absent from the assembly, or when the pinned version is lower than `min_version`;
+- unknown when the pinned version, or `min_version`, is one the comparison of versions cannot read (`nightly`): neither satisfied nor refused;
+- an entry without `min_version` asks only that the module is present, at whatever version.
 
-`firmware` is text for people, `modules` is the need the reader judges, `made_on` is the provenance. The reader does not compare them and refuses no disagreement between them.
+The sound is playable on the assembly when no need is not satisfied and none unknown; a tool may show the unknown ones. `made_on` never enters this judgement.
 
-Cases: `0.6/sound-modules-needed`, `0.6/sound-made-on-assembly`, `0.6/sound-modules-and-made-on`, `0.6/sound-modules-module-empty-refused`, `0.6/sound-modules-min-version-empty-refused`.
+*Departure from the reference.* No mature reference puts this judgement in a format's reader: Cargo judges requirements in its resolver, a tool, and toml-test and the WebAssembly specification judge only reading. OSD departs from it, by the supervisor's decision: its reader already resolves an assembly's MIDI, and a rule that two readers must apply alike is proven only by a case a reader runs. The conformance cases of the judgement (`conformance/0.6/judge_needs/<case>/`: `sound.json`, `assembly.json`, `case.json` with `judge_needs: true` and a `result` of `{module, verdict}`, the verdict being `satisfied`, `not_satisfied` or `unknown`) are run by every reader.
+
+`firmware` is text for people, `needs` is the need the reader judges, `made_on` is the provenance. The reader does not compare them and refuses no disagreement between them.
+
+Cases: `0.6/sound-needs`, `0.6/sound-made-on-assembly`, `0.6/sound-needs-and-made-on`, `0.6/sound-needs-module-empty-refused`, `0.6/sound-needs-min-version-empty-refused` (reading); `0.6/judge_needs/need-met-by-pinned-version`, `need-not-met-by-pinned-version`, `need-without-min-version-module-present`, `need-module-absent`, `need-pinned-version-unreadable` (judgement).
 
 ## The builder of a module (0.6)
 

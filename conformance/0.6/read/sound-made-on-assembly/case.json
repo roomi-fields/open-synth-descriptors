@@ -1,5 +1,5 @@
 {
-  "_about": "A sound names the exact assembly its author made it on, as written and without the assembly's own $schema. It is provenance: the reader neither resolves nor checks it.",
+  "_about": "A sound names the exact assembly its author made it on (its stock firmware, which is that of the sound's device, and its modules, each at its version), as written and without the assembly's own $schema. It is provenance: the reader neither resolves nor checks it.",
   "read": "sound",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
@@ -9,6 +9,6 @@
     "content": {
       "settings": { "/amp/attack": [90] }
     },
-    "made_on": { "stock": "acme/stock", "modules": ["acme/mod-a", "acme/mod-b"] }
+    "made_on": { "stock": { "firmware": "acme/stock", "version": "1.0" }, "modules": [{ "module": "acme/mod-a", "version": "1.0" }, { "module": "acme/mod-b", "version": "2.0" }] }
   }
 }

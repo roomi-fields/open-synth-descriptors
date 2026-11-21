@@ -403,9 +403,9 @@
         ]
       }
     },
-    "modules": {
+    "needs": {
       "type": "array",
-      "description": "The modules the sound needs, each by its catalogue id and, when it matters, the least version of it. Beside firmware, which stays words for people: the reader compares none of the two with the other, nor with made_on.",
+      "description": "The modules the sound needs, each by its catalogue id and, when it matters, the least version of it, judged against the version an assembly pins. Beside firmware, which stays words for people: the reader compares none of the two with the other, nor with made_on.",
       "items": {
         "type": "object",
         "required": [
