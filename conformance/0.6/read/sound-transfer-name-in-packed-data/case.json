@@ -1,0 +1,83 @@
+{
+  "_about": "A name inside a packed data (`in_data` {from 5, length 4} of the unpacked data) straddles two groups of eight packed bytes and shares their bytes of bits 7: two dumps that differ only by the name have one identity, two that differ by one setting have two.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 7,
+            "length": 16,
+            "packing": "msb_first_7in8"
+          },
+          "name": {
+            "in_data": {
+              "from": 5,
+              "length": 4
+            }
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 21 01 12 23 34 45 06 67 26 78 09 1a 2b 3c 5d 6e f7",
+      "identity": "2c54974e9dc2a3343b500797f20be2c6f741290b12450f6ebda0de5ee4e3898b"
+    },
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 01 12 23 34 45 41 42 24 33 04 1a 2b 3c 5d 6e f7",
+      "identity": "2c54974e9dc2a3343b500797f20be2c6f741290b12450f6ebda0de5ee4e3898b"
+    },
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 21 01 12 23 34 45 06 67 26 78 09 1a 2b 3d 5d 6e f7",
+      "identity": "26960d38590fd65da75a7385a7965377991c29aacd0c71e8275e79afc62df49f"
+    }
+  ]
+}

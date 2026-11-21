@@ -1,0 +1,9 @@
+{
+  "_about": "An `in_data` name that goes past the unpacked data (here 7 bytes of data, the name at 5 for 4) is refused at the name.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/name"
+  }
+}

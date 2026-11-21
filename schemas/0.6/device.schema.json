@@ -713,7 +713,7 @@
         "from": {
           "type": "integer",
           "minimum": 0,
-          "description": "The first byte of the place in the data of the sound (unpacked, the name left out; the first byte is 0)."
+          "description": "The first byte of the place in the data of the sound (unpacked, the name in place; the first byte is 0)."
         },
         "length": {
           "type": "integer",
@@ -787,7 +787,7 @@
           "$ref": "#/$defs/sound_data_element"
         },
         "name": {
-          "$ref": "#/$defs/sound_element"
+          "$ref": "#/$defs/sound_name_element"
         },
         "channel": {
           "$ref": "#/$defs/sound_element"
@@ -852,6 +852,46 @@
         "required": ["from", "script"]
       },
       "description": "An element found by positions ({from, length}) or by a Lua script ({script}), never both."
+    },
+    "sound_name_element": {
+      "oneOf": [
+        { "$ref": "#/$defs/sound_element" },
+        {
+          "type": "object",
+          "required": ["in_data"],
+          "properties": {
+            "in_data": {
+              "type": "object",
+              "required": ["from", "length"],
+              "properties": {
+                "from": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "The first byte of the name in the data of the sound, unpacked; the first byte is 0."
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The number of bytes of the name in the unpacked data."
+                }
+              },
+              "patternProperties": {
+                "^_": {
+                  "description": "A note for people (provenance, caveats, usage); never read by a program."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "patternProperties": {
+            "^_": {
+              "description": "A note for people (provenance, caveats, usage); never read by a program."
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "The name of the sound: found by positions in the message or by a Lua script like any element, or {in_data: {from, length}}, its place in the data of the sound unpacked (first byte 0), for a name that lies inside the data. The identity is computed with these bytes set to zero. in_data is never mixed with from, length or script, and needs a data given by positions."
     },
     "sound_data_element": {
       "type": "object",

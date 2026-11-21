@@ -182,14 +182,76 @@ fn the_elements_of_the_sound_i_of_a_bank_are_shifted_by_i_times_the_stride() {
 }
 
 #[test]
-fn a_name_inside_the_data_is_left_out_of_the_data_of_the_identity() {
-    let doc = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"from": 7, "length": 4}}))], &[]);
-    assert_eq!(identity(&doc, "single", 0, MSG), IDENTITY);
-    assert_eq!(identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7"), IDENTITY);
-    // A name in the middle of the data leaves the bytes around it, in order.
-    let mid = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"from": 9, "length": 2}}))], &[]);
-    // 41 42 | 43 44 | 05 06 07 08: the identity is that of 41 42 05 06 07 08.
-    assert_eq!(identity(&mid, "single", 0, MSG), "c2809c01715c99dc3cd106fa83d765cc01c528d685f85cb607c9c646590b077e");
+fn a_name_in_the_data_is_blanked_before_the_identity_so_the_same_sound_renamed_has_one_identity() {
+    let doc = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"in_data": {"from": 0, "length": 4}}}))], &[]);
+    let id = identity(&doc, "single", 0, MSG);
+    assert_eq!(id, "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83", "the data 00 00 00 00 05 06 07 08");
+    assert_eq!(identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7"), id);
+    assert_ne!(identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 09 00 f7"), id);
+    // A name in the middle of the data blanks its bytes and keeps the length: 41 42 00 00 05 06 07 08.
+    let mid = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"in_data": {"from": 2, "length": 2}}}))], &[]);
+    assert_eq!(identity(&mid, "single", 0, MSG), "99072e22f9e2aa94a5d4f4801086240605ad0c4fe1703f6fb4e4babf199e7dda");
+}
+
+#[test]
+fn a_name_in_a_packed_data_counts_in_the_unpacked_data_and_straddles_two_groups() {
+    let mut t = single(json!({"data": {"from": 7, "length": 16, "packing": "msb_first_7in8"}, "name": {"in_data": {"from": 5, "length": 4}}}));
+    let mut frame = vec![json!(240), json!(66), json!("any"), json!(0), json!(1), json!(81), json!(64)];
+    frame.extend(any(16));
+    frame.push(json!(247));
+    t["match_frame"] = json!(frame);
+    let doc = device(vec![t], &[]);
+    let base = identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 21 01 12 23 34 45 06 67 26 78 09 1a 2b 3c 5d 6e f7");
+    let renamed = identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 41 01 12 23 34 45 41 42 24 33 04 1a 2b 3c 5d 6e f7");
+    let other_setting = identity(&doc, "single", 0, "f0 42 3c 00 01 51 40 21 01 12 23 34 45 06 67 26 78 09 1a 2b 3d 5d 6e f7");
+    assert_eq!(base, "2c54974e9dc2a3343b500797f20be2c6f741290b12450f6ebda0de5ee4e3898b");
+    assert_eq!(renamed, base);
+    assert_eq!(other_setting, "26960d38590fd65da75a7385a7965377991c29aacd0c71e8275e79afc62df49f");
+}
+
+#[test]
+fn a_name_in_the_data_that_goes_past_the_unpacked_data_is_refused_at_the_name() {
+    let past = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"in_data": {"from": 6, "length": 4}}}))], &[]);
+    refused(&past, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+    // 8 packed bytes hold 7 data bytes: the name 5..9 goes past them.
+    let packed = device(vec![single(json!({"data": {"from": 7, "length": 8, "packing": "msb_first_7in8"}, "name": {"in_data": {"from": 5, "length": 4}}}))], &[]);
+    refused(&packed, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+    // Ending on the last byte of the unpacked data is read.
+    assert!(read(&device(vec![single(json!({"data": {"from": 7, "length": 8, "packing": "msb_first_7in8"}, "name": {"in_data": {"from": 3, "length": 4}}}))], &[])).is_ok());
+}
+
+#[test]
+fn a_name_given_by_positions_of_the_message_that_covers_the_data_is_refused() {
+    let inside = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"from": 9, "length": 2}}))], &[]);
+    refused(&inside, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+    let packed = device(vec![single(json!({"data": {"from": 7, "length": 8, "packing": "msb_first_7in8"}, "name": {"from": 7, "length": 4}}))], &[]);
+    refused(&packed, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+    let straddle = device(vec![single(json!({"data": {"from": 7, "length": 4}, "name": {"from": 9, "length": 4}}))], &[]);
+    refused(&straddle, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+}
+
+#[test]
+fn a_name_that_mixes_in_data_with_positions_or_a_script_is_refused_at_the_name() {
+    for extra in [json!({"from": 7, "length": 4}), json!({"length": 4}), json!({"script": "return msg"})] {
+        let mut name = json!({"in_data": {"from": 0, "length": 4}});
+        name.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        let doc = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": name}))], &["lua"]);
+        refused(&doc, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+    }
+}
+
+#[test]
+fn a_name_in_the_data_of_a_data_given_by_a_script_is_refused_at_the_name() {
+    let doc = device(vec![single(json!({"data": {"script": "return msg"}, "name": {"in_data": {"from": 0, "length": 4}}}))], &["lua"]);
+    refused(&doc, FaultKind::BadValue, "/sound_transfers/0/elements/name");
+}
+
+#[test]
+fn a_name_in_the_data_keeps_the_identity_computable_without_lua_and_is_written_back() {
+    let doc = device(vec![single(json!({"data": {"from": 7, "length": 8}, "name": {"in_data": {"from": 0, "length": 4}}}))], &[]);
+    assert_eq!(support(&doc), vec![("/sound_transfers/0".to_string(), true)]);
+    let out: Value = serde_json::from_str(&osd::write(&read(&doc).unwrap())).unwrap();
+    assert_eq!(out, doc);
 }
 
 #[test]
@@ -351,9 +413,10 @@ fn an_element_holding_positions_and_a_script_is_refused_where_it_is() {
 /// transfer, `{pointer, without_lua}`) and, when it computes, `identities` (`{transfer, index,
 /// message, identity}`); a refusal states its fault and whether only the reader refuses it.
 /// `(case, without_lua per transfer | fault kind, fault pointer, schema_accepts)`.
-const RESULT_CASES: [(&str, &[bool]); 7] = [
+const RESULT_CASES: [(&str, &[bool]); 8] = [
     ("sound-transfer-identity", &[true, true]),
     ("sound-transfer-name-in-data", &[true]),
+    ("sound-transfer-name-in-packed-data", &[true]),
     ("sound-transfer-packed-7bit", &[true]),
     ("sound-transfer-data-script", &[false]),
     ("sound-transfer-name-script-data-by-positions", &[true]),
@@ -361,7 +424,7 @@ const RESULT_CASES: [(&str, &[bool]); 7] = [
     ("sound-transfer-name-script-outside-data", &[true]),
 ];
 
-const REFUSED_CASES: [(&str, &str, &str, bool); 10] = [
+const REFUSED_CASES: [(&str, &str, &str, bool); 14] = [
     ("sound-transfer-element-outside-refused", "BadValue", "/sound_transfers/0/elements/data", true),
     ("sound-transfer-name-outside-refused", "BadValue", "/sound_transfers/0/elements/name", true),
     ("sound-transfer-data-empty-refused", "BadValue", "/sound_transfers/0/elements/data/length", false),
@@ -371,6 +434,10 @@ const REFUSED_CASES: [(&str, &str, &str, bool); 10] = [
     ("sound-transfer-transport-parts-overlap-refused", "BadValue", "/sound_transfers/0/elements/device_number", true),
     ("sound-transfer-positions-and-script-refused", "BadValue", "/sound_transfers/0/elements/data", false),
     ("sound-transfer-packing-outside-list-refused", "BadValue", "/sound_transfers/0/elements/data/packing", false),
+    ("sound-transfer-name-in-data-outside-refused", "BadValue", "/sound_transfers/0/elements/name", true),
+    ("sound-transfer-name-positions-over-data-refused", "BadValue", "/sound_transfers/0/elements/name", true),
+    ("sound-transfer-name-in-data-with-positions-refused", "BadValue", "/sound_transfers/0/elements/name", false),
+    ("sound-transfer-name-in-data-script-refused", "BadValue", "/sound_transfers/0/elements/name", true),
     ("capabilities-sound-transfer-script-missing-refused", "BadValue", "/capabilities", true),
 ];
 
@@ -416,9 +483,16 @@ fn a_conformance_case_gives_one_identity_for_a_message_the_same_sound_renamed_on
 #[test]
 fn the_conformance_cases_of_the_name_in_the_data_and_of_the_packing_state_their_identity() {
     let (case, doc) = case_of("sound-transfer-name-in-data");
-    assert!(case["identities"].as_array().unwrap().iter().all(|i| i["identity"] == json!(IDENTITY)));
-    let e = &doc["sound_transfers"][0]["elements"];
-    assert!(e["name"]["from"].as_u64() >= e["data"]["from"].as_u64());
+    let blanked = "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83";
+    assert!(case["identities"].as_array().unwrap().iter().all(|i| i["identity"] == json!(blanked)));
+    let e =&doc["sound_transfers"][0]["elements"];
+    assert_eq!(e["name"], json!({"in_data": {"from": 0, "length": 4}}));
+    let (case, doc) = case_of("sound-transfer-name-in-packed-data");
+    let ids = case["identities"].as_array().unwrap();
+    assert_eq!(ids.len(), 3);
+    assert_eq!(ids[0]["identity"], ids[1]["identity"], "the same sound renamed");
+    assert_ne!(ids[0]["identity"], ids[2]["identity"], "one setting differs");
+    assert_eq!(doc["sound_transfers"][0]["elements"]["data"]["packing"], "msb_first_7in8");
     let (case, doc) = case_of("sound-transfer-packed-7bit");
     assert_eq!(doc["sound_transfers"][0]["elements"]["data"]["packing"], "msb_first_7in8");
     assert_eq!(case["identities"][0]["identity"], "6946b9a650125289f56fbe6e4a9f3858c4648696ed8a443abbeb1ff1bc70f805");

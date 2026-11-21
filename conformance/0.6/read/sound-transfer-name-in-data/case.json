@@ -1,5 +1,5 @@
 {
-  "_about": "The name lies inside the data element: the data of the identity leaves it out, so the same sound renamed has the same identity.",
+  "_about": "The name lies inside the unpacked data (`in_data`, from 0): the identity blanks its bytes (set to zero, the length kept), so the same sound renamed has the same identity.",
   "read": "device",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/device.schema.json",
@@ -37,8 +37,10 @@
             "length": 8
           },
           "name": {
-            "from": 7,
-            "length": 4
+            "in_data": {
+              "from": 0,
+              "length": 4
+            }
           }
         }
       }
@@ -55,13 +57,13 @@
       "transfer": "single",
       "index": 0,
       "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
-      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+      "identity": "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83"
     },
     {
       "transfer": "single",
       "index": 0,
       "message": "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7",
-      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+      "identity": "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83"
     }
   ]
 }

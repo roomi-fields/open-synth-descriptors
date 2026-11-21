@@ -1,0 +1,8 @@
+{
+  "_about": "A name that mixes `in_data` with `from` and `length` is refused by the schema, at the name.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/name"
+  }
+}

@@ -1,8 +1,10 @@
 //! What in a message is the sound (0.6): `sound_transfers[]`, per form a sound travels in
 //! (alone, in a bank), the elements of its message (the data, the name, the transport parts)
-//! and the identity of a sound, the SHA-256 of its data element alone.
+//! and the identity of a sound, the SHA-256 of its data element alone, a name inside the data
+//! blanked.
 //!
-//! An element is found by positions (`{from, length}`, `F0` is 0) or by a Lua script. The
+//! An element is found by positions (`{from, length}`, `F0` is 0) or by a Lua script; a name
+//! inside the data is `{in_data: {from, length}}`, counted in the data unpacked from 0. The
 //! message of a transfer is as long as its `match_frame`, which holds one token per byte.
 
 use crate::frame::{FramePart, FrameToken};
@@ -31,7 +33,15 @@ words! {
 }
 
 object! {
-    /// An element of a message: positions, or a Lua script.
+    /// Where a name lies in the data of the sound, unpacked, the first byte being 0.
+    InData {
+        "from" from: i64 = at_least(0),
+        "length" length: i64 = at_least(1),
+    }
+}
+
+object! {
+    /// An element of a message: positions, or a Lua script; a name may instead lie in the data.
     Element {
         /// The first byte in the message (`F0` is 0).
         "from" from: Option<i64> = Opt(at_least(0)),
@@ -40,6 +50,8 @@ object! {
         "script" script: Option<String> = Opt(STRING),
         /// The packing of the data (the data element only).
         "packing" packing: Option<Packing> = Opt(closed()),
+        /// The name only: its place in the data, unpacked (never with positions or a script).
+        "in_data" in_data: Option<InData> = Opt(obj()),
     }
     check check_element
 }
@@ -68,7 +80,7 @@ object! {
 }
 
 object! {
-    /// A control and where its value lies in the data of the sound (unpacked, the name left out,
+    /// A control and where its value lies in the data of the sound (unpacked, the name in place,
     /// the first byte being 0): whole bytes `{from, length}`, the first byte the highest, or bits
     /// of them (`bits`), or 7-bit words (`bits_per_byte`: 7), or a Lua script. The reader reads whole
     /// bytes only.
@@ -139,16 +151,11 @@ fn check_setting(s: &SoundSetting, at: &At) -> Result<(), Fault> {
     Ok(())
 }
 
-/// The length of the data of a sound once unpacked and the name left out, when the data is
+/// The length of the data of a sound once unpacked (the name included), when the data is
 /// found by positions.
 fn data_length(t: &SoundTransfer) -> Option<usize> {
-    let (from, length) = span(&t.elements.data)?;
+    let (_, length) = span(&t.elements.data)?;
     let mut n = length;
-    if let Some((nf, nl)) = t.elements.name.as_ref().and_then(span) {
-        if nf >= from && nf + nl <= from + length {
-            n -= nl;
-        }
-    }
     if t.elements.data.packing == Some(Packing::MsbFirst7In8) {
         n -= n.div_ceil(8);
     }
@@ -161,6 +168,13 @@ fn fault(kind: FaultKind, pointer: String, rule: impl Into<String>) -> Fault {
 
 fn check_element(e: &Element, at: &At) -> Result<(), Fault> {
     let bad = |rule: &str| fault(FaultKind::BadValue, at.pointer(), rule);
+    if e.in_data.is_some() {
+        return if e.from.is_some() || e.length.is_some() || e.script.is_some() || e.packing.is_some() {
+            Err(bad("in_data places the name in the data: no positions of the message, no script, no packing"))
+        } else {
+            Ok(())
+        };
+    }
     match (e.from, e.length, &e.script) {
         (Some(_), Some(_), None) => Ok(()),
         (None, None, Some(_)) if e.packing.is_none() => Ok(()),
@@ -200,6 +214,13 @@ impl SoundTransfer {
 
 fn check_elements(e: &Elements, at: &At) -> Result<(), Fault> {
     for (name, el) in e.named().into_iter().skip(1) {
+        if name != "name" && el.is_some_and(|el| el.in_data.is_some()) {
+            return Err(fault(
+                FaultKind::UnknownField,
+                format!("{}/{name}/in_data", at.pointer()),
+                "in_data is a field of the name only",
+            ));
+        }
         if el.is_some_and(|el| el.packing.is_some()) {
             return Err(fault(
                 FaultKind::UnknownField,
@@ -271,13 +292,23 @@ fn check_transfer(t: &SoundTransfer, at: &At) -> Result<(), Fault> {
     }
     if let (Some(d), Some(nm)) = (data, t.elements.name.as_ref().and_then(span)) {
         if overlap(d, nm) {
-            let inside = d.0 <= nm.0 && nm.0 + nm.1 <= d.0 + d.1;
-            if !inside {
-                return Err(fault(FaultKind::BadValue, at_element("name"), "the name straddles the end of the data"));
-            }
-            if t.elements.data.packing == Some(Packing::MsbFirst7In8) {
-                return Err(fault(FaultKind::BadValue, at_element("name"), "the name lies inside a packed data: it cannot be left out"));
-            }
+            return Err(fault(
+                FaultKind::BadValue,
+                at_element("name"),
+                "the name overlaps the data: a name that lies in the data is given by in_data",
+            ));
+        }
+    }
+    if let Some(inner) = t.elements.name.as_ref().and_then(|n| n.in_data.as_ref()) {
+        let Some(dlen) = data_length(t) else {
+            return Err(fault(FaultKind::BadValue, at_element("name"), "in_data needs a data given by positions: a script may leave the name aside"));
+        };
+        if (inner.from + inner.length) as usize > dlen {
+            return Err(fault(
+                FaultKind::BadValue,
+                at_element("name"),
+                format!("the name reaches past the data of {dlen} byte(s) (unpacked)"),
+            ));
         }
     }
     if t.elements.data.packing == Some(Packing::MsbFirst7In8) && d_len(data) % 8 == 1 {
@@ -294,7 +325,7 @@ fn check_transfer(t: &SoundTransfer, at: &At) -> Result<(), Fault> {
                     return Err(fault(
                         FaultKind::BadValue,
                         format!("{base}/settings/{m}"),
-                        format!("the place reaches past the data of {dlen} byte(s) (unpacked, the name left out)"),
+                        format!("the place reaches past the data of {dlen} byte(s) (unpacked, the name included)"),
                     ));
                 }
             }
@@ -345,15 +376,19 @@ pub fn sound_identity_support(device: &Device) -> Vec<IdentitySupport> {
 
 /// The identity of the sound `index` of a message of the transfer `transfer`: the SHA-256 of
 /// its data element alone, in 64 lowercase hexadecimal digits. The name, device number, channel,
-/// header, checksum, bank and program stay out; a name inside the data is left out of it.
+/// header, checksum, bank and program stay out; a name inside the data (`in_data`) is blanked in it: its bytes, unpacked, set to zero.
 /// A message that the transfer's `match_frame` does not recognise, a transfer the device does
 /// not have, an index past the bank, and a transfer whose identity needs Lua are refused.
 pub fn sound_identity(device: &Device, transfer: &str, message: &[u8], index: usize) -> Result<String, Fault> {
-    let (_, data) = sound_data(device, transfer, message, index)?;
+    let (t, mut data) = sound_data(device, transfer, message, index)?;
+    if let Some(inner) = t.elements.name.as_ref().and_then(|n| n.in_data.as_ref()) {
+        let (from, length) = (inner.from as usize, inner.length as usize);
+        data[from..from + length].fill(0);
+    }
     Ok(Sha256::digest(&data).iter().map(|b| format!("{b:02x}")).collect())
 }
 
-/// The transfer `transfer` and the data of the sound `index` of `message`: unpacked, the name left out.
+/// The transfer `transfer` and the data of the sound `index` of `message`: unpacked, the name in place.
 fn sound_data<'d>(device: &'d Device, transfer: &str, message: &[u8], index: usize) -> Result<(&'d SoundTransfer, Vec<u8>), Fault> {
     let none = || fault(FaultKind::BadValue, String::new(), format!("the device has no sound transfer `{transfer}`"));
     let (i, t) = device.sound_transfers.iter().flatten().enumerate().find(|(_, t)| t.id == transfer).ok_or_else(none)?;
@@ -384,12 +419,6 @@ fn sound_data<'d>(device: &'d Device, transfer: &str, message: &[u8], index: usi
     let (from, length) = span(&t.elements.data).expect("a data without script has positions");
     let (from, length) = (from + shift, length);
     let mut data: Vec<u8> = message[from..from + length].to_vec();
-    if let Some((nf, nl)) = t.elements.name.as_ref().and_then(span) {
-        let (nf, nl) = (nf + shift, nl);
-        if nf >= from && nf + nl <= from + length {
-            data.drain(nf - from..nf - from + nl);
-        }
-    }
     if t.elements.data.packing == Some(Packing::MsbFirst7In8) {
         data = unpack_msb_first_7in8(&data);
     }

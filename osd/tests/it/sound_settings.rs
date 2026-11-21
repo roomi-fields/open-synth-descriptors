@@ -170,13 +170,18 @@ fn the_name_the_header_the_channel_and_the_checksum_are_not_read_as_settings() {
 }
 
 #[test]
-fn a_name_inside_the_data_is_left_out_of_the_data_the_places_count_in() {
+fn a_name_in_the_data_stays_in_place_for_the_places_which_count_from_0_in_the_unpacked_data() {
     let mut t = placed();
     t["elements"]["data"] = json!({"from": 7, "length": 8});
+    t["elements"]["name"] = json!({"in_data": {"from": 0, "length": 4}});
     t["elements"].as_object_mut().unwrap().remove("checksum");
-    let got = settings(&device(vec![t], &[]), "single", 0, MSG);
-    assert_eq!(got[0], row("/cc_params/entries/0", "/Filter/Cutoff", 0x0506));
-    assert_eq!(got.len(), 3);
+    t["settings"] = json!([place("/cc_params/entries/0", 4, 2), place("/cc_params/entries/1", 6, 2)]);
+    let doc = device(vec![t], &[]);
+    // 41 42 43 44 | 05 06 07 08: the place 4 is after the name, which counts.
+    let got = settings(&doc, "single", 0, MSG);
+    assert_eq!(got, vec![row("/cc_params/entries/0", "/Filter/Cutoff", 0x0506), row("/cc_params/entries/1", "/Filter/Envelope/AttackTime", 0x0708)]);
+    // The value of a setting outside the name does not change when the name changes.
+    assert_eq!(settings(&doc, "single", 0, "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7"), got);
 }
 
 #[test]
@@ -273,7 +278,7 @@ fn a_place_ending_on_the_last_byte_of_the_data_is_read() {
 }
 
 #[test]
-fn a_place_is_judged_against_the_data_unpacked_and_without_its_name() {
+fn a_place_is_judged_against_the_data_unpacked_the_name_included() {
     let mut t = single(json!([place("/cc_params/entries/0", 5, 2)]));
     t["elements"] = json!({"data": {"from": 7, "length": 8, "packing": "msb_first_7in8"}});
     // 8 packed bytes are 7 data bytes: 5 + 2 reaches the end.
@@ -281,7 +286,10 @@ fn a_place_is_judged_against_the_data_unpacked_and_without_its_name() {
     t["settings"] = json!([place("/cc_params/entries/0", 6, 2)]);
     refused(&device(vec![t], &[]), FaultKind::BadValue, "/sound_transfers/0/settings/0");
     let mut named = single(json!([place("/cc_params/entries/0", 3, 2)]));
-    named["elements"] = json!({"data": {"from": 7, "length": 8}, "name": {"from": 7, "length": 4}});
+    named["elements"] = json!({"data": {"from": 7, "length": 8}, "name": {"in_data": {"from": 0, "length": 4}}});
+    // The data is 8 bytes, the name counted: 3 + 2 is inside, 7 + 2 is past.
+    assert!(read(&device(vec![named.clone()], &[])).is_ok());
+    named["settings"] = json!([place("/cc_params/entries/0", 7, 2)]);
     refused(&device(vec![named], &[]), FaultKind::BadValue, "/sound_transfers/0/settings/0");
 }
 
