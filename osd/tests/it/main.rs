@@ -34,6 +34,7 @@ mod resolution_rules;
 mod resources;
 mod resolve_assembly;
 mod resolve_capabilities;
+mod resolve_controls_after_merge;
 mod resolve_midi_of_06;
 mod resolve_versions;
 mod role_path_vocabulary;

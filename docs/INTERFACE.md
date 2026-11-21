@@ -315,9 +315,9 @@ Cases: `0.5/midi-of-routes-appended`, `0.6/midi-of-custom-commands-with-lua`, `0
 
 ### R4 — A file with `midi_of` adds entries to the route tables of its target
 
-The tables are `params`, `cc_params` and `triggers`; only their `entries` are added, after the target's. A table the target does not have is taken from the file as it is. In 0.6 the `params` of a file with `midi_of` needs `entries` only, its message shape (`get_frame`, `set_frame`, `value_type`) coming from the target; a `params` taken as it is must then hold the three keys, and without one the resolution is refused as `Missing` at `/params/<key>`, in the file. A file without `midi_of` keeps the three keys required.
+The tables are `params`, `cc_params` and `triggers`; only their `entries` are added, after the target's. A table the target does not have is taken from the file as it is. In 0.6 the `params` of a file with `midi_of` needs `entries` only, its message shape (`get_frame`, `set_frame`, `value_type`) coming from the target; a `params` taken as it is must then hold the three keys, and without one the resolution is refused as `Missing` at `/params/<key>`, in the file. A file without `midi_of` keeps the three keys required. In 0.6 the `control` of a setting of a sound transfer is judged against the merged tables, whether or not the merged document keeps `midi_of`: a control that names an entry they lack is refused as `BadValue` at the `control`, in the file that writes it.
 
-Cases: `0.5/midi-of-routes-appended`, `0.5/midi-of-table-absent-in-target`, `0.6/midi-of-params-entries-added`, `0.6/midi-of-params-without-target-frames-refused`
+Cases: `0.5/midi-of-routes-appended`, `0.5/midi-of-table-absent-in-target`, `0.6/midi-of-params-entries-added`, `0.6/midi-of-params-without-target-frames-refused`, `0.6/midi-of-absent-control-refused`
 
 ### R5 — At the same OSC address the route of the file wins
 

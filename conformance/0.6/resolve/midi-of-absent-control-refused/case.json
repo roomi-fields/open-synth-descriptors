@@ -1,0 +1,9 @@
+{
+  "_about": "A setting of a sound transfer whose control names an entry absent from the tables of the target is refused, in the target's file, though the merged document keeps midi_of.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/b",
+    "pointer": "/sound_transfers/0/settings/0/control"
+  }
+}
