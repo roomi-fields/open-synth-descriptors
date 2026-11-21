@@ -179,15 +179,15 @@ fn the_0_6_device_schema_forbids_a_repeated_capabilities_entry() {
 }
 
 #[test]
-fn the_0_6_schemas_are_the_five_of_the_version_with_their_w3id_ids_and_no_checksum_line() {
+fn the_0_6_schemas_are_the_six_of_the_version_with_their_w3id_ids_and_no_checksum_line() {
     let schemas = common::repo().join("schemas/0.6");
-    for (_, n) in KINDS {
+    for n in ["device", "profile", "sound", "fingerprint", "firmware", "assembly"] {
         let schema = value(&std::fs::read_to_string(schemas.join(format!("{n}.schema.json"))).unwrap());
         assert_eq!(schema["$id"], address("0.6", n), "{n}");
     }
     let files = std::fs::read_dir(&schemas).unwrap().count();
-    assert_eq!(files, 5);
-    // The five compile as JSON Schema.
+    assert_eq!(files, 6);
+    // The six compile as JSON Schema.
     let _ = common::Schemas::load("0.6");
     let sums = file("schemas/SHA256SUMS");
     assert!(!sums.lines().any(|l| l.contains("0.6/")), "a 0.6 line in SHA256SUMS");

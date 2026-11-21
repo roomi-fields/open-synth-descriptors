@@ -7,7 +7,7 @@ reader in any language runs them; `osd` runs them with `cargo test -p osd`.
 
 - `descriptor.json`: the text the case reads, kept as written.
 - `case.json`: `read`, the kind of descriptor it is (`device`, `profile`,
-  `sound`, `fingerprint` or `firmware`); `_about`, what the case shows; then
+  `sound`, `fingerprint`, `firmware` or, from 0.6, `assembly`); `_about`, what the case shows; then
   one of:
   - `result`: the descriptor written back, equal to the reader's, key order
     aside, each number written as the result writes it (`1`, not `1.0`);
@@ -57,7 +57,10 @@ descriptor validates against the schema and only the reader refuses it.
 
 - `files/<maker>/<name>.json`: the catalogue the case reads, each file by
   its catalogue id (`acme/synth`, `acme/_profile.keys`).
-- `case.json`: `resolve`, the id of the driver resolved; `_about`, what the
+- `case.json`: `resolve`, the id of the driver resolved, or (0.6)
+  `resolve_assembly`, the id of the assembly whose MIDI is resolved (the
+  stock firmware's, then each module's own routes in the listed order);
+  `_about`, what the
   case shows; then one of:
   - `result`: the resolved device, equal to the reader's, key order aside;
     with `inherited`, the capabilities the merge requires that the driver's

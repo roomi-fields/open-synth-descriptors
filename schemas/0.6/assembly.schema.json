@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/osd/0.6/assembly.schema.json",
+  "title": "OSD assembly descriptor 0.6",
+  "description": "A firmware a person runs, as its builder wrote it: a stock firmware and the modules applied to it, in order, each by its catalogue id. Its MIDI is the stock firmware's followed by what each module adds. The builder of the firmware writes it; OSD never builds, checks nor chooses one.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "stock",
+    "modules"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people; never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "https://w3id.org/osd/0.6/assembly.schema.json"
+    },
+    "stock": {
+      "description": "The catalogue id of the stock firmware's descriptor (a firmware descriptor of kind firmware).",
+      "type": "string"
+    },
+    "modules": {
+      "description": "The catalogue ids of the modules' firmware descriptors (kind mod), in the order they are applied. May be empty.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

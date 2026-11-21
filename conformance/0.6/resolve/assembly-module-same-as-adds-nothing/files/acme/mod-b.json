@@ -1,0 +1,8 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Mod B",
+  "version": "1.0",
+  "kind": "mod",
+  "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}}],
+  "midi": {"descriptor": "acme/mod-b-midi"}
+}

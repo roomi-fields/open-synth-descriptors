@@ -84,15 +84,19 @@ impl Schemas {
             let text = std::fs::read_to_string(dir.join(format!("{kind}.schema.json"))).unwrap();
             serde_json::from_str(&text).unwrap()
         };
-        let kinds = [
+        let mut kinds = vec![
             (osd::Kind::Device, "device"),
             (osd::Kind::Profile, "profile"),
             (osd::Kind::Sound, "sound"),
             (osd::Kind::Fingerprint, "fingerprint"),
             (osd::Kind::Firmware, "firmware"),
         ];
+        // The assembly exists from 0.6.
+        if dir.join("assembly.schema.json").exists() {
+            kinds.push((osd::Kind::Assembly, "assembly"));
+        }
         let mut registry = jsonschema::Registry::new();
-        for (_, name) in kinds {
+        for (_, name) in &kinds {
             let schema = read(name);
             let id = schema["$id"].as_str().unwrap().to_string();
             registry = registry.add(id, schema).unwrap();

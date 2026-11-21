@@ -18,6 +18,7 @@ mod frame;
 mod json;
 mod resolve;
 mod resource;
+mod assembly;
 mod role;
 mod role_vocabulary;
 mod sound;
@@ -38,6 +39,7 @@ pub use firmware::{
     compare_versions, version_in_target, BaseVersions, BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install,
     Release, Target, TargetBase, VersionRange,
 };
+pub use assembly::{resolve_assembly, Assembly};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
 pub use file_write::{Coding, FileItem, NumberAs, ReplyToken, SendToken, Step, StepKind};
@@ -64,6 +66,8 @@ pub enum Kind {
     Sound,
     Fingerprint,
     Firmware,
+    /// A stock firmware and the modules applied to it (from 0.6).
+    Assembly,
 }
 
 /// A version of the format.
@@ -127,6 +131,7 @@ pub enum Descriptor {
     Sound(Box<Sound>),
     Fingerprint(Box<Fingerprint>),
     Firmware(Box<Firmware>),
+    Assembly(Box<Assembly>),
 }
 
 impl Descriptor {
@@ -137,6 +142,7 @@ impl Descriptor {
             Descriptor::Sound(_) => Kind::Sound,
             Descriptor::Fingerprint(_) => Kind::Fingerprint,
             Descriptor::Firmware(_) => Kind::Firmware,
+            Descriptor::Assembly(_) => Kind::Assembly,
         }
     }
 }
@@ -236,6 +242,7 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
         Kind::Sound => Descriptor::Sound(Box::new(Sound::read(v, &at)?)),
         Kind::Fingerprint => Descriptor::Fingerprint(Box::new(Fingerprint::read(v, &at)?)),
         Kind::Firmware => Descriptor::Firmware(Box::new(Firmware::read(v, &at)?)),
+        Kind::Assembly => Descriptor::Assembly(Box::new(Assembly::read(v, &at)?)),
     })
 }
 
@@ -248,6 +255,7 @@ pub fn write(d: &Descriptor) -> String {
         Descriptor::Sound(x) => x.write(),
         Descriptor::Fingerprint(x) => x.write(),
         Descriptor::Firmware(x) => x.write(),
+        Descriptor::Assembly(x) => x.write(),
     };
     let mut out = serde_json::to_string_pretty(&v).unwrap_or_default();
     out.push('\n');
@@ -334,13 +342,14 @@ fn names() -> String {
 
 impl Descriptor {
     /// The version its `$schema` names, when it carries one.
-    fn schema(&self) -> Option<Version> {
+    pub fn schema(&self) -> Option<Version> {
         match self {
             Descriptor::Device(x) => x.schema,
             Descriptor::Profile(x) => x.schema,
             Descriptor::Sound(x) => x.schema,
             Descriptor::Fingerprint(x) => x.schema,
             Descriptor::Firmware(x) => x.schema,
+            Descriptor::Assembly(x) => x.schema,
         }
     }
 }
@@ -351,7 +360,8 @@ impl Descriptor {
 pub fn declared_kind(text: &str) -> Option<Kind> {
     let v: Value = serde_json::from_str(text).ok()?;
     let s = v.get("$schema")?.as_str()?;
-    const KINDS: [(&str, Kind); 5] = [
+    const KINDS: [(&str, Kind); 6] = [
+        ("assembly", Kind::Assembly),
         ("device", Kind::Device),
         ("profile", Kind::Profile),
         ("sound", Kind::Sound),
@@ -447,6 +457,7 @@ fn kind_name(kind: Kind) -> &'static str {
         Kind::Sound => "sound",
         Kind::Fingerprint => "fingerprint",
         Kind::Firmware => "firmware",
+        Kind::Assembly => "assembly",
     }
 }
 

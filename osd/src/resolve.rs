@@ -28,6 +28,20 @@ impl Files for std::collections::HashMap<String, String> {
     }
 }
 
+/// The files of a catalogue, with the text of one id replaced: how an assembly
+/// has a module's MIDI follow the MIDI accumulated before it.
+pub(crate) struct Overlay<'a> {
+    pub base: &'a dyn Files,
+    pub id: &'a str,
+    pub text: String,
+}
+
+impl Files for Overlay<'_> {
+    fn get(&self, id: &str) -> Option<String> {
+        if id == self.id { Some(self.text.clone()) } else { self.base.get(id) }
+    }
+}
+
 /// A device with its shared MIDI and maker profiles applied.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Resolved {
@@ -129,7 +143,7 @@ fn maker_of(id: &str) -> Option<&str> {
 }
 
 /// The document of file `id` and its strict reading as a `kind`, noted as read.
-fn fetch(id: &str, files: &dyn Files, kind: Kind, read: &mut Vec<String>) -> Result<Option<(Value, Descriptor)>, Fault> {
+pub(crate) fn fetch(id: &str, files: &dyn Files, kind: Kind, read: &mut Vec<String>) -> Result<Option<(Value, Descriptor)>, Fault> {
     let Some(text) = files.get(id) else { return Ok(None) };
     let doc: Value = serde_json::from_str(&text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()).in_file(id))?;
     let typed = read_value(&doc, kind).map_err(|f| f.in_file(id))?;

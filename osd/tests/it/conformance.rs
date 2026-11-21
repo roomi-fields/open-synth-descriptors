@@ -24,8 +24,12 @@ fn files(dir: &Path) -> BTreeMap<String, String> {
 /// What a resolution case asked for that the reader did not return, if anything.
 fn run_resolve(dir: &Path) -> Option<String> {
     let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
-    let id = case["resolve"].as_str().unwrap();
-    let got = osd::resolve(id, &files(&dir.join("files")));
+    // `resolve_assembly` names an assembly instead of a driver: its MIDI is resolved, not a driver's.
+    let files = files(&dir.join("files"));
+    let got = match case["resolve_assembly"].as_str() {
+        Some(id) => osd::resolve_assembly(id, &files),
+        None => osd::resolve(case["resolve"].as_str().unwrap(), &files),
+    };
     match (got, case.get("result"), case.get("fault")) {
         (Ok(r), Some(want), None) => {
             let doc: Value = serde_json::from_str(&osd::write(&osd::Descriptor::Device(Box::new(r.device)))).unwrap();
@@ -54,6 +58,7 @@ fn kind(word: &str) -> osd::Kind {
         "sound" => osd::Kind::Sound,
         "fingerprint" => osd::Kind::Fingerprint,
         "firmware" => osd::Kind::Firmware,
+        "assembly" => osd::Kind::Assembly,
         _ => panic!("{word} is not a kind"),
     }
 }
@@ -567,12 +572,12 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
-    every_case(&common::repo().join("conformance/0.6/read"), 68, run_read);
+    every_case(&common::repo().join("conformance/0.6/read"), 72, run_read);
 }
 
 #[test]
 fn every_resolution_case_of_0_6_passes() {
-    every_case(&common::repo().join("conformance/0.6/resolve"), 15, run_resolve);
+    every_case(&common::repo().join("conformance/0.6/resolve"), 22, run_resolve);
 }
 
 #[test]
@@ -588,13 +593,46 @@ fn every_file_of_a_0_6_resolution_case_that_expects_a_result_validates_against_t
         for (id, text) in files(&case.join("files")) {
             let doc: Value = serde_json::from_str(&text).unwrap();
             let schemas = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.5/")) { &s5 } else { &s6 };
-            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::declared_kind(&text).unwrap_or(osd::Kind::Device) };
             if let Some(e) = schemas.check(kind, &doc) {
                 failures.push(format!("{}: {id}: {e}", case.file_name().unwrap().to_string_lossy()));
             }
         }
     }
     common::report("files do not validate", failures);
+}
+
+#[test]
+fn the_assembly_cases_of_0_6_hold_the_order_the_empty_list_the_same_as_rule_the_shared_address_and_the_guard() {
+    let resolve = common::repo().join("conformance/0.6/resolve");
+    let read = common::repo().join("conformance/0.6/read");
+    let spec = |root: &Path, n: &str| -> Value {
+        let text = std::fs::read_to_string(root.join(n).join("case.json")).unwrap_or_else(|_| panic!("no case {n}"));
+        serde_json::from_str(&text).unwrap()
+    };
+    let entries = |v: &Value| -> Vec<String> { v["result"]["params"]["entries"].as_array().unwrap().iter().map(|e| e["osc"].as_str().unwrap().to_string()).collect() };
+    for n in ["assembly-stock-and-two-modules-in-order", "assembly-module-same-as-adds-nothing", "assembly-no-modules", "assembly-two-modules-same-address-no-refusal"] {
+        let s = spec(&resolve, n);
+        assert!(s["resolve_assembly"].is_string() && s.get("result").is_some(), "{n} resolves an assembly into a result");
+    }
+    assert_eq!(entries(&spec(&resolve, "assembly-stock-and-two-modules-in-order")), ["/p1", "/p2", "/p3", "/p4"]);
+    assert_eq!(entries(&spec(&resolve, "assembly-module-same-as-adds-nothing")), entries(&spec(&resolve, "assembly-no-modules")));
+    let shared = entries(&spec(&resolve, "assembly-two-modules-same-address-no-refusal"));
+    assert_eq!(shared.iter().filter(|a| a.as_str() == "/p3").count(), 1, "one route at the shared address: {shared:?}");
+    for (n, kind) in [("assembly-module-same-as-another-refused", "BadValue"), ("assembly-module-midi-guard-refused", "UnknownField")] {
+        let s = spec(&resolve, n);
+        assert!(s["resolve_assembly"].is_string() && s.get("result").is_none(), "{n} is refused");
+        assert_eq!(s["fault"]["kind"], kind, "{n}");
+        assert!(s["fault"]["file"].is_string() && s["fault"]["pointer"].is_string(), "{n}");
+    }
+    let valid = spec(&read, "assembly");
+    assert_eq!(valid["read"], "assembly");
+    assert!(valid.get("result").is_some());
+    for n in ["assembly-stock-absent-refused", "assembly-unknown-field-refused", "assembly-modules-malformed-refused"] {
+        let s = spec(&read, n);
+        assert_eq!(s["read"], "assembly", "{n}");
+        assert!(s.get("fault").is_some(), "{n}");
+    }
 }
 
 #[test]

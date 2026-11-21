@@ -6,7 +6,7 @@
 
 ## Receives
 
-- **R2** The text of a descriptor file, and the kind expected (device, profile, sound, fingerprint, firmware) or the kind its `$schema` declares.
+- **R2** The text of a descriptor file, and the kind expected (device, profile, sound, fingerprint, firmware, assembly) or the kind its `$schema` declares.
 - **R3** For resolution, a file source: an object that returns the text of a descriptor named by its catalogue id (`maker/name`), or says it has none.
 
 ## Returns

@@ -1,0 +1,9 @@
+{
+  "_about": "An assembly names a stock firmware and the modules applied, in order, each by its catalogue id; it is read as written.",
+  "read": "assembly",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
+    "stock": "acme/stock",
+    "modules": ["acme/mod-a", "acme/mod-b"]
+  }
+}

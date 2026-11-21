@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {"name": "Synth", "osc_prefix": "/synth"},
+  "midi_of": "acme/synth",
+  "params": {"entries": [{"osc": "/p3", "p": 2}]}
+}

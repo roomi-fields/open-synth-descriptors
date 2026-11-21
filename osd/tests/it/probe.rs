@@ -12,7 +12,7 @@ use osd::{Kind, Version};
 use serde_json::Value;
 use std::path::Path;
 
-const ALL_KINDS: [Kind; 5] = [Kind::Device, Kind::Profile, Kind::Sound, Kind::Fingerprint, Kind::Firmware];
+const ALL_KINDS: [Kind; 6] = [Kind::Device, Kind::Profile, Kind::Sound, Kind::Fingerprint, Kind::Firmware, Kind::Assembly];
 
 fn word(kind: Kind) -> &'static str {
     match kind {
@@ -21,6 +21,7 @@ fn word(kind: Kind) -> &'static str {
         Kind::Sound => "sound",
         Kind::Fingerprint => "fingerprint",
         Kind::Firmware => "firmware",
+        Kind::Assembly => "assembly",
     }
 }
 

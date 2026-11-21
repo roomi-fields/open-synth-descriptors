@@ -6,7 +6,7 @@ The specification publishes three things: the schemas of each version, their per
 
 | Published | Form | Where |
 |---|---|---|
-| schemas | JSON Schema 2020-12, one file per kind: `device`, `profile`, `sound`, `fingerprint`, `firmware` | `schemas/<version>/<kind>.schema.json` |
+| schemas | JSON Schema 2020-12, one file per kind: `device`, `profile`, `sound`, `fingerprint`, `firmware`, and from 0.6 `assembly` | `schemas/<version>/<kind>.schema.json` |
 | addresses | from 0.5, `https://w3id.org/osd/<version>/<kind>.schema.json`, redirecting to the schemas served by this repository's GitHub Pages; 0.1 to 0.4 at `https://synthhub.roomi-fields.com/osd/<version>/` | the `$id` of each schema |
 | conformance cases | one folder per case: input descriptors, linked files, and the expected result or fault | `conformance/<version>/` |
 | changes | what changed from the previous version, and how to convert | `README.md`, section Versions |
@@ -206,6 +206,37 @@ How two base versions compare: the text splits on `.`; each component is a numbe
 Conversion: a 0.5 firmware (a 0.4 one passes through 0.5) with one `device` and one `based_on` becomes one target: `device` as it is, `based_on.version` the list of one version; without `based_on`, a target without base versions. Conversion goes forward only: a 0.6 descriptor converts to itself and never back.
 
 Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`.
+
+## The firmware a builder made: the assembly (0.6)
+
+An assembly descriptor (`schemas/0.6/assembly.schema.json`, from 0.6 only) says which firmware a person runs: a stock firmware and the modules applied to it. It is written by the builder of that firmware, for the firmware it built, as a lockfile records the exact combination a tool built. OSD does not build an assembly, does not verify that one is a sound combination and does not choose one: it reads what the builder wrote.
+
+| Field | Form | Meaning |
+|---|---|---|
+| `$schema` | the 0.6 assembly address | required |
+| `stock` | catalogue id, required | the stock firmware's descriptor (a firmware of kind `firmware`) |
+| `modules` | list of catalogue ids, required, may be empty | the modules' descriptors (firmwares of kind `mod`), in the order applied |
+
+An unknown field, an absent `stock` or `modules`, and a list that is not a list of text are refused (`UnknownField`, `Missing`, `BadValue`), by the reader and by the schema. Keys starting with `_` are notes for people.
+
+Resolving an assembly gives the device as that firmware speaks MIDI, by the rules of `midi_of` applied once per module, in the listed order:
+
+1. The stock firmware's `midi.descriptor` is resolved as a driver.
+2. Each module's firmware names its MIDI either by `midi.descriptor`, a device descriptor whose `midi_of` is the stock firmware's MIDI descriptor, or by `midi.same_as`, which must name that same descriptor. A `same_as` adds nothing; one that names another descriptor is refused (`BadValue` at `/midi/same_as`, in the module's file): the module is not made for this stock firmware.
+3. A `descriptor` adds only its own routes (the lists and tables of `midi_of`: `commands`, `custom_commands`, the `entries` of `params`, `cc_params` and `triggers`), never what its chain resolves to. Its routes follow those already there, and replace one at the same OSC address.
+4. The guards of `midi_of` hold for each module and each fault is in the module's MIDI file: a descriptor that touches more than routes, that names another maker's or another device's, or that repeats an address in its own file is refused.
+
+An empty list resolves to the stock MIDI as it is. Two modules that touch the same OSC address are neither refused nor reported: the later one in the list replaces the route of the one before, and the builder alone answers for that choice. The resolved device keeps the stock's identity and has no `midi_of`; the files read are the assembly's, then the modules', then the stock's.
+
+```json
+{"$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
+ "stock": "acme/stock",
+ "modules": ["acme/mod-a", "acme/mod-b"]}
+```
+
+With the stock MIDI `acme/synth` (routes `/p1`, `/p2`), `mod-a` whose MIDI descriptor adds `/p3` and `mod-b` whose adds `/p4`, the assembly resolves to the routes `/p1`, `/p2`, `/p3`, `/p4`.
+
+Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`).
 
 ## Pauses, reply time and banks that cannot be written (0.6)
 
@@ -437,6 +468,24 @@ Cases: `0.6/midi-of-role-vocabulary-state-differs-refused`, `0.6/midi-of-role-vo
 It holds for the `stands_for` of the resolved device, written by the file asked for or inherited from its `midi_of` target (a `midi_of` file does not take a `stands_for` of its own: it is not an identity key). The fault is `BadValue` at `/device/stands_for`, always in the file asked for.
 
 Cases: `0.6/stands-for-absent-from-catalogue-refused`, `0.6/midi-of-inherited-stands-for-absent-refused`
+
+### R35 — An assembly resolves to the stock MIDI, then each module's routes in the listed order
+
+Only a module's own routes are added, never what its chain resolves to; an empty list gives the stock MIDI as it is (see the section on the assembly).
+
+Cases: `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-no-modules`
+
+### R36 — A module whose MIDI is the stock's adds nothing and one that names another descriptor is refused
+
+A `same_as` that names the stock firmware's MIDI descriptor adds nothing; another is `BadValue` at `/midi/same_as`, in the module's file.
+
+Cases: `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`
+
+### R37 — The guards of `midi_of` hold for each module, and two modules that touch one address are not refused
+
+Each fault of a module's MIDI is refused in its file; two modules on one OSC address give neither refusal nor report, the later one replacing the route of the one before.
+
+Cases: `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-two-modules-same-address-no-refusal`
 
 ## The guard
 
