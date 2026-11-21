@@ -166,3 +166,74 @@ fn the_default_of_a_control_whose_first_way_is_an_nrpn_comes_back_after_the_csv(
     let same = r#""nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 127], "also": [{"cc": 74, "range": [0, 127]}]"#;
     assert_eq!(default_after_the_csv(same, 64), Some(64));
 }
+
+/// The export and the import of a one-control device whose ways are `ways` (and, when given, its
+/// default): the way order after the import (true when the NRPN is first), and the export's losses.
+fn order_after_the_csv(ways: &str, default: Option<i64>) -> (bool, Vec<osd_formats::Loss>) {
+    let default = default.map_or(String::new(), |v| format!(r#""default": {v}, "#));
+    let text = format!(
+        r#"{{"$schema": "https://w3id.org/osd/0.6/device.schema.json",
+        "_sources": [{{"type": "community-re", "url": "https://github.com/pencilresearch/midi", "license": "CC-BY-SA-4.0"}}],
+        "device": {{"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}},
+        "cc_params": {{"entries": [{{"osc": "/a", {default}{ways}}}]}}}}"#
+    );
+    let out = export(&resolved(crate::common::device_from(&text)), Format::MidiCsv).unwrap();
+    let back = import(&out.value, Format::MidiCsv, &source()).unwrap();
+    let first = &crate::common::entries(&back.value)[0].ways()[0];
+    (first.nrpn_msb.is_some(), out.lost.into_iter().filter(|l| l.place == "/cc_params/entries/0").collect())
+}
+
+const NRPN_THEN_CC_SAME_RANGE: &str = r#""nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 127], "also": [{"cc": 74, "range": [0, 127]}]"#;
+const NRPN_THEN_CC_OTHER_RANGE: &str = r#""nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383], "also": [{"cc": 74, "range": [0, 127]}]"#;
+const CC_THEN_NRPN: &str = r#""cc": 74, "range": [0, 127], "also": [{"nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383]}]"#;
+
+#[test]
+fn an_nrpn_then_cc_control_of_equal_ranges_names_the_lost_order_and_comes_back_cc_first() {
+    for default in [None, Some(64)] {
+        let (nrpn_first, lost) = order_after_the_csv(NRPN_THEN_CC_SAME_RANGE, default);
+        assert!(!nrpn_first, "{default:?}");
+        assert_eq!(lost.len(), 1, "{default:?}: {lost:?}");
+        assert!(lost[0].reason.contains("order"), "{}", lost[0].reason);
+    }
+}
+
+#[test]
+fn an_nrpn_then_cc_control_of_different_ranges_without_default_names_the_lost_order() {
+    let (nrpn_first, lost) = order_after_the_csv(NRPN_THEN_CC_OTHER_RANGE, None);
+    assert!(!nrpn_first);
+    assert_eq!(lost.len(), 1, "{lost:?}");
+    assert!(lost[0].reason.contains("order"), "{}", lost[0].reason);
+}
+
+#[test]
+fn an_nrpn_then_cc_control_of_different_ranges_with_a_default_keeps_its_order_and_names_no_loss_of_order() {
+    let (nrpn_first, lost) = order_after_the_csv(NRPN_THEN_CC_OTHER_RANGE, Some(8192));
+    assert!(nrpn_first);
+    assert!(lost.is_empty(), "{lost:?}");
+}
+
+#[test]
+fn a_cc_then_nrpn_control_keeps_its_order_and_names_no_loss_of_order() {
+    for default in [None, Some(64)] {
+        let (nrpn_first, lost) = order_after_the_csv(CC_THEN_NRPN, default);
+        assert!(!nrpn_first, "{default:?}");
+        assert!(lost.is_empty(), "{default:?}: {lost:?}");
+    }
+}
+
+#[test]
+fn the_conformance_case_of_an_nrpn_then_cc_control_comes_back_in_order_through_the_csv_or_names_the_lost_order() {
+    let devices = crate::common::credited_devices();
+    let (_, d) = devices.iter().find(|(name, _)| name == "0.6/control-ways-nrpn-first").expect("the conformance case 0.6/control-ways-nrpn-first exists and names a source");
+    let out = export(d, Format::MidiCsv).unwrap();
+    let back = import(&out.value, Format::MidiCsv, &source()).unwrap();
+    let before = crate::common::entries(&d.device);
+    let after = crate::common::entries(&back.value);
+    assert_eq!(before.len(), after.len());
+    for (n, (b, a)) in before.iter().zip(&after).enumerate() {
+        let order = |e: &osd::CcEntry| e.ways().iter().map(|w| w.cc.is_some()).collect::<Vec<_>>();
+        let named = out.lost.iter().any(|l| l.place == format!("/cc_params/entries/{n}"));
+        assert!(order(b) == order(a) || named, "entry {n}: the order is lost and not named: {:?}", out.lost);
+    }
+    assert!(before[0].nrpn_msb.is_some() && before[0].also.as_ref().is_some_and(|w| w[0].cc.is_some()), "the case is NRPN first, CC second");
+}

@@ -233,7 +233,11 @@ fn the_nrpn_way_written_before_the_cc_way_still_gives_the_cc_and_the_nrpn_in_the
     let r = &records[1];
     assert_eq!((cell(r, "cc_msb"), cell(r, "cc_max_value")), ("74".into(), "127".into()));
     assert_eq!((cell(r, "nrpn_msb"), cell(r, "nrpn_lsb"), cell(r, "nrpn_max_value")), ("1".into(), "2".into(), "16383".into()));
-    assert!(t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0")), "{:?}", t.lost);
+    assert!(
+        t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0") || l.reason.contains("order of the ways")),
+        "{:?}",
+        t.lost
+    );
 }
 
 #[test]

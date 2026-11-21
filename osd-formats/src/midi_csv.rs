@@ -577,6 +577,9 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             if e.range.is_some() && cc_way.is_none() && nrpn_way.is_none() {
                 gone(&mut losses, at("range"), "the entry has neither a CC nor an NRPN to give the range to");
             }
+            // The CSV has no column for the order of the ways: the import puts the CC first, except
+            // when a default in the NRPN column, beside a CC of another range, makes the NRPN first.
+            let mut order_kept = false;
             if let Some(v) = e.default {
                 // The default is in the space of the first way's range: it goes to the column of
                 // the first way. An NRPN first way whose range differs from the CC's keeps it in
@@ -592,10 +595,16 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                     } else {
                         row[NRPN_DEFAULT] = v.to_string();
                     }
+                    order_kept = cc_way.is_some() && !same_range;
                 } else if cc_way.is_some() || nrpn_way.is_some() {
                     gone(&mut losses, at("default"), "the default is in the space of the first way, which is neither a CC nor an NRPN: no column carries it");
                 } else {
                     gone(&mut losses, at("default"), "the entry has neither a CC nor an NRPN to give the default to");
+                }
+            }
+            if let (Some(c), Some(r)) = (cc_at, nrpn_at) {
+                if r < c && !order_kept {
+                    gone(&mut losses, format!("/cc_params/entries/{n}"),"the CSV does not say the order of the ways: the import puts the CC first");
                 }
             }
             for (field, present) in [
