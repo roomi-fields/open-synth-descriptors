@@ -1,5 +1,5 @@
 {
-  "_about": "Base versions compare by number then letters without case, not as SemVer: 1.40C lies between 1.40B and 1.41, 1.40 = 1.40.0, a min alone is open upward.",
+  "_about": "Base versions compare by number then letters without case, not as SemVer: 1.40C lies between 1.40B and 1.41, 1.40 = 1.40.0, a min alone is open upward. A target without runs_on versions answers unknown, even with a lineage: it is neither yes nor no.",
   "read": "firmware",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
@@ -13,7 +13,7 @@
           "vendor": "Elektron",
           "model": "Digitone"
         },
-        "based_on": {
+        "runs_on": {
           "name": "Elektron OS",
           "versions": {
             "min": "1.40B",
@@ -26,11 +26,21 @@
           "vendor": "Elektron",
           "model": "Digitone Keys"
         },
-        "based_on": {
+        "runs_on": {
           "name": "Elektron OS",
           "versions": {
             "min": "1.40B"
           }
+        }
+      },
+      {
+        "device": {
+          "vendor": "Elektron",
+          "model": "Digitakt"
+        },
+        "based_on": {
+          "name": "Elektron OS",
+          "version": "1.40"
         }
       }
     ]
@@ -71,42 +81,52 @@
     {
       "target": 0,
       "version": "1.40C",
-      "fits": true
+      "fits": "yes"
     },
     {
       "target": 0,
       "version": "1.40B",
-      "fits": true
+      "fits": "yes"
     },
     {
       "target": 0,
       "version": "1.41",
-      "fits": true
+      "fits": "yes"
     },
     {
       "target": 0,
       "version": "1.42",
-      "fits": false
+      "fits": "no"
     },
     {
       "target": 0,
       "version": "1.40",
-      "fits": false
+      "fits": "no"
     },
     {
       "target": 1,
       "version": "1.40B",
-      "fits": true
+      "fits": "yes"
     },
     {
       "target": 1,
       "version": "2.0",
-      "fits": true
+      "fits": "yes"
     },
     {
       "target": 1,
       "version": "1.40",
-      "fits": false
+      "fits": "no"
+    },
+    {
+      "target": 2,
+      "version": "1.40",
+      "fits": "unknown"
+    },
+    {
+      "target": 2,
+      "version": "1.43",
+      "fits": "unknown"
     }
   ]
 }

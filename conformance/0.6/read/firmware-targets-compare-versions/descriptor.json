@@ -10,7 +10,7 @@
         "vendor": "Elektron",
         "model": "Digitone"
       },
-      "based_on": {
+      "runs_on": {
         "name": "Elektron OS",
         "versions": {
           "min": "1.40B",
@@ -23,11 +23,21 @@
         "vendor": "Elektron",
         "model": "Digitone Keys"
       },
-      "based_on": {
+      "runs_on": {
         "name": "Elektron OS",
         "versions": {
           "min": "1.40B"
         }
+      }
+    },
+    {
+      "device": {
+        "vendor": "Elektron",
+        "model": "Digitakt"
+      },
+      "based_on": {
+        "name": "Elektron OS",
+        "version": "1.40"
       }
     }
   ]

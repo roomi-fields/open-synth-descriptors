@@ -13,7 +13,7 @@
           "vendor": "Elektron",
           "model": "Digitone"
         },
-        "based_on": {
+        "runs_on": {
           "name": "Elektron OS",
           "versions": {
             "min": "1.40B",

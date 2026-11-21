@@ -183,29 +183,34 @@ A known algorithm fixes the form of the value (names read without case): `md5` 3
 
 ## The devices and base versions a firmware is made for (0.6)
 
-A 0.6 firmware descriptor (of any `kind`: `firmware`, `mod`, `script`, `extension`) names `targets`, a non-empty list; the `device` and the `based_on` of 0.4 and 0.5 are no longer fields of it, and a 0.6 descriptor that holds one is refused (`UnknownField`). One module that runs on several devices and several base versions says so once, a target per device.
+A 0.6 firmware descriptor (of any `kind`: `firmware`, `mod`, `script`, `extension`) names `targets`, a non-empty list; the `device`, the `based_on` and the `midi` of 0.4 and 0.5 are no longer fields of it, and a 0.6 descriptor that holds one is refused (`UnknownField`): each is written in a target. One module that runs on several devices and several base versions says so once, a target per device.
 
-A target is `{device, based_on}`. `device` is `{vendor, model}` with the optional `descriptor` (`maker/file`), required. `based_on` is optional: `{name, url, versions}`, `name` required, `url` optional, and `versions` written in one of two forms:
+A target is `{device, midi, based_on, runs_on}`. `device` is `{vendor, model}` with the optional `descriptor` (`maker/file`), required. `midi` is optional and is what the firmware's `midi` was: `{descriptor, same_as, changes}`, here for this device alone. `based_on` is optional and is the lineage only: `{name, version, url}`, `name` required, `version` one text, the firmware it was forked or built from; it says nothing of what the target runs on (the model is a package manifest, which keeps a compatible range per target apart from the fork's origin). `runs_on` is optional: `{name, versions}`, `name` required, no `url`; `versions` is written in one of two forms (a `based_on` that holds `versions` is refused, `UnknownField`):
 
 ```json
 "targets": [
   {"device": {"vendor": "Elektron", "model": "Digitone"},
-   "based_on": {"name": "Elektron OS", "versions": ["1.43", "1.44"]}},
+   "midi": {"descriptor": "elektron/digitone-midi"},
+   "based_on": {"name": "Elektron OS", "version": "1.42"},
+   "runs_on": {"name": "Elektron OS", "versions": ["1.43", "1.44"]}},
   {"device": {"vendor": "Elektron", "model": "Digitone Keys"},
-   "based_on": {"name": "Elektron OS", "versions": {"min": "1.40B", "max": "1.41"}}}
+   "midi": {"same_as": "elektron/digitone-midi", "changes": "the keys"},
+   "runs_on": {"name": "Elektron OS", "versions": {"min": "1.40B", "max": "1.41"}}}
 ]
 ```
 
-- a list: the versions the target accepts, one or more;
+- a list: the versions the target runs on, one or more;
 - a range `{min, max}`: its bounds are included; a `min` alone is open upward, a `max` alone open downward; at least one of the two.
 
 A version is text of letters, digits and dots with at least one digit. A target without `device`, a range without `min` nor `max`, an empty list and a version that is not such text are refused (`Missing` or `BadValue`) at the element, by the reader and by the schema.
 
 How two base versions compare: the text splits on `.`; each component is a number followed by optional letters; numbers compare as numbers, then the letters without case, no letters before any letters; a missing component is 0 without letters. So 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10 and 1.40 = 1.40.0. A list is tested by the same rule (1.40.0 fits `["1.40"]`). This is not SemVer: base firmware numbers such as 1.40C do not follow it.
 
-Conversion: a 0.5 firmware (a 0.4 one passes through 0.5) with one `device` and one `based_on` becomes one target: `device` as it is, `based_on.version` the list of one version; without `based_on`, a target without base versions. Conversion goes forward only: a 0.6 descriptor converts to itself and never back.
+The answer to "does this version fit this target" has three values: yes, no, unknown. A target without `runs_on` versions (no `runs_on`, or a `runs_on` that gives only its `name`) answers unknown, neither yes nor no, whatever its `based_on` says: a lineage is not a constraint. The caller decides what to do with an unknown; OSD makes it neither a refusal nor an acceptance.
 
-Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`.
+Conversion: a 0.5 firmware (a 0.4 one passes through 0.5) with one `device`, one `midi` and one `based_on` becomes one target holding the three as they are: the `based_on` stays the lineage, `{name, version, url}`, and no `runs_on` is written. What a converted descriptor loses is the constraint it never had: its "based on 1.2" stays the lineage and is not turned into "runs only on 1.2", and the target answers unknown to every version. Conversion goes forward only: a 0.6 descriptor converts to itself and never back.
+
+Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions` (it states yes, no and unknown), `0.6/firmware-target-lineage-apart-from-runs-on`, `0.6/firmware-midi-at-first-level-refused`, `0.6/firmware-based-on-versions-refused`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`, `0.6/firmware-midi-moves-into-the-target`.
 
 ## The firmware a builder made: the assembly (0.6)
 
@@ -221,8 +226,9 @@ An unknown field, an absent `stock` or `modules`, and a list that is not a list 
 
 Resolving an assembly gives the device as that firmware speaks MIDI, by the rules of `midi_of` applied once per module, in the listed order:
 
-1. The stock firmware's `midi.descriptor` is resolved as a driver.
-2. Each module's firmware names its MIDI either by `midi.descriptor`, a device descriptor whose `midi_of` is the stock firmware's MIDI descriptor, or by `midi.same_as`, which must name that same descriptor. A `same_as` adds nothing; one that names another descriptor is refused (`BadValue` at `/midi/same_as`, in the module's file): the module is not made for this stock firmware.
+0. The device the assembly is resolved for is a parameter of the reader, not a field of the assembly: the descriptor id of a device (`elektron/digitone`). Each firmware of the assembly is read through its target for that device (R38). It may be left out when the stock firmware has one target.
+1. The `midi.descriptor` of the stock firmware's target for that device is resolved as a driver.
+2. Each module's firmware names, in its target for that device, its MIDI either by `midi.descriptor`, a device descriptor whose `midi_of` is the stock firmware's MIDI descriptor, or by `midi.same_as`, which must name that same descriptor. A `same_as` adds nothing; one that names another descriptor is refused (`BadValue` at `/targets/N/midi/same_as`, N the index of that target, in the module's file): the module is not made for this stock firmware.
 3. A `descriptor` adds only its own routes (the lists and tables of `midi_of`: `commands`, `custom_commands`, the `entries` of `params`, `cc_params` and `triggers`), never what its chain resolves to. Its routes follow those already there, and replace one at the same OSC address.
 4. The guards of `midi_of` hold for each module and each fault is in the module's MIDI file: a descriptor that touches more than routes, that names another maker's or another device's, or that repeats an address in its own file is refused.
 
@@ -236,7 +242,7 @@ An empty list resolves to the stock MIDI as it is. Two modules that touch the sa
 
 With the stock MIDI `acme/synth` (routes `/p1`, `/p2`), `mod-a` whose MIDI descriptor adds `/p3` and `mod-b` whose adds `/p4`, the assembly resolves to the routes `/p1`, `/p2`, `/p3`, `/p4`.
 
-Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`).
+Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` and `0.6/assembly-one-module-on-digitone`, `0.6/assembly-one-module-on-digitone-keys`, `0.6/assembly-module-without-target-for-device-refused` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`, and the device in `device`).
 
 ## The modules a sound needs and the assembly it was made on (0.6)
 
@@ -507,7 +513,7 @@ Cases: `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-no-modules`
 
 ### R36 — A module whose MIDI is the stock's adds nothing and one that names another descriptor is refused
 
-A `same_as` that names the stock firmware's MIDI descriptor adds nothing; another is `BadValue` at `/midi/same_as`, in the module's file.
+A `same_as` that names the stock firmware's MIDI descriptor adds nothing; another is `BadValue` at `/targets/N/midi/same_as`, N the index of the module's target for the device, in the module's file.
 
 Cases: `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`
 
@@ -516,6 +522,12 @@ Cases: `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-
 Each fault of a module's MIDI is refused in its file; two modules on one OSC address give neither refusal nor report, the later one replacing the route of the one before.
 
 Cases: `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-two-modules-same-address-no-refusal`
+
+### R38 — An assembly resolves for one device, through each firmware's target for it
+
+The device is a parameter of the reader, the descriptor id of a device; the format of the assembly does not change. The MIDI taken for the stock firmware and for each module is that of the target whose `device.descriptor` is that id (the same assembly resolves on each device its firmware is made for, a module with a target per device). The device may be left out when the stock firmware has one target, whose device is then the one resolved for. A firmware that has no target for the device, or two, is `BadValue` at `/targets`, in that firmware's file; so is a stock firmware of several targets when no device is given.
+
+Cases: `0.6/assembly-one-module-on-digitone`, `0.6/assembly-one-module-on-digitone-keys`, `0.6/assembly-module-without-target-for-device-refused`
 
 ## The guard
 

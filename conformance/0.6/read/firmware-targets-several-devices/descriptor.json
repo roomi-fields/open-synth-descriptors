@@ -10,7 +10,10 @@
         "vendor": "Elektron",
         "model": "Digitone"
       },
-      "based_on": {
+      "midi": {
+        "descriptor": "elektron/digitone-midi"
+      },
+      "runs_on": {
         "name": "Elektron OS",
         "versions": [
           "1.43",
@@ -23,7 +26,11 @@
         "vendor": "Elektron",
         "model": "Digitone Keys"
       },
-      "based_on": {
+      "midi": {
+        "same_as": "elektron/digitone-midi",
+        "changes": "the keys"
+      },
+      "runs_on": {
         "name": "Elektron OS",
         "versions": {
           "min": "1.43",

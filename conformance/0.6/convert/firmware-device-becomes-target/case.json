@@ -1,5 +1,5 @@
 {
-  "_about": "A 0.5 firmware's device and based_on become one target: the device as it is, the one base version a list of one version.",
+  "_about": "A 0.5 firmware's device and based_on become one target: the device as it is, based_on stays the lineage (name, version, url) and no runs_on is invented.",
   "convert": "firmware",
   "result": {
     "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
@@ -16,10 +16,8 @@
         },
         "based_on": {
           "name": "Elektron OS",
-          "url": "https://www.elektron.se",
-          "versions": [
-            "1.43"
-          ]
+          "version": "1.43",
+          "url": "https://www.elektron.se"
         }
       }
     ]

@@ -1,0 +1,8 @@
+{
+  "_about": "A lineage has one version, never a list or range: what a target accepts is `runs_on`.",
+  "read": "firmware",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/targets/0/based_on/versions"
+  }
+}

@@ -36,8 +36,8 @@ pub use device::{
 pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
 pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports, Via};
 pub use firmware::{
-    compare_versions, version_in_target, BaseVersions, BasedOn, Builder, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install,
-    Release, Target, TargetBase, VersionRange,
+    compare_versions, version_in_target, BaseVersions, BasedOn, Builder, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Fit,
+    Install, Release, RunsOn, Target, VersionRange,
 };
 pub use assembly::{resolve_assembly, Assembly};
 pub use json::Remarks;
@@ -434,18 +434,18 @@ pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fau
     convert_to(&via_05, kind, target)
 }
 
-/// A 0.5 firmware's `device` and `based_on` as the one `targets` entry of 0.6: `device` as it
-/// is, `based_on.version` as the list of one version.
+/// A 0.5 firmware's `device`, `midi` and `based_on` as the one `targets` entry of 0.6, each as it
+/// is: the lineage stays a lineage and no `runs_on` is written.
 fn firmware_targets_of(v: &mut serde_json::Map<String, Value>) {
     let mut target = serde_json::Map::new();
     if let Some(device) = v.remove("device") {
         target.insert("device".into(), device);
     }
-    if let Some(Value::Object(mut base)) = v.remove("based_on") {
-        if let Some(version) = base.remove("version") {
-            base.insert("versions".into(), Value::Array(vec![version]));
-        }
-        target.insert("based_on".into(), Value::Object(base));
+    if let Some(midi) = v.remove("midi") {
+        target.insert("midi".into(), midi);
+    }
+    if let Some(base) = v.remove("based_on") {
+        target.insert("based_on".into(), base);
     }
     v.insert("targets".into(), Value::Array(vec![Value::Object(target)]));
 }

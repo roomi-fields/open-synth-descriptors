@@ -1,0 +1,21 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Elekloader mod",
+  "version": "2.0",
+  "kind": "mod",
+  "midi": {
+    "descriptor": "elektron/digitone"
+  },
+  "targets": [
+    {
+      "device": {
+        "descriptor": "elektron/digitone",
+        "vendor": "Elektron",
+        "model": "Digitone"
+      },
+      "midi": {
+        "descriptor": "elektron/digitone"
+      }
+    }
+  ]
+}

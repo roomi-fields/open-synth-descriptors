@@ -1,0 +1,8 @@
+{
+  "_about": "The MIDI of a 0.6 firmware is written in each target, never at the first level.",
+  "read": "firmware",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/midi"
+  }
+}

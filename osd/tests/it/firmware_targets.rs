@@ -21,7 +21,7 @@ fn fw(targets: Value) -> Value {
 }
 
 fn one_target(versions: Value) -> Value {
-    fw(json!([{"device": digitone(), "based_on": {"name": "Elektron OS", "versions": versions}}]))
+    fw(json!([{"device": digitone(), "runs_on": {"name": "Elektron OS", "versions": versions}}]))
 }
 
 /// The refusal of `doc` by the reader and by the schema: the kind and pointer of the reader's,
@@ -85,8 +85,8 @@ fn a_range_may_hold_a_min_alone_or_a_max_alone() {
 #[test]
 fn a_module_names_several_targets_of_different_devices_and_forms() {
     let doc = fw(json!([
-        {"device": {"descriptor": "elektron/digitone", "vendor": "Elektron", "model": "Digitone"}, "based_on": {"name": "Elektron OS", "url": "https://www.elektron.se", "versions": ["1.43", "1.44"]}},
-        {"device": {"vendor": "Elektron", "model": "Digitone Keys"}, "based_on": {"name": "Elektron OS", "versions": {"min": "1.43", "max": "1.44"}}},
+        {"device": {"descriptor": "elektron/digitone", "vendor": "Elektron", "model": "Digitone"}, "midi": {"descriptor": "elektron/digitone-midi"}, "based_on": {"name": "Elektron OS", "version": "1.43", "url": "https://www.elektron.se"}, "runs_on": {"name": "Elektron OS", "versions": ["1.43", "1.44"]}},
+        {"device": {"vendor": "Elektron", "model": "Digitone Keys"}, "midi": {"same_as": "elektron/digitone-midi", "changes": "the keys"}, "runs_on": {"name": "Elektron OS", "versions": {"min": "1.43", "max": "1.44"}}},
         {"device": {"vendor": "Elektron", "model": "Digitakt"}}
     ]));
     valid_in_06(&doc);
@@ -107,7 +107,7 @@ fn every_kind_of_firmware_writes_targets() {
 
 #[test]
 fn a_target_without_device_is_refused() {
-    refused(&fw(json!([{"based_on": {"name": "Elektron OS", "versions": ["1.43"]}}])), FaultKind::Missing, "/targets/0/device");
+    refused(&fw(json!([{"runs_on": {"name": "Elektron OS", "versions": ["1.43"]}}])), FaultKind::Missing, "/targets/0/device");
     refused(&fw(json!([{"device": digitone()}, {"device": {"vendor": "Elektron"}}])), FaultKind::Missing, "/targets/1/device/model");
 }
 
@@ -121,26 +121,70 @@ fn a_firmware_without_targets_or_with_an_empty_list_is_refused() {
 
 #[test]
 fn a_range_with_neither_min_nor_max_is_refused() {
-    refused(&one_target(json!({})), FaultKind::BadValue, "/targets/0/based_on/versions");
+    refused(&one_target(json!({})), FaultKind::BadValue, "/targets/0/runs_on/versions");
 }
 
 #[test]
 fn an_empty_list_of_versions_is_refused() {
-    refused(&one_target(json!([])), FaultKind::BadValue, "/targets/0/based_on/versions");
+    refused(&one_target(json!([])), FaultKind::BadValue, "/targets/0/runs_on/versions");
 }
 
 #[test]
 fn a_version_that_is_not_letters_digits_and_dots_with_a_digit_is_refused() {
-    refused(&one_target(json!(["1.43", "1.44-beta"])), FaultKind::BadValue, "/targets/0/based_on/versions/1");
-    refused(&one_target(json!(["abc"])), FaultKind::BadValue, "/targets/0/based_on/versions/0");
-    refused(&one_target(json!([1.43])), FaultKind::BadValue, "/targets/0/based_on/versions/0");
-    refused(&one_target(json!({"min": "", "max": "1.41"})), FaultKind::BadValue, "/targets/0/based_on/versions/min");
-    refused(&one_target(json!({"min": "1.40", "max": "v 2"})), FaultKind::BadValue, "/targets/0/based_on/versions/max");
+    refused(&one_target(json!(["1.43", "1.44-beta"])), FaultKind::BadValue, "/targets/0/runs_on/versions/1");
+    refused(&one_target(json!(["abc"])), FaultKind::BadValue, "/targets/0/runs_on/versions/0");
+    refused(&one_target(json!([1.43])), FaultKind::BadValue, "/targets/0/runs_on/versions/0");
+    refused(&one_target(json!({"min": "", "max": "1.41"})), FaultKind::BadValue, "/targets/0/runs_on/versions/min");
+    refused(&one_target(json!({"min": "1.40", "max": "v 2"})), FaultKind::BadValue, "/targets/0/runs_on/versions/max");
 }
 
 #[test]
-fn a_base_firmware_without_name_is_refused() {
-    refused(&fw(json!([{"device": digitone(), "based_on": {"versions": ["1.0"]}}])), FaultKind::Missing, "/targets/0/based_on/name");
+fn what_a_target_runs_on_without_name_is_refused() {
+    refused(&fw(json!([{"device": digitone(), "runs_on": {"versions": ["1.0"]}}])), FaultKind::Missing, "/targets/0/runs_on/name");
+}
+
+#[test]
+fn what_a_target_runs_on_has_no_url_and_a_lineage_has_no_versions() {
+    refused(&fw(json!([{"device": digitone(), "runs_on": {"name": "Elektron OS", "url": "https://example.org"}}])), FaultKind::UnknownField, "/targets/0/runs_on/url");
+    refused(&fw(json!([{"device": digitone(), "based_on": {"name": "Elektron OS", "versions": ["1.43"]}}])), FaultKind::UnknownField, "/targets/0/based_on/versions");
+    refused(&fw(json!([{"device": digitone(), "based_on": {"name": "Elektron OS", "version": ["1.43"]}}])), FaultKind::BadValue, "/targets/0/based_on/version");
+}
+
+#[test]
+fn a_target_gives_its_lineage_apart_from_what_it_runs_on() {
+    let doc = fw(json!([{
+        "device": digitone(),
+        "based_on": {"name": "Elektron OS", "version": "1.42", "url": "https://www.elektron.se"},
+        "runs_on": {"name": "Elektron OS", "versions": ["1.43"]}
+    }]));
+    valid_in_06(&doc);
+    assert_eq!(written(&doc), doc);
+    let only_lineage = fw(json!([{"device": digitone(), "based_on": {"name": "Fork", "version": "3"}}]));
+    valid_in_06(&only_lineage);
+    assert_eq!(written(&only_lineage), only_lineage);
+}
+
+#[test]
+fn each_target_carries_its_own_midi_as_a_firmware_wrote_it() {
+    let doc = fw(json!([
+        {"device": digitone(), "midi": {"descriptor": "elektron/digitone-midi", "changes": "more"}},
+        {"device": {"vendor": "Elektron", "model": "Digitone Keys"}, "midi": {"same_as": "elektron/digitone-midi"}}
+    ]));
+    valid_in_06(&doc);
+    assert_eq!(written(&doc), doc);
+}
+
+#[test]
+fn a_firmware_with_midi_at_its_first_level_is_refused() {
+    let mut doc = one_target(json!(["1.0"]));
+    doc["midi"] = json!({"descriptor": "elektron/digitone-midi"});
+    refused(&doc, FaultKind::UnknownField, "/midi");
+}
+
+#[test]
+fn the_midi_of_a_target_holds_only_descriptor_same_as_and_changes() {
+    let doc = fw(json!([{"device": digitone(), "midi": {"descriptor": "a/b", "colour": "red"}}]));
+    refused(&doc, FaultKind::UnknownField, "/targets/0/midi/colour");
 }
 
 #[test]
@@ -175,30 +219,49 @@ fn two_base_versions_compare_component_by_component_numbers_then_letters_without
     }
 }
 
+fn fit(version: &str, target: &osd::Target) -> osd::Fit {
+    osd::version_in_target(version, target)
+}
+
 #[test]
-fn a_list_of_base_versions_tests_by_the_same_rule_and_a_range_includes_its_bounds() {
+fn a_list_of_versions_tests_by_the_same_rule_and_a_range_includes_its_bounds() {
     let list = target(&one_target(json!(["1.40", "1.43"])), 0);
-    assert!(osd::version_in_target("1.40.0", &list));
-    assert!(osd::version_in_target("1.43", &list));
-    assert!(!osd::version_in_target("1.40B", &list));
-    assert!(!osd::version_in_target("1.41", &list));
+    assert_eq!(fit("1.40.0", &list), osd::Fit::Yes);
+    assert_eq!(fit("1.43", &list), osd::Fit::Yes);
+    assert_eq!(fit("1.40B", &list), osd::Fit::No);
+    assert_eq!(fit("1.41", &list), osd::Fit::No);
     let range = target(&one_target(json!({"min": "1.40B", "max": "1.41"})), 0);
     for v in ["1.40B", "1.40C", "1.41", "1.41.0"] {
-        assert!(osd::version_in_target(v, &range), "{v}");
+        assert_eq!(fit(v, &range), osd::Fit::Yes, "{v}");
     }
     for v in ["1.40", "1.40A", "1.42", "1.9"] {
-        assert!(!osd::version_in_target(v, &range), "{v}");
+        assert_eq!(fit(v, &range), osd::Fit::No, "{v}");
     }
 }
 
 #[test]
 fn a_range_with_a_min_alone_is_open_upward_and_a_max_alone_downward() {
     let up = target(&one_target(json!({"min": "1.40B"})), 0);
-    assert!(osd::version_in_target("1.40B", &up) && osd::version_in_target("2.0", &up) && osd::version_in_target("1.100", &up));
-    assert!(!osd::version_in_target("1.40", &up));
+    assert!([fit("1.40B", &up), fit("2.0", &up), fit("1.100", &up)].iter().all(|f| *f == osd::Fit::Yes));
+    assert_eq!(fit("1.40", &up), osd::Fit::No);
     let down = target(&one_target(json!({"max": "1.41"})), 0);
-    assert!(osd::version_in_target("1.41", &down) && osd::version_in_target("0.1", &down));
-    assert!(!osd::version_in_target("1.41.1", &down) && !osd::version_in_target("1.42", &down));
+    assert!(fit("1.41", &down) == osd::Fit::Yes && fit("0.1", &down) == osd::Fit::Yes);
+    assert!(fit("1.41.1", &down) == osd::Fit::No && fit("1.42", &down) == osd::Fit::No);
+}
+
+#[test]
+fn a_target_without_what_it_runs_on_answers_unknown_never_yes_or_no() {
+    let none = fw(json!([{"device": digitone()}]));
+    assert_eq!(fit("1.43", &target(&none, 0)), osd::Fit::Unknown);
+    // A lineage is not a constraint: a target built from 1.42 and naming no `runs_on` is unknown on 1.42 and on 1.43.
+    let lineage = fw(json!([{"device": digitone(), "based_on": {"name": "Elektron OS", "version": "1.42"}}]));
+    for v in ["1.42", "1.43"] {
+        assert_eq!(fit(v, &target(&lineage, 0)), osd::Fit::Unknown, "{v}");
+    }
+    // `runs_on` with a name and no versions is just as unknown.
+    let named = fw(json!([{"device": digitone(), "runs_on": {"name": "Elektron OS"}}]));
+    valid_in_06(&named);
+    assert_eq!(fit("1.43", &target(&named, 0)), osd::Fit::Unknown);
 }
 
 // ---- conversion ----
@@ -218,15 +281,18 @@ fn converted(doc: &Value) -> Value {
 }
 
 #[test]
-fn a_0_5_device_and_based_on_become_one_target_with_a_list_of_one_version() {
+fn a_0_5_device_and_based_on_become_one_target_keeping_the_lineage_and_inventing_no_runs_on() {
     let out = converted(&doc_05());
     assert_eq!(out["$schema"], SCHEMA_06);
     assert_eq!(
         out["targets"],
         json!([{"device": {"descriptor": "m-vave/fm-1", "vendor": "M-VAVE", "model": "FM-1"},
-                "based_on": {"name": "Elektron OS", "url": "https://example.org/os", "versions": ["1.43"]}}])
+                "based_on": {"name": "Elektron OS", "version": "1.43", "url": "https://example.org/os"}}])
     );
     assert!(out.get("device").is_none() && out.get("based_on").is_none());
+    assert!(out["targets"][0].get("runs_on").is_none());
+    assert_eq!(fit("1.43", &target(&out, 0)), osd::Fit::Unknown, "a converted target says nothing of what it runs on");
+    assert_eq!(fit("1.44", &target(&out, 0)), osd::Fit::Unknown);
     for kept in ["name", "version", "kind", "license", "official", "author"] {
         assert_eq!(out[kept], doc_05()[kept], "{kept}");
     }
@@ -235,7 +301,7 @@ fn a_0_5_device_and_based_on_become_one_target_with_a_list_of_one_version() {
 }
 
 #[test]
-fn a_0_5_firmware_without_based_on_becomes_a_target_without_base_versions() {
+fn a_0_5_firmware_without_based_on_becomes_a_target_without_lineage() {
     let mut doc = doc_05();
     doc.as_object_mut().unwrap().remove("based_on");
     let out = converted(&doc);
@@ -244,7 +310,7 @@ fn a_0_5_firmware_without_based_on_becomes_a_target_without_base_versions() {
 }
 
 #[test]
-fn a_0_5_based_on_without_version_becomes_a_base_without_versions() {
+fn a_0_5_based_on_without_version_stays_a_lineage_without_version() {
     let mut doc = doc_05();
     doc["based_on"] = json!({"name": "Elektron OS"});
     let out = converted(&doc);
@@ -286,11 +352,25 @@ fn a_0_4_firmware_converts_through_0_5_to_one_target() {
 fn the_conversion_of_a_0_5_firmware_reads_as_the_equivalent_0_6_one() {
     let mut doc = doc_05();
     doc["based_on"] = json!({"name": "Elektron OS", "version": "1.43"});
-    let want = fw(json!([{"device": doc["device"], "based_on": {"name": "Elektron OS", "versions": ["1.43"]}}]));
+    let want = fw(json!([{"device": doc["device"], "based_on": {"name": "Elektron OS", "version": "1.43"}}]));
     let out = converted(&doc);
     let mut want_full = want.clone();
     for k in ["name", "version", "kind", "license", "official", "author"] {
         want_full[k] = doc[k].clone();
     }
     assert_eq!(written(&out), want_full);
+}
+
+#[test]
+fn a_0_5_firmware_midi_moves_into_its_only_target() {
+    let mut doc = doc_05();
+    doc["midi"] = json!({"descriptor": "m-vave/fm-1-midi", "changes": "adds notes"});
+    let out = converted(&doc);
+    assert!(out.get("midi").is_none(), "no midi at the first level of a 0.6 firmware");
+    assert_eq!(out["targets"][0]["midi"], doc["midi"]);
+    assert_eq!(out["targets"][0]["device"], doc["device"]);
+    valid_in_06(&out);
+    assert!(osd::read_as(&out.to_string(), Kind::Firmware, Version::V0_6).is_ok());
+    // A firmware without midi leaves its target without.
+    assert!(converted(&doc_05())["targets"][0].get("midi").is_none());
 }

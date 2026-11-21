@@ -105,7 +105,7 @@ fn synth() -> Value {
 }
 
 fn firmware(kind: &str, midi: Value) -> Value {
-    json!({"$schema": FIRMWARE, "name": "F", "version": "1.0", "kind": kind, "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}}], "midi": midi})
+    json!({"$schema": FIRMWARE, "name": "F", "version": "1.0", "kind": kind, "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}, "midi": midi}]})
 }
 
 /// A stock firmware and a driver for its MIDI, plus a module per `(name, midi driver extra)`:
@@ -138,7 +138,7 @@ fn resolve(files: &Catalogue, modules: &[&str]) -> Result<osd::Resolved, osd::Fa
     let mut files = files.clone();
     let list: Vec<String> = modules.iter().map(|m| format!("acme/{m}")).collect();
     add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(list)));
-    osd::resolve_assembly("acme/build", &files)
+    osd::resolve_assembly("acme/build", None, &files)
 }
 
 fn doc_of(r: &osd::Resolved) -> Value {
@@ -217,7 +217,7 @@ fn a_module_whose_same_as_names_another_descriptor_is_refused_in_its_firmware_fi
     add(&mut files, "acme/other-synth", device(json!({})));
     add(&mut files, "acme/same", firmware("mod", json!({"same_as": "acme/other-synth"})));
     let f = resolve(&files, &["same"]).expect_err("refused");
-    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/same"), "/midi/same_as"), "{f}");
+    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/same"), "/targets/0/midi/same_as"), "{f}");
 }
 
 #[test]
@@ -287,6 +287,108 @@ fn an_assembly_that_names_a_missing_file_is_refused_at_its_link() {
     assert_eq!(f.kind, FaultKind::LinkMissing, "{f}");
     let mut files = files;
     add(&mut files, "acme/build", assembly(json!("acme/nostock"), json!([])));
-    let f = osd::resolve_assembly("acme/build", &files).expect_err("refused");
+    let f = osd::resolve_assembly("acme/build", None, &files).expect_err("refused");
     assert_eq!(f.kind, FaultKind::LinkMissing, "{f}");
+}
+
+// ---- the device an assembly is resolved for ----
+
+/// Two neighbouring devices of one maker, each with its own MIDI file; a stock firmware and a
+/// module, each made for both with a target per device carrying its own MIDI.
+fn two_devices() -> Catalogue {
+    let target = |id: &str, model: &str, midi: Value| json!({"device": {"descriptor": id, "vendor": "Acme", "model": model}, "midi": midi});
+    let fw = |kind: &str, targets: Value| json!({"$schema": FIRMWARE, "name": "F", "version": "1.0", "kind": kind, "targets": targets});
+    let mut files: Catalogue = BTreeMap::new();
+    add(&mut files, "acme/synth", synth());
+    let mut keys = synth();
+    keys["device"]["name"] = json!("Synth Keys");
+    keys["params"]["entries"] = json!([{"osc": "/k1"}, {"osc": "/k2"}]);
+    add(&mut files, "acme/keys", keys);
+    let mut own_synth = entries(&["/p3"]);
+    own_synth["midi_of"] = json!("acme/synth");
+    add(&mut files, "acme/mod-synth-midi", device(own_synth));
+    let mut own_keys = entries(&["/k3"]);
+    own_keys["midi_of"] = json!("acme/keys");
+    let mut own_keys = device(own_keys);
+    own_keys["device"]["name"] = json!("Synth Keys");
+    add(&mut files, "acme/mod-keys-midi", own_keys);
+    add(&mut files, "acme/stock", fw("firmware", json!([
+        target("acme/synth", "Synth", json!({"descriptor": "acme/synth"})),
+        target("acme/keys", "Synth Keys", json!({"descriptor": "acme/keys"})),
+    ])));
+    add(&mut files, "acme/mod", fw("mod", json!([
+        target("acme/synth", "Synth", json!({"descriptor": "acme/mod-synth-midi"})),
+        target("acme/keys", "Synth Keys", json!({"descriptor": "acme/mod-keys-midi"})),
+    ])));
+    add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(["acme/mod"])));
+    files
+}
+
+#[test]
+fn one_module_resolves_on_each_of_two_devices_with_the_routes_of_its_own_target() {
+    let files = two_devices();
+    let on_synth = osd::resolve_assembly("acme/build", Some("acme/synth"), &files).unwrap_or_else(|f| panic!("{f}"));
+    assert_eq!(addresses(&on_synth), ["/p1", "/p2", "/p3"]);
+    assert_eq!(doc_of(&on_synth)["device"]["name"], "Synth");
+    let on_keys = osd::resolve_assembly("acme/build", Some("acme/keys"), &files).unwrap_or_else(|f| panic!("{f}"));
+    assert_eq!(addresses(&on_keys), ["/k1", "/k2", "/k3"]);
+    assert_eq!(doc_of(&on_keys)["device"]["name"], "Synth Keys");
+}
+
+#[test]
+fn a_stock_with_several_targets_needs_the_device_to_resolve() {
+    let f = osd::resolve_assembly("acme/build", None, &two_devices()).expect_err("which device?");
+    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/stock"), "/targets"), "{f}");
+}
+
+#[test]
+fn a_device_the_stock_does_not_run_on_is_refused_in_the_stock_file() {
+    let mut files = two_devices();
+    add(&mut files, "acme/other", device(json!({})));
+    let f = osd::resolve_assembly("acme/build", Some("acme/other"), &files).expect_err("no target for it");
+    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/stock"), "/targets"), "{f}");
+}
+
+#[test]
+fn a_module_without_a_target_for_the_device_is_refused_in_its_own_file() {
+    let mut files = two_devices();
+    let mut only_synth: Value = serde_json::from_str(&files["acme/mod"]).unwrap();
+    only_synth["targets"].as_array_mut().unwrap().truncate(1);
+    add(&mut files, "acme/mod", only_synth);
+    assert!(osd::resolve_assembly("acme/build", Some("acme/synth"), &files).is_ok());
+    let f = osd::resolve_assembly("acme/build", Some("acme/keys"), &files).expect_err("the module is not for the keys");
+    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/mod"), "/targets"), "{f}");
+}
+
+#[test]
+fn a_firmware_whose_two_targets_name_the_same_device_is_refused() {
+    let mut files = two_devices();
+    let mut twice: Value = serde_json::from_str(&files["acme/mod"]).unwrap();
+    twice["targets"][1]["device"]["descriptor"] = json!("acme/synth");
+    add(&mut files, "acme/mod", twice);
+    let f = osd::resolve_assembly("acme/build", Some("acme/synth"), &files).expect_err("two targets for one device");
+    assert_eq!((f.kind, f.file.as_deref(), f.pointer.as_str()), (FaultKind::BadValue, Some("acme/mod"), "/targets"), "{f}");
+}
+
+#[test]
+fn the_device_may_be_given_when_the_stock_has_one_target_and_must_then_be_its_device() {
+    let files = catalogue(&[("mod-a", entries(&["/p3"]))]);
+    let mut files = files;
+    add(&mut files, "acme/build", assembly(json!("acme/stock"), json!(["acme/mod-a"])));
+    let given = osd::resolve_assembly("acme/build", Some("acme/synth"), &files).unwrap_or_else(|f| panic!("{f}"));
+    assert_eq!(addresses(&given), ["/p1", "/p2", "/p3"]);
+    let f = osd::resolve_assembly("acme/build", Some("acme/elsewhere"), &files).expect_err("not its device");
+    assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::BadValue, "/targets"), "{f}");
+}
+
+#[test]
+fn a_target_of_the_chosen_device_without_midi_is_refused_where_the_stock_must_name_it() {
+    let mut files = two_devices();
+    let mut stock: Value = serde_json::from_str(&files["acme/stock"]).unwrap();
+    stock["targets"][1].as_object_mut().unwrap().remove("midi");
+    add(&mut files, "acme/stock", stock);
+    assert!(osd::resolve_assembly("acme/build", Some("acme/synth"), &files).is_ok(), "the other target is not read");
+    let f = osd::resolve_assembly("acme/build", Some("acme/keys"), &files).expect_err("no midi");
+    assert_eq!((f.kind, f.file.as_deref()), (FaultKind::BadValue, Some("acme/stock")), "{f}");
+    assert!(f.pointer.starts_with("/targets"), "{f}");
 }

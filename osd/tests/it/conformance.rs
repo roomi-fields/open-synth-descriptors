@@ -27,7 +27,8 @@ fn run_resolve(dir: &Path) -> Option<String> {
     // `resolve_assembly` names an assembly instead of a driver: its MIDI is resolved, not a driver's.
     let files = files(&dir.join("files"));
     let got = match case["resolve_assembly"].as_str() {
-        Some(id) => osd::resolve_assembly(id, &files),
+        // `device`, when the case gives it, is the device descriptor the assembly is resolved for.
+        Some(id) => osd::resolve_assembly(id, case["device"].as_str(), &files),
         None => osd::resolve(case["resolve"].as_str().unwrap(), &files),
     };
     match (got, case.get("result"), case.get("fault")) {
@@ -133,7 +134,7 @@ fn settings_claims(device: &osd::Device, case: &Value) -> Option<String> {
 
 /// What a reading case states of the base versions of a firmware: `comparisons` (`{a, b, order}`,
 /// `order` being `less`, `equal` or `greater`) and `fits` (`{target, version, fits}`: whether the
-/// version fits the target of that index).
+/// version fits the target of that index, `yes`, `no` or `unknown`).
 fn firmware_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
     let osd::Descriptor::Firmware(f) = d else { return None };
     for want in case.get("comparisons").and_then(Value::as_array).into_iter().flatten() {
@@ -150,7 +151,11 @@ fn firmware_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
     let targets = f.targets.as_deref().unwrap_or_default();
     for want in fits {
         let Some(target) = targets.get(want["target"].as_u64().unwrap() as usize) else { return Some(format!("no target for {want}")) };
-        let got = osd::version_in_target(want["version"].as_str().unwrap(), target);
+        let got = match osd::version_in_target(want["version"].as_str().unwrap(), target) {
+            osd::Fit::Yes => "yes",
+            osd::Fit::No => "no",
+            osd::Fit::Unknown => "unknown",
+        };
         if want["fits"] != got {
             return Some(format!("fits {got}, the case states {want}"));
         }
@@ -573,12 +578,12 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
-    every_case(&common::repo().join("conformance/0.6/read"), 72, run_read);
+    every_case(&common::repo().join("conformance/0.6/read"), 161, run_read);
 }
 
 #[test]
 fn every_resolution_case_of_0_6_passes() {
-    every_case(&common::repo().join("conformance/0.6/resolve"), 22, run_resolve);
+    every_case(&common::repo().join("conformance/0.6/resolve"), 26, run_resolve);
 }
 
 #[test]
@@ -620,6 +625,16 @@ fn the_assembly_cases_of_0_6_hold_the_order_the_empty_list_the_same_as_rule_the_
     assert_eq!(entries(&spec(&resolve, "assembly-module-same-as-adds-nothing")), entries(&spec(&resolve, "assembly-no-modules")));
     let shared = entries(&spec(&resolve, "assembly-two-modules-same-address-no-refusal"));
     assert_eq!(shared.iter().filter(|a| a.as_str() == "/p3").count(), 1, "one route at the shared address: {shared:?}");
+    // One module on two neighbouring devices of a maker: each resolves to the routes of its own target.
+    let on_synth = spec(&resolve, "assembly-one-module-on-digitone");
+    let on_keys = spec(&resolve, "assembly-one-module-on-digitone-keys");
+    assert_eq!((on_synth["device"].as_str(), on_keys["device"].as_str()), (Some("elektron/digitone"), Some("elektron/digitone-keys")));
+    assert_eq!(on_synth["resolve_assembly"], on_keys["resolve_assembly"], "the same assembly");
+    assert!(entries(&on_synth) != entries(&on_keys) && !entries(&on_synth).is_empty() && !entries(&on_keys).is_empty());
+    let no_target = spec(&resolve, "assembly-module-without-target-for-device-refused");
+    assert!(no_target["device"].is_string() && no_target.get("result").is_none());
+    assert_eq!(no_target["fault"]["kind"], "BadValue");
+    assert_eq!(no_target["fault"]["pointer"], "/targets");
     for (n, kind) in [("assembly-module-same-as-another-refused", "BadValue"), ("assembly-module-midi-guard-refused", "UnknownField")] {
         let s = spec(&resolve, n);
         assert!(s["resolve_assembly"].is_string() && s.get("result").is_none(), "{n} is refused");
@@ -906,7 +921,7 @@ fn run_convert_to_0_6(dir: &Path) -> Option<String> {
 
 #[test]
 fn every_conversion_case_of_0_6_passes() {
-    every_case(&common::repo().join("conformance/0.6/convert"), 2, run_convert_to_0_6);
+    every_case(&common::repo().join("conformance/0.6/convert"), 3, run_convert_to_0_6);
 }
 
 #[test]
@@ -923,6 +938,13 @@ fn the_conversion_cases_of_0_6_turn_a_0_5_and_a_0_4_firmware_into_one_target() {
     let from_05: Value = serde_json::from_str(&std::fs::read_to_string(root.join("firmware-device-becomes-target/descriptor.json")).unwrap()).unwrap();
     assert_eq!(from_05["$schema"], "https://w3id.org/osd/0.5/firmware.schema.json");
     assert!(from_05["based_on"]["version"].is_string(), "the 0.5 case converts a based_on with its version");
+    let out: Value = serde_json::from_str(&std::fs::read_to_string(root.join("firmware-device-becomes-target/case.json")).unwrap()).unwrap();
+    assert_eq!(out["result"]["targets"][0]["based_on"], serde_json::json!({"name": "Elektron OS", "version": "1.43", "url": "https://www.elektron.se"}));
+    assert!(out["result"]["targets"][0].get("runs_on").is_none(), "the conversion invents no constraint");
+    let with_midi = names.iter().any(|n| n == "firmware-midi-moves-into-the-target");
+    assert!(with_midi, "no case firmware-midi-moves-into-the-target");
+    let moved: Value = serde_json::from_str(&std::fs::read_to_string(root.join("firmware-midi-moves-into-the-target/case.json")).unwrap()).unwrap();
+    assert!(moved["result"].get("midi").is_none() && moved["result"]["targets"][0]["midi"].is_object());
 }
 
 #[test]
@@ -934,17 +956,29 @@ fn the_reading_cases_of_0_6_hold_each_form_of_a_target_and_refuse_a_target_witho
         assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
         assert_eq!(spec(want)["read"], "firmware", "{want}");
     }
-    assert!(spec("firmware-targets-list")["result"]["targets"][0]["based_on"]["versions"].is_array());
-    assert!(spec("firmware-targets-range")["result"]["targets"][0]["based_on"]["versions"]["min"].is_string());
-    assert!(spec("firmware-targets-several-devices")["result"]["targets"].as_array().is_some_and(|t| t.len() >= 2));
+    assert!(spec("firmware-targets-list")["result"]["targets"][0]["runs_on"]["versions"].is_array());
+    assert!(spec("firmware-targets-range")["result"]["targets"][0]["runs_on"]["versions"]["min"].is_string());
+    let several = spec("firmware-targets-several-devices");
+    assert!(several["result"]["targets"].as_array().is_some_and(|t| t.len() >= 2));
+    assert!(several["result"]["targets"].as_array().unwrap().iter().filter(|t| t["midi"].is_object()).count() >= 2, "each target carries its own midi");
+    assert!(several["result"].get("midi").is_none());
+    let lineage = spec("firmware-target-lineage-apart-from-runs-on");
+    assert_eq!(lineage["read"], "firmware");
+    assert!(lineage["result"]["targets"][0]["based_on"]["version"].is_string() && lineage["result"]["targets"][0]["runs_on"]["versions"].is_array());
+    assert!(lineage["result"]["targets"][0]["based_on"].get("versions").is_none());
+    let midi_up = spec("firmware-midi-at-first-level-refused");
+    assert_eq!(midi_up["fault"], serde_json::json!({"kind": "UnknownField", "pointer": "/midi"}));
+    let based_versions = spec("firmware-based-on-versions-refused");
+    assert_eq!(based_versions["fault"], serde_json::json!({"kind": "UnknownField", "pointer": "/targets/0/based_on/versions"}));
     let compare = spec("firmware-targets-compare-versions");
     assert!(compare["comparisons"].as_array().is_some_and(|c| c.iter().any(|x| x["a"] == "1.40" && x["b"] == "1.40.0" && x["order"] == "equal")));
     assert!(compare["fits"].as_array().is_some_and(|c| {
-        let fits = |t: u64, v: &str, f: bool| c.iter().any(|x| x["target"] == t && x["version"] == v && x["fits"] == f);
-        fits(0, "1.40C", true) && fits(0, "1.42", false) && c.iter().any(|x| x["target"] == 1)
+        let fits = |t: u64, v: &str, f: &str| c.iter().any(|x| x["target"] == t && x["version"] == v && x["fits"] == f);
+        fits(0, "1.40C", "yes") && fits(0, "1.42", "no") && c.iter().any(|x| x["target"] == 1)
+            && c.iter().any(|x| x["fits"] == "unknown")
     }));
-    assert_eq!(compare["result"]["targets"][0]["based_on"]["versions"], serde_json::json!({"min": "1.40B", "max": "1.41"}));
-    assert!(compare["result"]["targets"][1]["based_on"]["versions"].get("max").is_none());
+    assert_eq!(compare["result"]["targets"][0]["runs_on"]["versions"], serde_json::json!({"min": "1.40B", "max": "1.41"}));
+    assert!(compare["result"]["targets"][1]["runs_on"]["versions"].get("max").is_none());
     assert_eq!(spec("firmware-target-without-device-refused")["fault"], serde_json::json!({"kind": "Missing", "pointer": "/targets/0/device"}));
 }
 

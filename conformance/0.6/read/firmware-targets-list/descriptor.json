@@ -10,9 +10,8 @@
         "vendor": "Elektron",
         "model": "Digitone"
       },
-      "based_on": {
+      "runs_on": {
         "name": "Elektron OS",
-        "url": "https://www.elektron.se",
         "versions": [
           "1.43",
           "1.44"

@@ -321,7 +321,7 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
                 defs.remove(&def);
             }
         }
-        // The targets of a firmware (`targets`, and their definitions) replace its `device` and `based_on`.
+        // The targets of a firmware (`targets`, and their definitions) replace its `device`, `based_on` and `midi`.
         if n == "firmware" {
             let drop = |v: &mut Value, fields: &[&str]| {
                 for f in fields {
@@ -341,7 +341,7 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
             for key in ["if", "then"] {
                 assert!(root.remove(key).is_some(), "firmware has no {key}");
             }
-            drop(&mut before, &["device", "based_on"]);
+            drop(&mut before, &["device", "based_on", "midi"]);
         }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {

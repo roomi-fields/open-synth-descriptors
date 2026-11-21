@@ -55,7 +55,7 @@ object! {
 }
 
 /// A 0.5 firmware holds a closed licence value; a 0.4 one any text. Up to 0.5 it names one
-/// `device` and may name a `based_on`; from 0.6 it names `targets` and neither of the two.
+/// `device` and may name a `based_on` and a `midi`; from 0.6 it names `targets`, which carry the three.
 fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
     if crate::is_05_form(f.schema) {
         crate::vocabulary::check_license(f.license.as_deref(), "/license")?;
@@ -67,6 +67,9 @@ fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
         }
         if f.based_on.is_some() {
             return Err(unknown("based_on"));
+        }
+        if f.midi.is_some() {
+            return Err(unknown("midi"));
         }
         if f.targets.is_none() {
             return Err(At::Key(at, "targets").fault(FaultKind::Missing, "targets is required"));
@@ -90,18 +93,22 @@ fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
 }
 
 object! {
-    /// A device a firmware is made for, with the base firmware versions it accepts.
+    /// A device a firmware is made for: its own MIDI, the firmware it is built from, and what it runs on.
     Target {
         "device" device: ForDevice = obj(),
-        "based_on" based_on: Option<TargetBase> = Opt(obj()),
+        /// What the firmware understands over MIDI on this device.
+        "midi" midi: Option<FirmwareMidi> = Opt(obj()),
+        /// The lineage: the firmware it was forked or built from, one version.
+        "based_on" based_on: Option<BasedOn> = Opt(obj()),
+        /// The base firmware versions it runs on.
+        "runs_on" runs_on: Option<RunsOn> = Opt(obj()),
     }
 }
 
 object! {
-    /// The firmware a target is built from, and the versions of it that the target accepts.
-    TargetBase {
+    /// The base firmware a target runs on, and the versions of it.
+    RunsOn {
         "name" name: String = STRING,
-        "url" url: Option<String> = Opt(STRING),
         "versions" versions: Option<BaseVersions> = Opt(BaseVersionsCodec),
     }
 }
@@ -179,16 +186,25 @@ pub fn compare_versions(a: &str, b: &str) -> Ordering {
 
 /// Whether `version` fits `target`: it equals one of the listed versions (by [`compare_versions`]),
 /// or lies in the range, bounds included; a `min` alone is open upward, a `max` alone downward.
-/// A target without base versions accepts none.
-pub fn version_in_target(version: &str, target: &Target) -> bool {
-    match target.based_on.as_ref().and_then(|b| b.versions.as_ref()) {
-        Some(BaseVersions::List(l)) => l.iter().any(|v| compare_versions(version, v) == Ordering::Equal),
-        Some(BaseVersions::Range(r)) => {
+/// A target without `runs_on` versions answers [`Fit::Unknown`]: neither yes nor no; the caller decides.
+pub fn version_in_target(version: &str, target: &Target) -> Fit {
+    let yes = |b: bool| if b { Fit::Yes } else { Fit::No };
+    match target.runs_on.as_ref().and_then(|b| b.versions.as_ref()) {
+        Some(BaseVersions::List(l)) => yes(l.iter().any(|v| compare_versions(version, v) == Ordering::Equal)),
+        Some(BaseVersions::Range(r)) => yes(
             r.min.as_deref().is_none_or(|m| compare_versions(version, m) != Ordering::Less)
-                && r.max.as_deref().is_none_or(|m| compare_versions(version, m) != Ordering::Greater)
-        }
-        None => false,
+                && r.max.as_deref().is_none_or(|m| compare_versions(version, m) != Ordering::Greater),
+        ),
+        None => Fit::Unknown,
     }
+}
+
+/// Whether a version fits a target: yes, no, or unknown when the target states no versions it runs on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fit {
+    Yes,
+    No,
+    Unknown,
 }
 
 object! {
@@ -200,7 +216,7 @@ object! {
 }
 
 object! {
-    /// The firmware it was forked or built from.
+    /// The firmware it was forked or built from (its lineage, one version).
     BasedOn {
         "name" name: String = STRING,
         "version" version: Option<String> = Opt(STRING),

@@ -1,0 +1,34 @@
+{
+  "_about": "The same module and assembly resolve on the second device with the routes of the target for that device.",
+  "resolve_assembly": "elektron/build",
+  "device": "elektron/digitone-keys",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Digitone Keys",
+      "osc_prefix": "/digitone"
+    },
+    "params": {
+      "get_frame": [
+        240,
+        247
+      ],
+      "set_frame": [
+        240,
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/k1"
+        },
+        {
+          "osc": "/k2"
+        },
+        {
+          "osc": "/k3"
+        }
+      ]
+    }
+  }
+}

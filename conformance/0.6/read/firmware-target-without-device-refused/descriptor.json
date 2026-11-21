@@ -5,7 +5,7 @@
   "kind": "mod",
   "targets": [
     {
-      "based_on": {
+      "runs_on": {
         "name": "Elektron OS",
         "versions": [
           "1.43"

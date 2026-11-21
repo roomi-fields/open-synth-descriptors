@@ -3,6 +3,5 @@
   "name": "Same",
   "version": "1.0",
   "kind": "mod",
-  "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}}],
-  "midi": {"same_as": "acme/synth", "changes": "No MIDI change."}
+  "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}, "midi": {"same_as": "acme/synth", "changes": "No MIDI change."}}]
 }

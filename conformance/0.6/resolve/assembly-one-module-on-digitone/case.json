@@ -1,0 +1,34 @@
+{
+  "_about": "One module made for two neighbouring devices resolves on the first with the routes of its own target for it: the stock's then the module's.",
+  "resolve_assembly": "elektron/build",
+  "device": "elektron/digitone",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Digitone",
+      "osc_prefix": "/digitone"
+    },
+    "params": {
+      "get_frame": [
+        240,
+        247
+      ],
+      "set_frame": [
+        240,
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/p1"
+        },
+        {
+          "osc": "/p2"
+        },
+        {
+          "osc": "/p3"
+        }
+      ]
+    }
+  }
+}

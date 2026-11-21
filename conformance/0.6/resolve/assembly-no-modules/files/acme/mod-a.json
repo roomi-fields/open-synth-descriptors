@@ -3,6 +3,5 @@
   "name": "Mod A",
   "version": "1.0",
   "kind": "mod",
-  "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}}],
-  "midi": {"descriptor": "acme/mod-a-midi"}
+  "targets": [{"device": {"descriptor": "acme/synth", "vendor": "Acme", "model": "Synth"}, "midi": {"descriptor": "acme/mod-a-midi"}}]
 }
