@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reads the devices and base versions a firmware is made for (0.6): `targets`, a non-empty list replacing `device` and `based_on` for every kind of firmware (a 0.6 firmware holding either is refused, `UnknownField`). Each `Target` has a `device` and an optional `based_on` (`TargetBase`: `name`, `url`, `versions` as `BaseVersions`, a list or a `VersionRange` with `min` and `max`). `compare_versions(a, b)` orders two base versions (a number then letters without case per `.` component, a missing component 0: 1.40 < 1.40B < 1.40C < 1.41, 1.40 = 1.40.0) and `version_in_target(version, &target)` says whether one fits a target. `convert_to` turns a 0.5 firmware (and a 0.4 one) into one target, `based_on.version` becoming a list of one version.
+
 - Reads how a file is written on a device by MIDI (0.6): `resources[].via.file_write.steps`, three steps `open`, `write` (played once per chunk, with `chunk_bytes` and `coding`) and `close`, each with its `send` (frame elements plus `text`, `file` and `captured`), its `reply` (frame elements plus `capture_json`), `reply_timeout_ms` and `delay_ms`; typed as `Step`, `StepKind`, `Coding`, `FileItem`, `NumberAs`, `SendToken`, `ReplyToken`. An unknown step, a list without one `open`, `write` and `close` or with a second of one, a null `chunk_bytes`, a reply without `reply_timeout_ms`, a timeout shorter than `delay_ms` and an unknown `coding` are refused at their pointer; a file without `steps`, 0.4 and 0.5 read as before. Eight conformance cases in `conformance/0.6/read/` show it, the Deluge from the community firmware.
 
 - `resources[].export` accepts `knobkraft` (0.6 draft): `RESOURCE_EXPORTS` and the 0.6 schema list the new format of osd-formats, the skeleton of a KnobKraft Orm adaptation.

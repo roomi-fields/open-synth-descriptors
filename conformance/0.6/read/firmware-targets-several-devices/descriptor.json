@@ -1,0 +1,41 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Elekloader mod",
+  "version": "2.0",
+  "kind": "mod",
+  "targets": [
+    {
+      "device": {
+        "descriptor": "elektron/digitone",
+        "vendor": "Elektron",
+        "model": "Digitone"
+      },
+      "based_on": {
+        "name": "Elektron OS",
+        "versions": [
+          "1.43",
+          "1.44"
+        ]
+      }
+    },
+    {
+      "device": {
+        "vendor": "Elektron",
+        "model": "Digitone Keys"
+      },
+      "based_on": {
+        "name": "Elektron OS",
+        "versions": {
+          "min": "1.43",
+          "max": "1.44"
+        }
+      }
+    },
+    {
+      "device": {
+        "vendor": "Elektron",
+        "model": "Digitakt"
+      }
+    }
+  ]
+}

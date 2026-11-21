@@ -1,0 +1,8 @@
+{
+  "_about": "A target names a device: one without is refused at the target's device.",
+  "read": "firmware",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/targets/0/device"
+  }
+}

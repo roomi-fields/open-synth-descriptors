@@ -1,0 +1,112 @@
+{
+  "_about": "Base versions compare by number then letters without case, not as SemVer: 1.40C lies between 1.40B and 1.41, 1.40 = 1.40.0, a min alone is open upward.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "elektron/digitone",
+          "vendor": "Elektron",
+          "model": "Digitone"
+        },
+        "based_on": {
+          "name": "Elektron OS",
+          "versions": {
+            "min": "1.40B",
+            "max": "1.41"
+          }
+        }
+      },
+      {
+        "device": {
+          "vendor": "Elektron",
+          "model": "Digitone Keys"
+        },
+        "based_on": {
+          "name": "Elektron OS",
+          "versions": {
+            "min": "1.40B"
+          }
+        }
+      }
+    ]
+  },
+  "comparisons": [
+    {
+      "a": "1.40",
+      "b": "1.40B",
+      "order": "less"
+    },
+    {
+      "a": "1.40B",
+      "b": "1.40C",
+      "order": "less"
+    },
+    {
+      "a": "1.40C",
+      "b": "1.41",
+      "order": "less"
+    },
+    {
+      "a": "1.9",
+      "b": "1.10",
+      "order": "less"
+    },
+    {
+      "a": "1.40",
+      "b": "1.40.0",
+      "order": "equal"
+    },
+    {
+      "a": "1.42",
+      "b": "1.41",
+      "order": "greater"
+    }
+  ],
+  "fits": [
+    {
+      "target": 0,
+      "version": "1.40C",
+      "fits": true
+    },
+    {
+      "target": 0,
+      "version": "1.40B",
+      "fits": true
+    },
+    {
+      "target": 0,
+      "version": "1.41",
+      "fits": true
+    },
+    {
+      "target": 0,
+      "version": "1.42",
+      "fits": false
+    },
+    {
+      "target": 0,
+      "version": "1.40",
+      "fits": false
+    },
+    {
+      "target": 1,
+      "version": "1.40B",
+      "fits": true
+    },
+    {
+      "target": 1,
+      "version": "2.0",
+      "fits": true
+    },
+    {
+      "target": 1,
+      "version": "1.40",
+      "fits": false
+    }
+  ]
+}

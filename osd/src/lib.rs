@@ -34,7 +34,10 @@ pub use device::{
 };
 pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
 pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports, Via};
-pub use firmware::{BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install, Release};
+pub use firmware::{
+    compare_versions, version_in_target, BaseVersions, BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install,
+    Release, Target, TargetBase, VersionRange,
+};
 pub use json::Remarks;
 pub use resolve::{resolve, Files, Resolved};
 pub use file_write::{Coding, FileItem, NumberAs, ReplyToken, SendToken, Step, StepKind};
@@ -407,6 +410,9 @@ pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fau
         // 0.5 to the draft: the address changes, the values stay.
         let Ok(Value::Object(mut v)) = serde_json::from_str::<Value>(&kept) else { unreachable!("a descriptor is a JSON object") };
         v.insert("$schema".into(), SchemaUrl(kind_name(kind)).write(&target).unwrap_or_default());
+        if kind == Kind::Firmware && target >= Version::V0_6 {
+            firmware_targets_of(&mut v);
+        }
         let mut out = serde_json::to_string_pretty(&Value::Object(v)).unwrap_or_default();
         out.push('\n');
         return Ok(out);
@@ -416,6 +422,22 @@ pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fau
         return Ok(via_05);
     }
     convert_to(&via_05, kind, target)
+}
+
+/// A 0.5 firmware's `device` and `based_on` as the one `targets` entry of 0.6: `device` as it
+/// is, `based_on.version` as the list of one version.
+fn firmware_targets_of(v: &mut serde_json::Map<String, Value>) {
+    let mut target = serde_json::Map::new();
+    if let Some(device) = v.remove("device") {
+        target.insert("device".into(), device);
+    }
+    if let Some(Value::Object(mut base)) = v.remove("based_on") {
+        if let Some(version) = base.remove("version") {
+            base.insert("versions".into(), Value::Array(vec![version]));
+        }
+        target.insert("based_on".into(), Value::Object(base));
+    }
+    v.insert("targets".into(), Value::Array(vec![Value::Object(target)]));
 }
 
 fn kind_name(kind: Kind) -> &'static str {

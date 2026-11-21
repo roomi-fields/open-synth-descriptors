@@ -1,0 +1,24 @@
+{
+  "_about": "A 0.4 firmware with one device and one based_on converts through 0.5 to one target, unchanged in meaning.",
+  "convert": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "TRIBE",
+    "version": "0.3-beta",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "m-vave/fm-1",
+          "vendor": "M-VAVE",
+          "model": "FM-1"
+        },
+        "based_on": {
+          "name": "Elektron OS",
+          "versions": [
+            "1.43"
+          ]
+        }
+      }
+    ]
+  }
+}

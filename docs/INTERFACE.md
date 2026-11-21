@@ -181,6 +181,32 @@ The list never replaces the rule of the identity of a sound above: the identity 
 
 A known algorithm fixes the form of the value (names read without case): `md5` 32, `sha1` 40, `sha256` 64 lower-case hexadecimal digits; a tool that writes capitals leaves `algorithm` out. An unknown or absent algorithm only requires a non-empty value. Refused, at the address of the fault: an entry without `tool` or `value` (`Missing`), an unknown key of an entry (`UnknownField`), the tool `OSD`, an empty value, a value outside the form of its algorithm, and two entries of the same computation (same `tool`, `by` and `algorithm`, each compared without case, an absent one equal to an absent one) with different values, at the later one (`BadValue`). The md5 and the sha1 of one adaptation are not the same computation. A descriptor of 0.4 or 0.5 refuses `external_ids` as an unknown field; `osd::convert` from 0.5 adds none.
 
+## The devices and base versions a firmware is made for (0.6)
+
+A 0.6 firmware descriptor (of any `kind`: `firmware`, `mod`, `script`, `extension`) names `targets`, a non-empty list; the `device` and the `based_on` of 0.4 and 0.5 are no longer fields of it, and a 0.6 descriptor that holds one is refused (`UnknownField`). One module that runs on several devices and several base versions says so once, a target per device.
+
+A target is `{device, based_on}`. `device` is `{vendor, model}` with the optional `descriptor` (`maker/file`), required. `based_on` is optional: `{name, url, versions}`, `name` required, `url` optional, and `versions` written in one of two forms:
+
+```json
+"targets": [
+  {"device": {"vendor": "Elektron", "model": "Digitone"},
+   "based_on": {"name": "Elektron OS", "versions": ["1.43", "1.44"]}},
+  {"device": {"vendor": "Elektron", "model": "Digitone Keys"},
+   "based_on": {"name": "Elektron OS", "versions": {"min": "1.40B", "max": "1.41"}}}
+]
+```
+
+- a list: the versions the target accepts, one or more;
+- a range `{min, max}`: its bounds are included; a `min` alone is open upward, a `max` alone open downward; at least one of the two.
+
+A version is text of letters, digits and dots with at least one digit. A target without `device`, a range without `min` nor `max`, an empty list and a version that is not such text are refused (`Missing` or `BadValue`) at the element, by the reader and by the schema.
+
+How two base versions compare: the text splits on `.`; each component is a number followed by optional letters; numbers compare as numbers, then the letters without case, no letters before any letters; a missing component is 0 without letters. So 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10 and 1.40 = 1.40.0. A list is tested by the same rule (1.40.0 fits `["1.40"]`). This is not SemVer: base firmware numbers such as 1.40C do not follow it.
+
+Conversion: a 0.5 firmware (a 0.4 one passes through 0.5) with one `device` and one `based_on` becomes one target: `device` as it is, `based_on.version` the list of one version; without `based_on`, a target without base versions. Conversion goes forward only: a 0.6 descriptor converts to itself and never back.
+
+Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`.
+
 ## Pauses, reply time and banks that cannot be written (0.6)
 
 - `programs.delay_ms` (0.5) is the one pause, in milliseconds, between the messages of a recall. A device that needs different pauses after different messages takes the longest: that need (the Yamaha TG33 in KnobKraft Orm's `messageSendDelays`) is known and waits for a second device before the format carries a pause per message or a sequence of steps.

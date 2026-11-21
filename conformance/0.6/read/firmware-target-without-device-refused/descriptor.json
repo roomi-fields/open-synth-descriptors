@@ -1,0 +1,16 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Elekloader mod",
+  "version": "2.0",
+  "kind": "mod",
+  "targets": [
+    {
+      "based_on": {
+        "name": "Elektron OS",
+        "versions": [
+          "1.43"
+        ]
+      }
+    }
+  ]
+}

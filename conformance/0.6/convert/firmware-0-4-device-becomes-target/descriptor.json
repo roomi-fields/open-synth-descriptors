@@ -1,0 +1,14 @@
+{
+  "$schema": "https://synthhub.roomi-fields.com/osd/0.4/firmware.schema.json",
+  "name": "TRIBE",
+  "version": "0.3-beta",
+  "device": {
+    "descriptor": "m-vave/fm-1",
+    "vendor": "M-VAVE",
+    "model": "FM-1"
+  },
+  "based_on": {
+    "name": "Elektron OS",
+    "version": "1.43"
+  }
+}

@@ -27,6 +27,10 @@ result}`: `a` and `b` each `{index, message}`, `result` one `{control,
 param_path, outcome}` per setting, `outcome` being `equal`, `differ` or
 `absent`).
 
+A result case of a firmware (0.6) may add `comparisons` (`{a, b, order}`: two base versions and
+their order, `less`, `equal` or `greater`) and `fits` (`{target, version, fits}`: whether the
+version fits the target of that index in `targets`).
+
 A reading case that expects a result reads a descriptor valid against its
 version's schemas; one that expects a fault reads a descriptor with exactly
 one schema error, at the pointer the fault names. The optional

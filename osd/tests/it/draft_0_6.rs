@@ -51,8 +51,12 @@ fn name(kind: Kind) -> &'static str {
     KINDS.iter().find(|(k, _)| *k == kind).unwrap().1
 }
 
-/// The text with its 0.5 `$schema` address turned into the 0.6 one.
+/// The text with its 0.5 `$schema` address turned into the 0.6 one; a firmware, whose
+/// `device` and `based_on` become `targets` in 0.6, goes through the conversion.
 fn as_06(text: &str, kind: Kind) -> String {
+    if kind == Kind::Firmware {
+        return osd::convert_to(text, kind, Version::V0_6).unwrap();
+    }
     text.replace(&address("0.5", name(kind)), &address("0.6", name(kind)))
 }
 
@@ -111,6 +115,9 @@ fn a_0_6_address_on_the_old_host_is_refused() {
 #[test]
 fn a_0_5_descriptor_whose_schema_is_changed_to_0_6_reads_to_the_same_values() {
     for (kind, text) in examples_05() {
+        if kind == Kind::Firmware {
+            continue;
+        }
         let twin = as_06(&text, kind);
         assert_ne!(twin, text, "{kind:?}");
         let d = osd::read(&twin, kind).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
@@ -314,6 +321,19 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
                 defs.remove(&def);
             }
         }
+        // The targets of a firmware (`targets`, and their definitions) replace its `device` and `based_on`.
+        if n == "firmware" {
+            let drop = |v: &mut Value, fields: &[&str]| {
+                for f in fields {
+                    assert!(v["properties"].as_object_mut().unwrap().remove(*f).is_some(), "firmware has no {f}");
+                }
+                let req = v["required"].as_array_mut().unwrap();
+                req.retain(|r| !fields.contains(&r.as_str().unwrap()));
+                v.as_object_mut().unwrap().remove("$defs");
+            };
+            drop(&mut now, &["targets"]);
+            drop(&mut before, &["device", "based_on"]);
+        }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {
             assert!(now["properties"].as_object_mut().unwrap().remove("external_ids").is_some(), "sound has no external_ids");
@@ -336,6 +356,10 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
 #[test]
 fn convert_to_0_6_carries_a_0_5_text_with_its_schema_changed_and_its_values_kept() {
     for (kind, text) in examples_05() {
+        // A firmware descriptor's `device` and `based_on` become targets (firmware_targets).
+        if kind == Kind::Firmware {
+            continue;
+        }
         let out = osd::convert_to(&text, kind, Version::V0_6).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
         assert_eq!(value(&out)["$schema"], address("0.6", name(kind)), "{kind:?}");
         assert_eq!(without_schema(&out), without_schema(&text), "{kind:?}");
@@ -346,6 +370,9 @@ fn convert_to_0_6_carries_a_0_5_text_with_its_schema_changed_and_its_values_kept
 #[test]
 fn convert_to_0_6_carries_a_0_4_text_through_0_5() {
     for (kind, text) in texts_04() {
+        if kind == Kind::Firmware {
+            continue;
+        }
         let out = osd::convert_to(&text, kind, Version::V0_6).unwrap_or_else(|f| panic!("{kind:?}: {f}"));
         let via_05 = osd::convert(&text, kind).unwrap();
         assert_eq!(value(&out)["$schema"], address("0.6", name(kind)), "{kind:?}");
@@ -445,6 +472,11 @@ fn every_reading_case_of_0_5_has_its_0_6_twin_with_the_same_expected_result() {
     assert!(before.iter().all(|n| now.contains(n)), "the cases of 0.6 hold those of 0.5");
     let mut failures = Vec::new();
     for n in &before {
+        // A firmware case names targets in 0.6: it is the conversion of its 0.5 twin (firmware_targets).
+        let kind = |v: &str| value(&std::fs::read_to_string(root.join(v).join("read").join(n).join("case.json")).unwrap())["read"].clone();
+        if kind("0.5") == json!("firmware") {
+            continue;
+        }
         for f in ["descriptor.json", "case.json"] {
             let a = std::fs::read_to_string(root.join("0.5/read").join(n).join(f)).unwrap();
             let b = std::fs::read_to_string(root.join("0.6/read").join(n).join(f)).unwrap();

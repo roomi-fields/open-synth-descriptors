@@ -8,7 +8,7 @@
     "$schema",
     "name",
     "version",
-    "device"
+    "targets"
   ],
   "patternProperties": {
     "^_": {
@@ -35,31 +35,53 @@
       ],
       "default": "firmware"
     },
-    "device": {
-      "type": "object",
-      "properties": {
-        "descriptor": {
-          "type": "string",
-          "description": "The OSD device descriptor it is for (maker/file, e.g. korg/minilogue)."
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "object",
+            "properties": {
+              "descriptor": {
+                "type": "string",
+                "description": "The OSD device descriptor it is for (maker/file, e.g. korg/minilogue)."
+              },
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "vendor",
+              "model"
+            ],
+            "description": "The device it is made for."
+          },
+          "based_on": {
+            "$ref": "#/$defs/target_base"
+          }
         },
-        "vendor": {
-          "type": "string"
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
         },
-        "model": {
-          "type": "string"
-        }
+        "additionalProperties": false,
+        "required": [
+          "device"
+        ]
       },
-      "patternProperties": {
-        "^_": {
-          "description": "A note for people; never read by a program."
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "vendor",
-        "model"
-      ],
-      "description": "The device it is made for."
+      "description": "The devices it is made for, each with the base firmware versions it accepts."
     },
     "official": {
       "type": "boolean",
@@ -132,31 +154,6 @@
         "NOASSERTION",
         "NONE"
       ]
-    },
-    "based_on": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "version": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string",
-          "format": "uri"
-        }
-      },
-      "patternProperties": {
-        "^_": {
-          "description": "A note for people; never read by a program."
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "name"
-      ],
-      "description": "The firmware it was forked or built from."
     },
     "midi": {
       "type": "object",
@@ -253,6 +250,77 @@
         ]
       },
       "description": "Where its users meet."
+    }
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "pattern": "^(?=.*[0-9])[0-9A-Za-z.]+$",
+      "description": "A version of a base firmware: letters, digits and dots, with at least one digit. Versions compare component by component (split on `.`): a number, then optional letters without case; 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10, 1.40 = 1.40.0."
+    },
+    "target_base": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "versions": {
+          "description": "The base versions the target accepts: an explicit list, or a range whose bounds are included (a min alone is open upward, a max alone downward).",
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/version"
+            },
+            "minItems": 1
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "$ref": "#/$defs/version"
+              },
+              "max": {
+                "$ref": "#/$defs/version"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+              {
+                "required": [
+                  "min"
+                ]
+              },
+              {
+                "required": [
+                  "max"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "description": "The firmware the target is forked or built from, and its versions."
     }
   }
 }

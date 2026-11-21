@@ -126,6 +126,33 @@ fn settings_claims(device: &osd::Device, case: &Value) -> Option<String> {
     None
 }
 
+/// What a reading case states of the base versions of a firmware: `comparisons` (`{a, b, order}`,
+/// `order` being `less`, `equal` or `greater`) and `fits` (`{target, version, fits}`: whether the
+/// version fits the target of that index).
+fn firmware_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
+    let osd::Descriptor::Firmware(f) = d else { return None };
+    for want in case.get("comparisons").and_then(Value::as_array).into_iter().flatten() {
+        let got = match osd::compare_versions(want["a"].as_str().unwrap(), want["b"].as_str().unwrap()) {
+            std::cmp::Ordering::Less => "less",
+            std::cmp::Ordering::Equal => "equal",
+            std::cmp::Ordering::Greater => "greater",
+        };
+        if want["order"] != got {
+            return Some(format!("compared {got}, the case states {want}"));
+        }
+    }
+    let fits = case.get("fits").and_then(Value::as_array)?;
+    let targets = f.targets.as_deref().unwrap_or_default();
+    for want in fits {
+        let Some(target) = targets.get(want["target"].as_u64().unwrap() as usize) else { return Some(format!("no target for {want}")) };
+        let got = osd::version_in_target(want["version"].as_str().unwrap(), target);
+        if want["fits"] != got {
+            return Some(format!("fits {got}, the case states {want}"));
+        }
+    }
+    None
+}
+
 /// What a reading case asked for that the reader did not return, if anything.
 fn run_read(dir: &Path) -> Option<String> {
     let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
@@ -149,7 +176,7 @@ fn run_read(dir: &Path) -> Option<String> {
             if got != want_roles {
                 return Some(format!("roles {got:?}, the case states {want_roles:?}"));
             }
-            sound_transfer_claims(&d, &case)
+            sound_transfer_claims(&d, &case).or_else(|| firmware_claims(&d, &case))
         }
         (Err(f), None, Some(want)) => {
             let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});
@@ -806,5 +833,92 @@ fn criterion_5_and_6_the_reading_cases_of_0_5_hold_each_frame_form_and_refuse_ea
     }
     for want in ["frame-forms", "frame-recognise", "pre-tree"] {
         assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+    }
+}
+
+/// What a conversion case of 0.6 asked for that `convert_to` did not return, if anything: the
+/// result is the 0.6 document, equal to the converted text's, key order aside; it reads as 0.6,
+/// validates against the 0.6 schema and converts to itself. A fault is the refusal.
+fn run_convert_to_0_6(dir: &Path) -> Option<String> {
+    let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(dir.join("descriptor.json")).unwrap();
+    let kind = kind(case["convert"].as_str().unwrap());
+    match (osd::convert_to(&text, kind, osd::Version::V0_6), case.get("result"), case.get("fault")) {
+        (Ok(out), Some(want), None) => {
+            let doc: Value = serde_json::from_str(&out).unwrap();
+            if doc != *want {
+                return Some(format!("converted into {doc}"));
+            }
+            if let Err(f) = osd::read_as(&out, kind, osd::Version::V0_6) {
+                return Some(format!("the result does not read: {f}"));
+            }
+            if let Some(e) = common::Schemas::load("0.6").check(kind, &doc) {
+                return Some(format!("the result does not validate: {e}"));
+            }
+            (osd::convert_to(&out, kind, osd::Version::V0_6).as_deref() != Ok(out.as_str())).then(|| "converting the result changes it".into())
+        }
+        (Err(f), None, Some(want)) => {
+            let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});
+            (got != *want).then(|| format!("refused with {got} ({f})"))
+        }
+        _ => Some("the case and the converter disagree".into()),
+    }
+}
+
+#[test]
+fn every_conversion_case_of_0_6_passes() {
+    every_case(&common::repo().join("conformance/0.6/convert"), 2, run_convert_to_0_6);
+}
+
+#[test]
+fn the_conversion_cases_of_0_6_turn_a_0_5_and_a_0_4_firmware_into_one_target() {
+    let root = common::repo().join("conformance/0.6/convert");
+    let names = case_names(&root);
+    for want in ["firmware-device-becomes-target", "firmware-0-4-device-becomes-target"] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(root.join(want).join("case.json")).unwrap()).unwrap();
+        assert_eq!(spec["convert"], "firmware", "{want}");
+        assert_eq!(spec["result"]["targets"].as_array().map(Vec::len), Some(1), "{want}");
+        assert!(spec["result"].get("device").is_none(), "{want}");
+    }
+    let from_05: Value = serde_json::from_str(&std::fs::read_to_string(root.join("firmware-device-becomes-target/descriptor.json")).unwrap()).unwrap();
+    assert_eq!(from_05["$schema"], "https://w3id.org/osd/0.5/firmware.schema.json");
+    assert!(from_05["based_on"]["version"].is_string(), "the 0.5 case converts a based_on with its version");
+}
+
+#[test]
+fn the_reading_cases_of_0_6_hold_each_form_of_a_target_and_refuse_a_target_without_device() {
+    let root = common::repo().join("conformance/0.6/read");
+    let names = case_names(&root);
+    let spec = |n: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(root.join(n).join("case.json")).unwrap()).unwrap() };
+    for want in ["firmware-targets-list", "firmware-targets-range", "firmware-targets-several-devices", "firmware-targets-compare-versions", "firmware-target-without-device-refused"] {
+        assert!(names.iter().any(|n| n == want), "no case {want} in {names:?}");
+        assert_eq!(spec(want)["read"], "firmware", "{want}");
+    }
+    assert!(spec("firmware-targets-list")["result"]["targets"][0]["based_on"]["versions"].is_array());
+    assert!(spec("firmware-targets-range")["result"]["targets"][0]["based_on"]["versions"]["min"].is_string());
+    assert!(spec("firmware-targets-several-devices")["result"]["targets"].as_array().is_some_and(|t| t.len() >= 2));
+    let compare = spec("firmware-targets-compare-versions");
+    assert!(compare["comparisons"].as_array().is_some_and(|c| c.iter().any(|x| x["a"] == "1.40" && x["b"] == "1.40.0" && x["order"] == "equal")));
+    assert!(compare["fits"].as_array().is_some_and(|c| {
+        let fits = |t: u64, v: &str, f: bool| c.iter().any(|x| x["target"] == t && x["version"] == v && x["fits"] == f);
+        fits(0, "1.40C", true) && fits(0, "1.42", false) && c.iter().any(|x| x["target"] == 1)
+    }));
+    assert_eq!(compare["result"]["targets"][0]["based_on"]["versions"], serde_json::json!({"min": "1.40B", "max": "1.41"}));
+    assert!(compare["result"]["targets"][1]["based_on"]["versions"].get("max").is_none());
+    assert_eq!(spec("firmware-target-without-device-refused")["fault"], serde_json::json!({"kind": "Missing", "pointer": "/targets/0/device"}));
+}
+
+#[test]
+fn the_firmware_cases_of_0_6_that_the_0_5_twins_have_read_as_targets() {
+    // A 0.5 firmware reading case has its 0.6 twin, whose descriptor names targets, not `device`.
+    let root = common::repo().join("conformance");
+    for n in case_names(&root.join("0.5/read")) {
+        let case = |v: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(root.join(v).join("read").join(&n).join("case.json")).unwrap()).unwrap() };
+        if case("0.5")["read"] != "firmware" {
+            continue;
+        }
+        let doc: Value = serde_json::from_str(&std::fs::read_to_string(root.join("0.6/read").join(&n).join("descriptor.json")).unwrap()).unwrap();
+        assert!(doc.get("device").is_none() && doc["targets"].is_array(), "{n}");
     }
 }
