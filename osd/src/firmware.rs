@@ -139,11 +139,14 @@ fn range_has_a_bound(r: &VersionRange, at: &At) -> Result<(), Fault> {
     Ok(())
 }
 
-/// A version of a base firmware: letters, digits and dots, with at least one digit.
-const VERSION: Text = matching(is_version, "of letters, digits and dots with at least one digit");
+/// A compared version: components separated by one dot, each a number then optional letters.
+pub(crate) const VERSION: Text = matching(is_version, "of components separated by one dot, each a number then optional letters");
 
-fn is_version(s: &str) -> bool {
-    s.chars().all(|c| c.is_ascii_alphanumeric() || c == '.') && s.chars().any(|c| c.is_ascii_digit())
+pub(crate) fn is_version(s: &str) -> bool {
+    s.split('.').all(|c| {
+        let letters = c.trim_start_matches(|d: char| d.is_ascii_digit());
+        letters.len() < c.len() && letters.chars().all(|l| l.is_ascii_alphabetic())
+    })
 }
 
 struct BaseVersionsCodec;
@@ -167,8 +170,12 @@ impl Codec for BaseVersionsCodec {
 /// How two base versions compare: the text splits on `.`; each component is a number then
 /// optional letters; numbers compare as numbers, then the letters without case, no letters
 /// before any letters; a missing component is 0 with no letters. So 1.40 < 1.40B < 1.40C < 1.41,
-/// 1.9 < 1.10 and 1.40 = 1.40.0.
-pub fn compare_versions(a: &str, b: &str) -> Ordering {
+/// 1.9 < 1.10 and 1.40 = 1.40.0. A text outside that grammar (`0.3-beta`, `1..2`) has no order: the
+/// answer is `None`, never an invented order.
+pub fn compare_versions(a: &str, b: &str) -> Option<Ordering> {
+    if !is_version(a) || !is_version(b) {
+        return None;
+    }
     /// A component: its number without leading zeros, then its letters in lower case.
     fn component(s: &str) -> (&str, String) {
         let end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
@@ -181,10 +188,10 @@ pub fn compare_versions(a: &str, b: &str) -> Ordering {
         // Numbers compare as numbers: by length, then digit by digit (no overflow).
         let order = xn.len().cmp(&yn.len()).then_with(|| xn.cmp(yn)).then_with(|| xl.cmp(&yl));
         if order != Ordering::Equal {
-            return order;
+            return Some(order);
         }
     }
-    Ordering::Equal
+    Some(Ordering::Equal)
 }
 
 /// Whether `version` fits `target`: it equals one of the listed versions (by [`compare_versions`]),
@@ -192,11 +199,14 @@ pub fn compare_versions(a: &str, b: &str) -> Ordering {
 /// A target without `runs_on` versions answers [`Fit::Unknown`]: neither yes nor no; the caller decides.
 pub fn version_in_target(version: &str, target: &Target) -> Fit {
     let yes = |b: bool| if b { Fit::Yes } else { Fit::No };
+    if !is_version(version) {
+        return Fit::Unknown;
+    }
     match target.runs_on.as_ref().and_then(|b| b.versions.as_ref()) {
-        Some(BaseVersions::List(l)) => yes(l.iter().any(|v| compare_versions(version, v) == Ordering::Equal)),
+        Some(BaseVersions::List(l)) => yes(l.iter().any(|v| compare_versions(version, v) == Some(Ordering::Equal))),
         Some(BaseVersions::Range(r)) => yes(
-            r.min.as_deref().is_none_or(|m| compare_versions(version, m) != Ordering::Less)
-                && r.max.as_deref().is_none_or(|m| compare_versions(version, m) != Ordering::Greater),
+            r.min.as_deref().is_none_or(|m| compare_versions(version, m) != Some(Ordering::Less))
+                && r.max.as_deref().is_none_or(|m| compare_versions(version, m) != Some(Ordering::Greater)),
         ),
         None => Fit::Unknown,
     }

@@ -207,15 +207,65 @@ fn two_base_versions_compare_component_by_component_numbers_then_letters_without
     let less = [
         ("1.40", "1.40B"), ("1.40B", "1.40C"), ("1.40C", "1.41"), ("1.9", "1.10"), ("1.40.1", "1.40B"),
         ("1.2", "1.2.1"), ("2", "10"), ("1.40A", "1.40b"), ("1.40Z", "1.41"),
+        ("10", "10a"), ("1.40b", "1.40C"), ("1.40.0.1", "1.40.1"),
     ];
     for (a, b) in less {
-        assert_eq!(osd::compare_versions(a, b), Ordering::Less, "{a} < {b}");
-        assert_eq!(osd::compare_versions(b, a), Ordering::Greater, "{b} > {a}");
+        assert_eq!(osd::compare_versions(a, b), Some(Ordering::Less), "{a} < {b}");
+        assert_eq!(osd::compare_versions(b, a), Some(Ordering::Greater), "{b} > {a}");
     }
-    let equal = [("1.40", "1.40"), ("1.40", "1.40.0"), ("1", "1.0.0"), ("1.40c", "1.40C"), ("01.5", "1.5")];
+    let equal = [("1.40", "1.40"), ("1.40", "1.40.0"), ("1", "1.0.0"), ("1.40c", "1.40C"), ("01.5", "1.5"), ("1.40b", "1.40B"), ("10", "10.0.0")];
     for (a, b) in equal {
-        assert_eq!(osd::compare_versions(a, b), Ordering::Equal, "{a} = {b}");
-        assert_eq!(osd::compare_versions(b, a), Ordering::Equal, "{b} = {a}");
+        assert_eq!(osd::compare_versions(a, b), Some(Ordering::Equal), "{a} = {b}");
+        assert_eq!(osd::compare_versions(b, a), Some(Ordering::Equal), "{b} = {a}");
+    }
+}
+
+#[test]
+fn a_version_outside_the_grammar_compares_unknown_never_an_invented_order() {
+    for (a, b) in [("1.2", "0.3-beta"), ("0.3-beta", "1.2"), ("1..2", "1.2"), ("B", "1"), (".1", "1"), ("1.", "1"), ("", "1"), ("1.2", "1.2-rc1"), ("0.3-beta", "0.3-beta")] {
+        assert_eq!(osd::compare_versions(a, b), None, "{a} against {b}");
+    }
+}
+
+#[test]
+fn a_version_outside_the_grammar_fits_no_target_unknown() {
+    let range = target(&one_target(json!({"min": "1.40B", "max": "1.41"})), 0);
+    let list = target(&one_target(json!(["1.40", "1.43"])), 0);
+    for v in ["0.3-beta", "1..2", "B", ".1", "1.", ""] {
+        assert_eq!(fit(v, &range), osd::Fit::Unknown, "{v} in a range");
+        assert_eq!(fit(v, &list), osd::Fit::Unknown, "{v} in a list");
+    }
+    let min_only = target(&one_target(json!({"min": "1.40B"})), 0);
+    assert_eq!(fit("0.3-beta", &min_only), osd::Fit::Unknown);
+}
+
+#[test]
+fn a_base_version_follows_one_grammar_in_the_schema_and_in_the_reader() {
+    let schemas = common::Schemas::load("0.6");
+    for v in ["1.40C", "2.0", "10", "1.40b", "01.5", "10a", "1.2.3"] {
+        for doc in [one_target(json!([v])), one_target(json!({"min": v})), one_target(json!({"max": v}))] {
+            assert_eq!(schemas.check(Kind::Firmware, &doc), None, "schema on {doc}");
+            assert!(osd::read(&doc.to_string(), Kind::Firmware).is_ok(), "reader on {doc}");
+        }
+    }
+    for v in ["1..2", "B", ".1", "1.", "0.3-beta", "1.2-rc1", "1 2", "", "1.B", "1.40C.", "v1.2"] {
+        for (doc, at) in [
+            (one_target(json!([v])), "/targets/0/runs_on/versions/0"),
+            (one_target(json!({"min": v})), "/targets/0/runs_on/versions/min"),
+            (one_target(json!({"max": v})), "/targets/0/runs_on/versions/max"),
+        ] {
+            refused(&doc, FaultKind::BadValue, at);
+        }
+    }
+}
+
+#[test]
+fn the_version_of_a_firmware_and_of_its_lineage_stay_free_text_that_is_never_refused() {
+    let mut doc = fw(json!([{"device": digitone(), "based_on": {"name": "Elektron OS", "version": "1.0-beta"}}]));
+    for text in ["0.3-beta", "1..2", "B", "v 1 (final)"] {
+        doc["version"] = json!(text);
+        valid_in_06(&doc);
+        assert_eq!(written(&doc), doc, "{text}");
     }
 }
 

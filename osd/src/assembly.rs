@@ -60,15 +60,6 @@ pub struct NeedJudgement {
     pub verdict: Verdict,
 }
 
-/// Whether `v` is a version `compare_versions` reads: each component is digits then optional letters.
-fn readable(v: &str) -> bool {
-    !v.is_empty()
-        && v.split('.').all(|c| {
-            let digits = c.find(|ch: char| !ch.is_ascii_digit()).unwrap_or(c.len());
-            digits > 0 && c[digits..].chars().all(|ch| ch.is_ascii_alphabetic())
-        })
-}
-
 /// The needs of `sound` judged against `assembly`, one per need in the sound's order. Only the
 /// assembly is read: the version pinned for the module, never a catalogue descriptor.
 pub fn judge_needs(sound: &Sound, assembly: &Assembly) -> Vec<NeedJudgement> {
@@ -81,14 +72,11 @@ pub fn judge_needs(sound: &Sound, assembly: &Assembly) -> Vec<NeedJudgement> {
                 None => Verdict::NotSatisfied,
                 Some(pinned) => match need.min_version.as_deref() {
                     None => Verdict::Satisfied,
-                    Some(min) if readable(min) && readable(&pinned.version) => {
-                        if compare_versions(&pinned.version, min) == Ordering::Less {
-                            Verdict::NotSatisfied
-                        } else {
-                            Verdict::Satisfied
-                        }
-                    }
-                    Some(_) => Verdict::Unknown,
+                    Some(min) => match compare_versions(&pinned.version, min) {
+                        Some(Ordering::Less) => Verdict::NotSatisfied,
+                        Some(_) => Verdict::Satisfied,
+                        None => Verdict::Unknown,
+                    },
                 },
             };
             NeedJudgement { module: need.module.clone(), verdict }

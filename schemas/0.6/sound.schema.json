@@ -419,8 +419,8 @@
           },
           "min_version": {
             "type": "string",
-            "minLength": 1,
-            "description": "The least version of the module the sound needs."
+            "pattern": "^[0-9]+[A-Za-z]*(\\.[0-9]+[A-Za-z]*)*$",
+            "description": "The least version of the module the sound needs: components separated by one dot, each a number then optional letters (1.40C, 2.0, 10)."
           }
         },
         "patternProperties": {

@@ -327,8 +327,8 @@
   "$defs": {
     "version": {
       "type": "string",
-      "pattern": "^(?=.*[0-9])[0-9A-Za-z.]+$",
-      "description": "A version of a base firmware: letters, digits and dots, with at least one digit. Versions compare component by component (split on `.`): a number, then optional letters without case; 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10, 1.40 = 1.40.0."
+      "pattern": "^[0-9]+[A-Za-z]*(\\.[0-9]+[A-Za-z]*)*$",
+      "description": "A version that is compared: components separated by one dot, each a number then optional letters. A version outside this grammar is only displayed, and compared it answers unknown. Versions compare component by component (split on `.`): a number, then optional letters without case; 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10, 1.40 = 1.40.0."
     },
     "runs_on": {
       "type": "object",

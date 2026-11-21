@@ -202,15 +202,19 @@ A target is `{device, midi, based_on, runs_on}`. `device` is `{vendor, model}` w
 - a list: the versions the target runs on, one or more;
 - a range `{min, max}`: its bounds are included; a `min` alone is open upward, a `max` alone open downward; at least one of the two.
 
-A version is text of letters, digits and dots with at least one digit. A target without `device`, a range without `min` nor `max`, an empty list and a version that is not such text are refused (`Missing` or `BadValue`) at the element, by the reader and by the schema.
+A compared version (a `runs_on` version, a range bound, a sound's `min_version`) is written `$defs/version`: components separated by one dot, each a number then optional letters (`1.40C`, `2.0` and `10` are admitted; `1..2`, `B`, `.1`, `1.` and `0.3-beta` are refused). A target without `device`, a range without `min` nor `max`, an empty list and a compared version outside that grammar are refused (`Missing` or `BadValue`) at the element, by the reader and by the schema. The `version` of a firmware and the `version` of its `based_on` are free text, never refused, only displayed.
 
-How two base versions compare: the text splits on `.`; each component is a number followed by optional letters; numbers compare as numbers, then the letters without case, no letters before any letters; a missing component is 0 without letters. So 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10 and 1.40 = 1.40.0. A list is tested by the same rule (1.40.0 fits `["1.40"]`). This is not SemVer: base firmware numbers such as 1.40C do not follow it.
+A text outside the grammar that reaches a comparison (the `version` of a firmware, read free) has no order: the comparison answers unknown (`None`; `Fit::Unknown` for a target), never an invented order. So the `min_version` "1.2" of a sound against the module version "0.3-beta" is unknown.
+
+Two departures from Debian's version comparison, with their reason: letters are compared without case, because a maker writes 1.40b and 1.40B for one version; and 1.40 = 1.40.0, because a trailing zero changes no firmware version. The model is otherwise Debian's: a written algorithm for numbers that are not SemVer.
+
+How two versions compare: the text splits on `.`; each component is a number followed by optional letters; numbers compare as numbers, then the letters without case, no letters before any letters; a missing component is 0 without letters. So 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10 and 1.40 = 1.40.0. A list is tested by the same rule (1.40.0 fits `["1.40"]`). This is not SemVer: base firmware numbers such as 1.40C do not follow it.
 
 The answer to "does this version fit this target" has three values: yes, no, unknown. A target without `runs_on` versions (no `runs_on`, or a `runs_on` that gives only its `name`) answers unknown, neither yes nor no, whatever its `based_on` says: a lineage is not a constraint. The caller decides what to do with an unknown; OSD makes it neither a refusal nor an acceptance.
 
 Conversion: a 0.5 firmware (a 0.4 one passes through 0.5) with one `device`, one `midi` and one `based_on` becomes one target holding the three as they are: the `based_on` stays the lineage, `{name, version, url}`, and no `runs_on` is written. What a converted descriptor loses is the constraint it never had: its "based on 1.2" stays the lineage and is not turned into "runs only on 1.2", and the target answers unknown to every version. Conversion goes forward only: a 0.6 descriptor converts to itself and never back.
 
-Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions` (it states yes, no and unknown), `0.6/firmware-target-lineage-apart-from-runs-on`, `0.6/firmware-midi-at-first-level-refused`, `0.6/firmware-based-on-versions-refused`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`, `0.6/firmware-midi-moves-into-the-target`.
+Cases: `0.6/firmware-targets-list`, `0.6/firmware-targets-range`, `0.6/firmware-targets-several-devices`, `0.6/firmware-targets-compare-versions` (it states yes, no and unknown, equal, lower, higher and letters), `0.6/firmware-version-outside-grammar-unknown`, `0.6/firmware-target-lineage-apart-from-runs-on`, `0.6/firmware-midi-at-first-level-refused`, `0.6/firmware-based-on-versions-refused`, `0.6/firmware-target-without-device-refused`, and the conversions `0.6/firmware-device-becomes-target`, `0.6/firmware-0-4-device-becomes-target`, `0.6/firmware-midi-moves-into-the-target`.
 
 ## The firmware a builder made: the assembly (0.6)
 
@@ -273,7 +277,7 @@ The sound is playable on the assembly when no need is not satisfied and none unk
 
 `firmware` is text for people, `needs` is the need the reader judges, `made_on` is the provenance. The reader does not compare them and refuses no disagreement between them.
 
-Cases: `0.6/sound-needs`, `0.6/sound-made-on-assembly`, `0.6/sound-needs-and-made-on`, `0.6/sound-needs-module-empty-refused`, `0.6/sound-needs-min-version-empty-refused` (reading); `0.6/judge_needs/need-met-by-pinned-version`, `need-not-met-by-pinned-version`, `need-without-min-version-module-present`, `need-module-absent`, `need-pinned-version-unreadable` (judgement).
+Cases: `0.6/sound-needs`, `0.6/sound-made-on-assembly`, `0.6/sound-needs-and-made-on`, `0.6/sound-needs-module-empty-refused`, `0.6/sound-needs-min-version-empty-refused`, `0.6/sound-modules-min-version-outside-grammar-refused` (reading); `0.6/judge_needs/need-met-by-pinned-version`, `need-not-met-by-pinned-version`, `need-without-min-version-module-present`, `need-module-absent`, `need-pinned-version-unreadable` (judgement).
 
 ## The builder of a module (0.6)
 

@@ -133,15 +133,16 @@ fn settings_claims(device: &osd::Device, case: &Value) -> Option<String> {
 }
 
 /// What a reading case states of the base versions of a firmware: `comparisons` (`{a, b, order}`,
-/// `order` being `less`, `equal` or `greater`) and `fits` (`{target, version, fits}`: whether the
+/// `order` being `less`, `equal`, `greater` or `unknown` outside the grammar) and `fits` (`{target, version, fits}`: whether the
 /// version fits the target of that index, `yes`, `no` or `unknown`).
 fn firmware_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
     let osd::Descriptor::Firmware(f) = d else { return None };
     for want in case.get("comparisons").and_then(Value::as_array).into_iter().flatten() {
         let got = match osd::compare_versions(want["a"].as_str().unwrap(), want["b"].as_str().unwrap()) {
-            std::cmp::Ordering::Less => "less",
-            std::cmp::Ordering::Equal => "equal",
-            std::cmp::Ordering::Greater => "greater",
+            Some(std::cmp::Ordering::Less) => "less",
+            Some(std::cmp::Ordering::Equal) => "equal",
+            Some(std::cmp::Ordering::Greater) => "greater",
+            None => "unknown",
         };
         if want["order"] != got {
             return Some(format!("compared {got}, the case states {want}"));
@@ -579,6 +580,26 @@ fn criterion_5_every_reading_case_of_0_5_passes() {
 #[test]
 fn every_reading_case_of_the_0_6_draft_passes() {
     every_case(&common::repo().join("conformance/0.6/read"), 161, run_read);
+}
+
+#[test]
+fn the_0_6_cases_state_equal_lower_higher_letters_and_a_version_outside_the_grammar() {
+    let root = common::repo().join("conformance/0.6/read");
+    let orders = |name: &str| -> Vec<(String, String, String)> {
+        let text = std::fs::read_to_string(root.join(name).join("case.json")).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let case: Value = serde_json::from_str(&text).unwrap();
+        case["comparisons"].as_array().into_iter().flatten().map(|c| (c["a"].as_str().unwrap().into(), c["b"].as_str().unwrap().into(), c["order"].as_str().unwrap().into())).collect()
+    };
+    let has = |all: &[(String, String, String)], a: &str, b: &str, o: &str| {
+        assert!(all.iter().any(|(x, y, z)| (x, y, z) == (&a.to_string(), &b.to_string(), &o.to_string())), "no comparison {a} {o} {b}");
+    };
+    let all = orders("firmware-targets-compare-versions");
+    for (a, b, o) in [("1.40", "1.40.0", "equal"), ("1", "1.0.0", "equal"), ("1.40b", "1.40B", "equal"), ("1.40B", "1.40C", "less"), ("1.40C", "1.41", "less"), ("10", "10a", "less"), ("1.9", "1.10", "less"), ("1.42", "1.41", "greater"), ("1.2", "1.2.1", "less")] {
+        has(&all, a, b, o);
+    }
+    has(&orders("firmware-version-outside-grammar-unknown"), "1.2", "0.3-beta", "unknown");
+    let fault: Value = serde_json::from_str(&std::fs::read_to_string(root.join("sound-modules-min-version-outside-grammar-refused/case.json")).unwrap()).unwrap();
+    assert_eq!(fault["fault"], serde_json::json!({"kind": "BadValue", "pointer": "/needs/0/min_version"}));
 }
 
 #[test]

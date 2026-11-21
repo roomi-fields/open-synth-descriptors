@@ -1,0 +1,8 @@
+{
+  "_about": "A minimum version outside the grammar (a number then letters, components separated by one dot) is refused where the sound is read: a requirement that is compared follows the grammar.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/needs/0/min_version"
+  }
+}

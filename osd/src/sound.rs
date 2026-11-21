@@ -66,7 +66,7 @@ object! {
         /// The catalogue id of the module's firmware descriptor.
         "module" module: String = STRING,
         /// The least version of the module the sound needs.
-        "min_version" min_version: Option<String> = Opt(STRING),
+        "min_version" min_version: Option<String> = Opt(crate::firmware::VERSION),
     }
     check module_need_form
 }
@@ -74,9 +74,6 @@ object! {
 fn module_need_form(m: &ModuleNeed, at: &At) -> Result<(), Fault> {
     if m.module.is_empty() {
         return Err(At::Key(at, "module").fault(FaultKind::BadValue, "a non-empty module id"));
-    }
-    if m.min_version.as_deref() == Some("") {
-        return Err(At::Key(at, "min_version").fault(FaultKind::BadValue, "a non-empty minimum version"));
     }
     Ok(())
 }

@@ -89,7 +89,13 @@ fn a_module_the_assembly_does_not_pin_is_not_satisfied_with_or_without_a_minimum
 #[test]
 fn a_version_the_comparison_cannot_read_leaves_the_need_unknown() {
     assert_eq!(one("acme/mod-a", Some("1.2"), &[("acme/mod-a", "nightly")]), Verdict::Unknown, "pinned");
-    assert_eq!(one("acme/mod-a", Some("nightly"), &[("acme/mod-a", "1.3")]), Verdict::Unknown, "minimum");
+    assert_eq!(one("acme/mod-a", Some("1.2"), &[("acme/mod-a", "0.3-beta")]), Verdict::Unknown, "pinned, with a dash");
+}
+
+#[test]
+fn a_minimum_outside_the_grammar_is_refused_when_the_sound_is_read() {
+    let need = json!([{"module": "acme/mod-a", "min_version": "nightly"}]);
+    assert!(osd::read(&sound(need).to_string(), Kind::Sound).is_err());
 }
 
 #[test]
