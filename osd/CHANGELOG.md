@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The reader of 0.4 and 0.5 refuses `null` on every direct key of `identity` and `programs` other than `profile` and `identity.firmware`, as the schemas of those versions do (R23): `BadValue` at that key (`/programs/dump`), in a descriptor and in a profile, by the version of the file that carries the `null`. `identity.firmware: null` stays read; 0.6 keeps `null` on every optional key. Four conformance cases in `conformance/0.4/resolve/` and `conformance/0.5/resolve/` show it.
+
 - `resolve` refuses a sound-transfer setting whose `control` names an entry absent from the merged tables, even when the merged document keeps `midi_of`: `BadValue` at the pointer of the `control`, in the file asked for, the rule naming the absent entry. The check no longer depends on `midi_of`: it takes a "merged document" flag that `resolve` sets and that reading a text alone sets to false, so the text of a `midi_of` descriptor read alone is still judged on the pattern only. A control naming an entry of the target, of a target linked in turn, or added by the file itself stays accepted. One conformance case in `conformance/0.6/resolve/` shows it.
 
 - Reads the assembly (0.6): `Kind::Assembly`, `Descriptor::Assembly`, `Assembly {stock, modules}`, a stock firmware and the modules applied to it, written by the builder of the firmware. `resolve_assembly(id, files)` gives its MIDI: the stock MIDI, then each module's own routes in the listed order, by the rules of `midi_of`; a module `same_as` the stock adds nothing and two modules on one address are not refused. `declared_kind` and `convert_to` know the kind; `Descriptor::schema` is public.

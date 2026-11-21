@@ -1,0 +1,4 @@
+{
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "programs": { "profile": "acme", "dump": null }
+}

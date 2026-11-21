@@ -286,6 +286,48 @@ fn check_05_fields(i: Option<&Identity>, p: Option<&Programs>, v05: bool) -> Res
     }
 }
 
+/// A direct key of `identity` or `programs` set to `null`: before 0.6 only `identity.firmware`
+/// admits it, as the schema of the file's own version says (R23).
+fn check_null_keys(schema: Option<Version>, i: Option<&Identity>, p: Option<&Programs>) -> Result<(), Fault> {
+    if schema >= Some(Version::V0_6) {
+        return Ok(());
+    }
+    let nulls: [(&str, bool); 23] = [
+        ("/identity/request", i.is_some_and(|i| matches!(i.request, Some(None)))),
+        ("/identity/to", i.is_some_and(|i| matches!(i.to, Some(None)))),
+        ("/identity/script", i.is_some_and(|i| matches!(i.script, Some(None)))),
+        ("/identity/unpack", i.is_some_and(|i| matches!(i.unpack, Some(None)))),
+        ("/identity/reply", i.is_some_and(|i| matches!(i.reply, Some(None)))),
+        ("/identity/reply_text", i.is_some_and(|i| matches!(i.reply_text, Some(None)))),
+        ("/identity/family", i.is_some_and(|i| matches!(i.family, Some(None)))),
+        ("/identity/member", i.is_some_and(|i| matches!(i.member, Some(None)))),
+        ("/identity/device_id", i.is_some_and(|i| matches!(i.device_id, Some(None)))),
+        ("/identity/ports", i.is_some_and(|i| matches!(i.ports, Some(None)))),
+        ("/identity/usb", i.is_some_and(|i| matches!(i.usb, Some(None)))),
+        ("/identity/sends", i.is_some_and(|i| matches!(i.sends, Some(None)))),
+        ("/programs/selects", p.is_some_and(|p| matches!(p.selects, Some(None)))),
+        ("/programs/program_change", p.is_some_and(|p| matches!(p.program_change, Some(None)))),
+        ("/programs/requires", p.is_some_and(|p| matches!(p.requires, Some(None)))),
+        ("/programs/banks", p.is_some_and(|p| matches!(p.banks, Some(None)))),
+        ("/programs/before", p.is_some_and(|p| matches!(p.before, Some(None)))),
+        ("/programs/after", p.is_some_and(|p| matches!(p.after, Some(None)))),
+        ("/programs/recall_script", p.is_some_and(|p| matches!(p.recall_script, Some(None)))),
+        ("/programs/delay_ms", p.is_some_and(|p| matches!(p.delay_ms, Some(None)))),
+        ("/programs/dump", p.is_some_and(|p| matches!(p.dump, Some(None)))),
+        ("/programs/notes", p.is_some_and(|p| matches!(p.notes, Some(None)))),
+        ("", false),
+    ];
+    match nulls.iter().find(|(_, here)| *here) {
+        Some((pointer, _)) => Err(Fault {
+            kind: FaultKind::BadValue,
+            file: None,
+            pointer: (*pointer).into(),
+            rule: format!("{} does not take null before 0.6", pointer.rsplit('/').next().unwrap_or_default()),
+        }),
+        None => Ok(()),
+    }
+}
+
 impl Device {
     /// The capabilities the fields present require: Lua when the device
     /// carries any field that holds Lua (the osc-bridge extension fields of
@@ -539,6 +581,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
         }
     }
     check_05_fields(d.identity.as_ref(), d.programs.as_ref(), v05)?;
+    check_null_keys(d.schema, d.identity.as_ref(), d.programs.as_ref())?;
     crate::sound_transfer::check_version(d)?;
     crate::resource::check_version(d)?;
     check_roles(d)?;
@@ -633,6 +676,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
 fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
     let v05 = crate::is_05_form(p.schema);
     check_05_fields(p.identity.as_ref(), p.programs.as_ref(), v05)?;
+    check_null_keys(p.schema, p.identity.as_ref(), p.programs.as_ref())?;
     if v05 {
         if let Some(i) = &p.identity {
             check_identity_vocabularies(i)?;

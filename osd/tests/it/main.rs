@@ -22,6 +22,7 @@ mod firmware_targets;
 mod frames;
 mod integers;
 mod midi_type_template;
+mod null_keys_by_version;
 mod param_path;
 mod probe;
 mod profile_null_keys;

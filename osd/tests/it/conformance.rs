@@ -485,9 +485,10 @@ fn the_resolution_cases_of_0_5_hold_each_rule_as_a_result_and_each_refusal_as_it
 
 /// The cases whose files the 0.5 schemas are not meant to accept: the text is
 /// not JSON, the refusal is the schema's own, or a key the schema forbids.
-const RESOLVE_CASES_WITH_FILES_THE_SCHEMA_REFUSES: [&str; 7] = [
+const RESOLVE_CASES_WITH_FILES_THE_SCHEMA_REFUSES: [&str; 9] = [
     "syntax-refused", "target-file-read-refused", "midi-of-schema-not-0-5-refused", "midi-of-route-without-osc",
-    "midi-of-table-extra-key", "midi-of-not-string", "profile-not-string",
+    "midi-of-table-extra-key", "midi-of-not-string", "profile-not-string", "programs-dump-null-refused",
+    "identity-request-null-refused",
 ];
 
 #[test]
