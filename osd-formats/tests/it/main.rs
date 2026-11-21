@@ -22,6 +22,7 @@ mod midi2_controllers_export;
 mod midi2_controllers_import;
 mod midi2_controllers_round_trip;
 mod midi2_controllers_table;
+mod standard_citations;
 mod midi_csv_columns;
 mod midi_csv_export;
 mod midi_csv_import;

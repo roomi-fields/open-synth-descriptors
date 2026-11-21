@@ -1,5 +1,5 @@
-//! The document of destiny docs/midi2-controllers.md: one line per property of table 5 of
-//! M2-117-UM, with its fate, its reason and its piece.
+//! The document of destiny docs/midi2-controllers.md: one line per property of tables 6 and 12
+//! of M2-117-UM v1.0, with its fate, its reason and its piece.
 
 use crate::common::midi2::PROPERTIES;
 
@@ -33,7 +33,7 @@ fn the_document_lists_no_property_the_table_does_not_have() {
         if name == "Property" || name.starts_with('-') || name.is_empty() {
             continue;
         }
-        assert!(PROPERTIES.contains(&name), "{name} is in {DOC} and not in table 5");
+        assert!(PROPERTIES.contains(&name), "{name} is in {DOC} and not in tables 6 and 12 of M2-117-UM v1.0");
     }
 }
 

@@ -24,7 +24,7 @@ The descriptor names, once and in a top-level field `role_vocabulary` (`"1"`), t
 
 ## The role as a `paramPath`
 
-MIDI-CI Property Exchange (Controller Resources, M2-117-UM v1.0.1, table 5) gives each control a `paramPath`, a path of parts ending in what is set; its example is `/Oscillator/A/Envelope/Attack`. OSD roles are the same path, kept as structure in the JSON, and `osd` gives and reads the text:
+MIDI-CI Property Exchange (Controller Resources, M2-117-UM v1.0, tables 6 and 12) gives each control a `paramPath`, a path of parts ending in what is set; its example is `/Oscillator/A/Envelope/Attack`. OSD roles are the same path, kept as structure in the JSON, and `osd` gives and reads the text:
 
 | Role | `paramPath` |
 |---|---|
@@ -86,7 +86,7 @@ Each term of a state has:
 | `stands_under` | for a part, the parts it may come under in a path (`envelope` under `filter`, `amplifier`, `oscillator`, `voice`) |
 | `at_top` | for a part, whether it may open a path; true when `stands_under` is absent, false when it is present, unless the part writes it (`lfo` stands under `oscillator`, `filter` and `amplifier` and opens a path too) |
 | `words` | the makers' words that mean it, each `{word, origin}`: the origin is the specification (the MIDI 1.0 table, M2-104-UM, Property Exchange) or the maker that uses the word |
-| `source` | where it comes from: `{controller, name}`, the entries of the MIDI 1.0 table of defined controllers whose composition uses the term; and `{document, table, number?, name}`, a row of a published table (`M2-104-UM v1.1.2`, table `22`, row `73`, `Sound Controller 4 (Attack Time)`; `M2-117-UM v1.0.1`, table `5`). The documents are cited, never copied |
+| `source` | where it comes from: `{controller, name}`, the entries of the MIDI 1.0 table of defined controllers whose composition uses the term; and `{document, table, number?, name}`, a row of a published table (`M2-104-UM v1.1.2`, table `22`, row `73`, `Sound Controller 4 (Attack Time)`; `M2-117-UM v1.0`, tables `6` and `12`). The documents are cited, never copied |
 | `shared_by` | where a term the standard does not name is shared: a list of `{maker, device}`, two devices of two makers at least |
 | `replaced_by` | the term of the same state that replaces it, when a later decision replaces it |
 

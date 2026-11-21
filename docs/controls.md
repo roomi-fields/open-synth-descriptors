@@ -1,6 +1,6 @@
 # Controls at the precision of MIDI 2.0
 
-A control entry of 0.6 (CC, 14-bit CC, NRPN, RPN, and the param entry) says what MIDI-CI Property Exchange Controller Resources (M2-117-UM v1.0.1, table 5) says of a control, so a tool lays controls out and an agent moves them without guessing. Each property below has its OSD field, or the reason it is not carried.
+A control entry of 0.6 (CC, 14-bit CC, NRPN, RPN) says what MIDI-CI Property Exchange Controller Resources (M2-117-UM v1.0, tables 6 and 12) says of a control, so a tool lays controls out and an agent moves them without guessing. Each property below has its OSD field, or the reason it is not carried.
 
 | Property | OSD field | Reason |
 |---|---|---|

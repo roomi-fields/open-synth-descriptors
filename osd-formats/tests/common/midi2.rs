@@ -1,4 +1,4 @@
-//! What the MIDI 2.0 controller list tests share: the properties of M2-117-UM table 5, the
+//! What the MIDI 2.0 controller list tests share: the properties of tables 6 and 12 of M2-117-UM v1.0, the
 //! lists and devices the tests build, and the reading of an export and of an import.
 
 #![allow(dead_code)]
