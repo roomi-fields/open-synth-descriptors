@@ -1,0 +1,8 @@
+{
+  "_about": "A builder names its address: one without a url is refused at the missing field.",
+  "read": "firmware",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/builder/url"
+  }
+}

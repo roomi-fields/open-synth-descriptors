@@ -17,6 +17,7 @@ mod external_ids;
 mod file_write_steps;
 mod examples;
 mod faults;
+mod firmware_builder;
 mod firmware_targets;
 mod frames;
 mod integers;

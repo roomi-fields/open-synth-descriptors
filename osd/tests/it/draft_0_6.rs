@@ -331,7 +331,16 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
                 req.retain(|r| !fields.contains(&r.as_str().unwrap()));
                 v.as_object_mut().unwrap().remove("$defs");
             };
-            drop(&mut now, &["targets"]);
+            drop(&mut now, &["targets", "builder"]);
+            // The `builder` method of `install`, and the rule that it names a builder, are 0.6's own.
+            let methods = now["properties"]["install"]["properties"]["method"]["examples"].as_array_mut().unwrap();
+            let before_len = methods.len();
+            methods.retain(|m| m != "builder");
+            assert_eq!(methods.len() + 1, before_len, "install.method has no builder example");
+            let root = now.as_object_mut().unwrap();
+            for key in ["if", "then"] {
+                assert!(root.remove(key).is_some(), "firmware has no {key}");
+            }
             drop(&mut before, &["device", "based_on"]);
         }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.

@@ -238,6 +238,12 @@ With the stock MIDI `acme/synth` (routes `/p1`, `/p2`), `mod-a` whose MIDI descr
 
 Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`).
 
+## The builder of a module (0.6)
+
+A builder (Elekloader, Modwerk) is the tool that makes an assembly from the stock OS and modules; the person flashes the result. A 0.6 firmware descriptor of any `kind` may name it in `builder`, an object with a `name` and a `url` (its address), both required; any other key is refused. `install.method` may be `builder` (one of the examples of the method): the descriptor then requires `builder`, and `steps` and `revert` stay free text, `revert` saying how to go back to stock. `builder` beside another method (`usb-drive`) is read without fault. The builder stays the reference for its modules: it is where a reader is sent to build, install and update, and OSD never rehosts the assembly or the modules. 0.4 and 0.5 refuse `builder` (`UnknownField`).
+
+Cases: `0.6/firmware-builder`, `0.6/firmware-builder-without-url-refused`.
+
 ## Pauses, reply time and banks that cannot be written (0.6)
 
 - `programs.delay_ms` (0.5) is the one pause, in milliseconds, between the messages of a recall. A device that needs different pauses after different messages takes the longest: that need (the Yamaha TG33 in KnobKraft Orm's `messageSendDelays`) is known and waits for a second device before the format carries a pause per message or a sequence of steps.

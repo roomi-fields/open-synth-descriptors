@@ -46,6 +46,8 @@ object! {
         /// How the device shows which firmware it runs.
         "identify" identify: Option<String> = Opt(STRING),
         "install" install: Option<Install> = Opt(obj()),
+        /// The tool that makes the assembly from the stock OS and modules (from 0.6).
+        "builder" builder: Option<Builder> = Opt(obj()),
         "description" description: Option<String> = Opt(STRING),
         "communities" communities: Option<Vec<Community>> = Opt(list(obj())),
     }
@@ -69,7 +71,14 @@ fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
         if f.targets.is_none() {
             return Err(At::Key(at, "targets").fault(FaultKind::Missing, "targets is required"));
         }
+        let by_builder = f.install.as_ref().and_then(|i| i.method.as_deref()) == Some("builder");
+        if by_builder && f.builder.is_none() {
+            return Err(At::Key(at, "builder").fault(FaultKind::Missing, "install.method builder requires a builder"));
+        }
     } else {
+        if f.builder.is_some() {
+            return Err(At::Key(at, "builder").fault(FaultKind::UnknownField, "builder is not a field before 0.6"));
+        }
         if f.targets.is_some() {
             return Err(At::Key(at, "targets").fault(FaultKind::UnknownField, "targets is not a field before 0.6"));
         }
@@ -217,6 +226,16 @@ object! {
         "method" method: Option<String> = Opt(STRING),
         "steps" steps: Option<String> = Opt(STRING),
         "revert" revert: Option<String> = Opt(STRING),
+    }
+}
+
+object! {
+    /// The builder of a module (Elekloader, Modwerk): the tool that makes an assembly from the
+    /// stock OS and modules, which the person then flashes. It stays the reference for building,
+    /// installing and updating; OSD never rehosts.
+    Builder {
+        "name" name: String = STRING,
+        "url" url: String = STRING,
     }
 }
 

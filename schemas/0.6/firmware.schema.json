@@ -16,6 +16,28 @@
     }
   },
   "additionalProperties": false,
+  "if": {
+    "required": [
+      "install"
+    ],
+    "properties": {
+      "install": {
+        "required": [
+          "method"
+        ],
+        "properties": {
+          "method": {
+            "const": "builder"
+          }
+        }
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "builder"
+    ]
+  },
   "properties": {
     "$schema": {
       "const": "https://w3id.org/osd/0.6/firmware.schema.json"
@@ -193,7 +215,8 @@
             "dfu",
             "sysex",
             "maker-app",
-            "sd-card"
+            "sd-card",
+            "builder"
           ]
         },
         "steps": {
@@ -210,6 +233,29 @@
         }
       },
       "additionalProperties": false
+    },
+    "builder": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "url"
+      ],
+      "description": "The tool that makes the assembly from the stock OS and modules, which the person flashes (Elekloader, Modwerk). It stays the reference for building, installing and updating the module; OSD never rehosts."
     },
     "description": {
       "type": "string"

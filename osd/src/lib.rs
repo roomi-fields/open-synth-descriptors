@@ -36,7 +36,7 @@ pub use device::{
 pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
 pub use fingerprint::{Confirmed, Control, Fingerprint, MakerReply, Named, Ports, Via};
 pub use firmware::{
-    compare_versions, version_in_target, BaseVersions, BasedOn, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install,
+    compare_versions, version_in_target, BaseVersions, BasedOn, Builder, Community, CommunityKind, Firmware, FirmwareKind, FirmwareMidi, Install,
     Release, Target, TargetBase, VersionRange,
 };
 pub use assembly::{resolve_assembly, Assembly};
