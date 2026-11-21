@@ -21,7 +21,11 @@ object! {
 }
 
 /// An assembly exists from 0.6: its `$schema` names that version.
+/// Read inside a sound's `made_on`, it is the assembly as written, without `$schema`.
 fn from_0_6(a: &Assembly, at: &At) -> Result<(), Fault> {
+    if !matches!(at, At::Root) {
+        return Ok(());
+    }
     let key = At::Key(at, "$schema");
     match a.schema {
         Some(Version::V0_6) => Ok(()),

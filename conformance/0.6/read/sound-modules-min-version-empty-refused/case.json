@@ -1,0 +1,8 @@
+{
+  "_about": "An empty minimum version is refused at the version; a module that needs no version leaves min_version out.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/modules/0/min_version"
+  }
+}

@@ -238,6 +238,30 @@ With the stock MIDI `acme/synth` (routes `/p1`, `/p2`), `mod-a` whose MIDI descr
 
 Cases: `0.6/assembly`, `0.6/assembly-stock-absent-refused`, `0.6/assembly-unknown-field-refused`, `0.6/assembly-modules-malformed-refused` (reading); `0.6/assembly-stock-and-two-modules-in-order`, `0.6/assembly-module-same-as-adds-nothing`, `0.6/assembly-module-same-as-another-refused`, `0.6/assembly-two-modules-same-address-no-refusal`, `0.6/assembly-module-midi-guard-refused`, `0.6/assembly-no-modules` (resolution; a case names the assembly in `resolve_assembly` where a driver case names `resolve`).
 
+## The modules a sound needs and the assembly it was made on (0.6)
+
+A 0.6 sound descriptor says three things about firmware, each optional and none overriding another:
+
+| Field | Form | Meaning |
+|---|---|---|
+| `firmware` | text | the firmware it was made on, in words, for people |
+| `modules` | list of `{module, min_version?}` | the need: the modules the sound uses, which a reader judges |
+| `made_on` | an assembly without its `$schema`, defined once in `schemas/0.6/assembly.schema.json` | the provenance: the exact assembly of its author, read as written |
+
+`module` is the catalogue id of a module's firmware descriptor; `min_version` is the least version of that module the sound needs. An empty `module` or `min_version`, an entry without `module`, and an unknown key of an entry are refused (`BadValue`, `Missing`, `UnknownField`) at the address of the fault, by the reader and by the schema; `made_on` follows the assembly's own form, and a `$schema` inside it is refused. A sound without `modules` needs no module. A descriptor of 0.4 or 0.5 refuses both fields as unknown; `osd::convert` from 0.5 adds none. The word `modules` here is what the sound needs; `requires` stays what a device's programs need first.
+
+**How a reader tells a sound playable on an assembly.** No function of the reader does it: OSD neither verifies nor chooses an assembly. A tool that holds an assembly (the `modules` of its descriptor) judges each entry of `modules`:
+
+- satisfied when its `module` figures in the `modules` of the assembly and, if `min_version` is written, when the `version` field of that module's descriptor, resolved in the catalogue, is not lower by the comparison of versions above (see the base versions of a firmware);
+- unknown when the version of the module is missing or the descriptor does not resolve: neither satisfied nor refused;
+- an entry without `min_version` asks only that the module is present.
+
+The sound is playable when no entry is refused and none unknown; a tool may show the unknown ones. `made_on` never enters this judgement.
+
+`firmware` is text for people, `modules` is the need the reader judges, `made_on` is the provenance. The reader does not compare them and refuses no disagreement between them.
+
+Cases: `0.6/sound-modules-needed`, `0.6/sound-made-on-assembly`, `0.6/sound-modules-and-made-on`, `0.6/sound-modules-module-empty-refused`, `0.6/sound-modules-min-version-empty-refused`.
+
 ## The builder of a module (0.6)
 
 A builder (Elekloader, Modwerk) is the tool that makes an assembly from the stock OS and modules; the person flashes the result. A 0.6 firmware descriptor of any `kind` may name it in `builder`, an object with a `name` and a `url` (its address), both required; any other key is refused. `install.method` may be `builder` (one of the examples of the method): the descriptor then requires `builder`, and `steps` and `revert` stay free text, `revert` saying how to go back to stock. `builder` beside another method (`usb-drive`) is read without fault. The builder stays the reference for its modules: it is where a reader is sent to build, install and update, and OSD never rehosts the assembly or the modules. 0.4 and 0.5 refuse `builder` (`UnknownField`).

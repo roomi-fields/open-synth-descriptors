@@ -403,6 +403,43 @@
         ]
       }
     },
+    "modules": {
+      "type": "array",
+      "description": "The modules the sound needs, each by its catalogue id and, when it matters, the least version of it. Beside firmware, which stays words for people: the reader compares none of the two with the other, nor with made_on.",
+      "items": {
+        "type": "object",
+        "required": [
+          "module"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The catalogue id of the module's firmware descriptor."
+          },
+          "min_version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The least version of the module the sound needs."
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "made_on": {
+      "description": "The exact assembly the author made the sound on, as written, without its own $schema: provenance only, never judged nor resolved.",
+      "$ref": "assembly.schema.json#/$defs/assembly",
+      "not": {
+        "required": [
+          "$schema"
+        ]
+      }
+    },
     "external_ids": {
       "type": "array",
       "description": "The identities other tools give this sound, each beside OSD's own, never in its place: the SHA-256 of its data stays the identity of OSD. Two entries of the same computation (tool, by and algorithm, compared without case) with different values, and the tool OSD, are refused by the reader.",

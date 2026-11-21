@@ -1,0 +1,8 @@
+{
+  "_about": "An empty module id is refused at the id.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/modules/0/module"
+  }
+}

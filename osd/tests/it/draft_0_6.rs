@@ -345,7 +345,9 @@ fn a_0_6_schema_differs_from_its_0_5_twin_only_by_its_address_the_unique_capabil
         }
         // The identities other tools give a sound (`external_ids`) are 0.6's own.
         if n == "sound" {
-            assert!(now["properties"].as_object_mut().unwrap().remove("external_ids").is_some(), "sound has no external_ids");
+            for own in ["external_ids", "modules", "made_on"] {
+                assert!(now["properties"].as_object_mut().unwrap().remove(own).is_some(), "sound has no {own}");
+            }
         }
         // The `null` of a direct key of `identity` and `programs` is 0.6's own.
         if n == "device" {

@@ -39,6 +39,7 @@ mod resolve_versions;
 mod role_path_vocabulary;
 mod role_vocabulary;
 mod roles;
+mod sound_modules;
 mod sound_settings;
 mod sound_transfers;
 mod stands_for;

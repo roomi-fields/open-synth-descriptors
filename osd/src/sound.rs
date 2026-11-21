@@ -2,7 +2,7 @@
 //! shared sound is and who made it, beside its data.
 
 use crate::json::{at_least, at_most, closed, list, matching, obj, object, words, Any, At, Codec, Dict, Opt, Num, Text, STRING};
-use crate::{Fault, FaultKind, SchemaUrl, Version};
+use crate::{Assembly, Fault, FaultKind, SchemaUrl, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 
@@ -52,8 +52,51 @@ object! {
         "links" links: Option<Vec<Link>> = Opt(list(obj())),
         /// The identities other tools give this sound (0.6); never OSD's own.
         "external_ids" external_ids: Option<Vec<ExternalId>> = Opt(list(obj())),
+        /// The modules it needs (0.6), beside `firmware` in words; never compared with it.
+        "modules" modules: Option<Vec<ModuleNeed>> = Opt(list(obj())),
+        /// The exact assembly its author made it on (0.6), as written; provenance only.
+        "made_on" made_on: Option<Assembly> = Opt(obj()),
     }
     check device_unless_clip
+}
+
+object! {
+    /// A module a sound needs: its catalogue id and, when it matters, the least version of it.
+    ModuleNeed {
+        /// The catalogue id of the module's firmware descriptor.
+        "module" module: String = STRING,
+        /// The least version of the module the sound needs.
+        "min_version" min_version: Option<String> = Opt(STRING),
+    }
+    check module_need_form
+}
+
+fn module_need_form(m: &ModuleNeed, at: &At) -> Result<(), Fault> {
+    if m.module.is_empty() {
+        return Err(At::Key(at, "module").fault(FaultKind::BadValue, "a non-empty module id"));
+    }
+    if m.min_version.as_deref() == Some("") {
+        return Err(At::Key(at, "min_version").fault(FaultKind::BadValue, "a non-empty minimum version"));
+    }
+    Ok(())
+}
+
+fn check_modules_and_made_on(s: &Sound, at: &At) -> Result<(), Fault> {
+    if s.schema >= Some(Version::V0_6) {
+        if let Some(a) = &s.made_on {
+            if a.schema.is_some() {
+                return Err(At::Key(&At::Key(at, "made_on"), "$schema").fault(FaultKind::UnknownField, "made_on is an assembly without its own $schema"));
+            }
+        }
+        return Ok(());
+    }
+    for key in ["modules", "made_on"] {
+        let present = if key == "modules" { s.modules.is_some() } else { s.made_on.is_some() };
+        if present {
+            return Err(At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field before 0.6")));
+        }
+    }
+    Ok(())
 }
 
 object! {
@@ -121,6 +164,7 @@ fn check_external_ids(s: &Sound, at: &At) -> Result<(), Fault> {
 
 fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
     check_external_ids(s, at)?;
+    check_modules_and_made_on(s, at)?;
     if crate::is_05_form(s.schema) {
         crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
     }
