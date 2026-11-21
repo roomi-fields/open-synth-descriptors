@@ -46,5 +46,6 @@ mod sound_settings;
 mod sound_transfers;
 mod standard_citations;
 mod stands_for;
+mod validate_script_refusals;
 mod version;
 mod vocabularies;

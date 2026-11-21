@@ -7,6 +7,9 @@ Checked against the newest version in schemas/ (OSD_VERSION=0.1 picks another).
 
 A directory is read for every *.json in it; files whose name starts with _
 are maker profiles (checked as profiles) or other notes, never devices.
+A file inside a conformance case whose case.json lists it in `schema_refused`
+({file, pointer}) is expected refused, with one error at that pointer; any other
+file is expected valid.
 Needs the jsonschema package. Exit status 1 when a file is not valid.
 """
 import json
@@ -39,19 +42,50 @@ def files(args, kind):
             yield a
 
 
+def pointer_of(error):
+    return "".join("/" + str(k).replace("~", "~0").replace("/", "~1") for k in error.path)
+
+
+def expected_refusal(p):
+    """The pointer the case.json of the case holding p says the schema refuses p at, or None.
+
+    A case folder holds `case.json` and `files/<maker>/<name>.json`; its `schema_refused`
+    is a list of {file, pointer}, each file by its catalogue id (`acme/synth`).
+    """
+    for folder in p.resolve().parents:
+        case = folder / "case.json"
+        if case.is_file() and (folder / "files") in p.resolve().parents:
+            listed = json.loads(case.read_text(encoding="utf-8")).get("schema_refused", [])
+            fid = p.resolve().relative_to(folder / "files").with_suffix("").as_posix()
+            return next((r["pointer"] for r in listed if r["file"] == fid), None)
+    return None
+
+
 def main(argv):
     if len(argv) < 2:
         sys.exit(__doc__)
     kind, check = argv[0], validators()[argv[0]]
-    n = bad = 0
+    n = bad = refused = 0
     for p in files(argv[1:], kind):
         n += 1
         errors = sorted(check.iter_errors(json.loads(p.read_text(encoding="utf-8"))), key=lambda e: list(e.path))
-        if errors:
+        said = expected_refusal(p)
+        if said is None:
+            if errors:
+                bad += 1
+                for e in errors[:5]:
+                    print(f"{p}: {'/'.join(map(str, e.path)) or '(top)'}: {e.message[:200]}")
+        elif not errors:
             bad += 1
+            print(f"{p}: expected refused at {said}, but valid")
+        elif len(errors) > 1 or pointer_of(errors[0]) != said:
+            bad += 1
+            print(f"{p}: expected refused at {said} with one error, got {len(errors)}:")
             for e in errors[:5]:
-                print(f"{p}: {'/'.join(map(str, e.path)) or '(top)'}: {e.message[:200]}")
-    print(f"{n - bad}/{n} valid {kind} descriptors")
+                print(f"{p}: {pointer_of(e) or '(top)'}: {e.message[:200]}")
+        else:
+            refused += 1
+    print(f"{n - bad - refused}/{n} valid {kind} descriptors, {refused} refused as expected")
     return 1 if bad else 0
 
 

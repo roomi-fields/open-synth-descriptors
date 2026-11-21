@@ -68,7 +68,14 @@ descriptor validates against the schema and only the reader refuses it.
     means none;
   - `fault`: the refusal, by its `kind` (the faults of
     `osd/docs/INTERFACE.md`), the `file` it is in and the JSON `pointer` of
-    the link refused.
+    the link refused;
+  - `schema_refused` (beside `fault`): the files the schema of the version
+    refuses on purpose, a list of `{file, pointer}`, each file by its catalogue
+    id. It is the reverse of a reading case's `schema_accepts`: there the
+    schema accepts what the reader refuses; here the schema itself refuses the
+    file, with exactly one error, at that `pointer`. Only the pass whose kind
+    selects the file judges it (`acme/synth` is a device: the profile pass never
+    sees it); every other file the pass selects must be valid.
 
 A resolution case that expects a result reads files valid against their
 version's schemas; a file without `$schema` is a 0.4 file, judged by the 0.4

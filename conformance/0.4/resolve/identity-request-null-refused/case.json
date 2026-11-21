@@ -1,5 +1,6 @@
 {
   "_about": "A key a 0.4 block sets to null is refused when it is not identity.firmware, as the 0.4 schema does (R23); the profile's key does not save it.",
   "resolve": "acme/synth",
+  "schema_refused": [{ "file": "acme/synth", "pointer": "/identity/request" }],
   "fault": { "kind": "BadValue", "file": "acme/synth", "pointer": "/identity/request" }
 }
