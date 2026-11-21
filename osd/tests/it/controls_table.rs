@@ -1,6 +1,6 @@
 // @lit docs/controls.md schemas/0.6/device.schema.json
 //! docs/controls.md holds one table, `Property | OSD field | Reason`, one row per property of
-//! MIDI-CI Property Exchange Controller Resources (M2-117-UM v1.0.1, table 5). A property
+//! MIDI-CI Property Exchange Controller Resources (M2-117-UM v1.0, tables 6 and 12). A property
 //! without a row fails, and so does a carried field the control entries of the 0.6 schema do not hold.
 
 use crate::common;
@@ -65,7 +65,7 @@ fn the_controls_table_has_a_row_for_each_property_of_table_5() {
     let rows = rows();
     let have: Vec<String> = rows.iter().map(|r| r[0].clone()).collect();
     let missing: Vec<String> = PROPERTIES.iter().filter(|p| !have.contains(&format!("`{p}`"))).map(|p| format!("{p}: no row")).collect();
-    common::report("table 5 properties without a row", missing);
+    common::report("tables 6 and 12 properties without a row", missing);
     assert_eq!(rows.len(), PROPERTIES.len(), "one row per property, no more: {have:?}");
 }
 

@@ -56,7 +56,7 @@ object! {
 
 object! {
     /// A row of a table of a published document (M2-104-UM table 22,
-    /// M2-117-UM table 5) a term is taken from.
+    /// M2-117-UM tables 6 and 12) a term is taken from.
     DocumentSource {
         "document" document: String = NOT_EMPTY,
         "table" table: String = NOT_EMPTY,

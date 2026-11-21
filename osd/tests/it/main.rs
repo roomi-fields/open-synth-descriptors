@@ -44,6 +44,7 @@ mod roles;
 mod sound_modules;
 mod sound_settings;
 mod sound_transfers;
+mod standard_citations;
 mod stands_for;
 mod version;
 mod vocabularies;

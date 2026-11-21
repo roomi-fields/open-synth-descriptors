@@ -2,7 +2,7 @@
 //! parts it may stand (`stands_under`) and whether it may open a path (`at_top`, true
 //! when `stands_under` is absent, false when it is present, unless the part writes it);
 //! a term says where it is shared (`shared_by`, a list of `{maker, device}`); a source
-//! may cite a document and its table (M2-104-UM table 22, M2-117-UM table 5) beside the
+//! may cite a document and its table (M2-104-UM table 22, M2-117-UM tables 6 and 12) beside the
 //! controller of MIDI 1.0. State 1 holds the names of table 22 that set a sound and the
 //! parts and settings the standard leaves to each maker.
 
@@ -229,7 +229,7 @@ fn a_source_may_cite_a_document_and_its_table_beside_a_midi_1_0_controller() {
     envelope["source"] = json!([doc_source("M2-104-UM v1.1.2", "22", 73, "Sound Controller 4 (Attack Time)")]);
     let mut attack = setting("attack-time", &["envelope"]);
     attack.as_object_mut().unwrap().remove("shared_by");
-    attack["source"] = json!([doc_source("M2-104-UM v1.1.2", "22", 73, "Sound Controller 4 (Attack Time)"), json!({"document": "M2-117-UM v1.0.1", "table": "5", "name": "paramPath"})]);
+    attack["source"] = json!([doc_source("M2-104-UM v1.1.2", "22", 73, "Sound Controller 4 (Attack Time)"), json!({"document": "M2-117-UM v1.0", "table": "6", "name": "paramPath"})]);
     assert!(read(&with(vec![envelope.clone(), attack.clone()])).is_ok());
     assert!(schema_paths(&with(vec![envelope.clone(), attack.clone()])).is_empty());
     // Both forms side by side.

@@ -74,7 +74,7 @@
           "items": {
             "oneOf": [{ "$ref": "#/$defs/controller" }, { "$ref": "#/$defs/document_source" }]
           },
-          "description": "Where the term comes from: the controllers of the MIDI 1.0 table of defined controllers whose composition uses it, and the rows of a published document (M2-104-UM table 22, M2-117-UM table 5) that name it."
+          "description": "Where the term comes from: the controllers of the MIDI 1.0 table of defined controllers whose composition uses it, and the rows of a published document (M2-104-UM table 22, M2-117-UM tables 6 and 12) that name it."
         },
         "shared_by": {
           "type": "array",
