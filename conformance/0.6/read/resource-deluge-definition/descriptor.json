@@ -1,0 +1,22 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {"name": "Deluge", "vendor": "Synthstrom Audible", "osc_prefix": "/deluge"},
+  "resources": [{
+    "resource": "X-DeviceDefinition",
+    "canSet": "full",
+    "mediaTypes": ["application/xml"],
+    "export": "deluge",
+    "via": {"file_write": {
+      "path": ["MIDI_DEVICES", "DEFINITION", {"variable": "vendor"}, {"variable": "device", "suffix": ".xml"}],
+      "carried_by": "sysex"
+    }}
+  }],
+  "_sources": [{
+    "type": "community-re",
+    "url": "https://github.com/SynthstromAudible/DelugeFirmware",
+    "firmware": "community 1.3",
+    "commit": "680b93c",
+    "license": "GPL-3.0-only",
+    "notes": "The community firmware reads the definition of a MIDI device from MIDI_DEVICES/DEFINITION/<vendor>/<device>.xml on the card (midi_instrument.cpp, readCCLabelsFromFile)."
+  }]
+}

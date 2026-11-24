@@ -1,0 +1,6 @@
+{
+  "_about": "Mcoded7 (M2-103-UM v1.2, 6.1.7), a short group of three bytes: AAAAaaaa BBBBbbbb CCCCcccc are sent as 0ABC0000 then 0AAAaaaa 0BBBbbbb 0CCCcccc, the signs in the most significant bits of the first byte sent. Here the signs are 1 0 1.",
+  "coding": "mcoded7",
+  "bytes": "80 01 82",
+  "coded": "50 00 01 02"
+}

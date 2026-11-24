@@ -1,0 +1,12 @@
+{
+  "_about": "The file keeps its own _sources; the _sources of the targets the MIDI is taken from, and what they took from, are credited in _midi_of_sources.",
+  "resolve": "acme/c",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }] },
+    "midi_of": "acme/b",
+    "_sources": [{ "type": "vendor-doc", "name": "Acme manual C" }],
+    "_midi_of_sources": [{ "type": "vendor-doc", "name": "Acme manual B" }, { "type": "vendor-doc", "name": "Acme manual A" }]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "_about": "A module whose `same_as` names another descriptor than the stock firmware's is refused, in the module's file: it is not made for this stock firmware.",
+  "resolve_assembly": "acme/build",
+  "fault": {"kind": "BadValue", "file": "acme/mod-x", "pointer": "/targets/0/midi/same_as"}
+}

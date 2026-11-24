@@ -1,0 +1,9 @@
+{
+  "_about": "A profile that has no block of the kind named is refused.",
+  "resolve": "acme/synth",
+  "fault": {
+    "kind": "LinkMissing",
+    "file": "acme/synth",
+    "pointer": "/programs/profile"
+  }
+}

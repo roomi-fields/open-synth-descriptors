@@ -1,0 +1,5 @@
+{
+  "_about": "The stock firmware of an assembly is pinned at an exact version: a stock without `version` is refused.",
+  "read": "assembly",
+  "fault": {"kind": "Missing", "pointer": "/stock/version"}
+}

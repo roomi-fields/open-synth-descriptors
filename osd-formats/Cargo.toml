@@ -1,0 +1,18 @@
+[package]
+name = "osd-formats"
+version.workspace = true
+edition.workspace = true
+description = "Open Synth Descriptors to and from the formats others use: MIDI CSV tables, Electra One, MIDNAM, OSCQuery."
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["midi", "osc", "synthesizer", "descriptor"]
+categories = ["multimedia::audio", "parser-implementations"]
+
+[dependencies]
+osd.workspace = true
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"

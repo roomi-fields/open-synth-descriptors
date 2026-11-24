@@ -1,0 +1,6 @@
+{
+  "_about": "A string segment of a reply address that carries a brace is refused: the reader at that segment, the schema at the address (a one-of over a string and segments).",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/replies/0/emit_osc/0"},
+  "schema_pointer": "/replies/0/emit_osc"
+}

@@ -1,0 +1,12 @@
+{
+  "_about": "A software device that stands for nothing (a DAW, a plugin of its own) gives neither field, and reads as in 0.5.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Tribe Emulation",
+      "osc_prefix": "/tribe",
+      "kind": "software"
+    }
+  }
+}

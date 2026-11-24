@@ -1,0 +1,5 @@
+{
+  "_about": "The guards of `midi_of` hold for each module: a MIDI descriptor that touches more than routes is refused, in its own file.",
+  "resolve_assembly": "acme/build",
+  "fault": {"kind": "UnknownField", "file": "acme/mod-a-midi", "pointer": "/sysex"}
+}

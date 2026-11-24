@@ -1,0 +1,9 @@
+{
+  "_about": "A name outside the message is refused where it is.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/name"
+  }
+}

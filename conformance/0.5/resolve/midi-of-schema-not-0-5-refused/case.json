@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.5 file with midi_of whose $schema is not a 0.5 schema URL is refused at /$schema.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "UnreadVersion",
+    "file": "acme/a",
+    "pointer": "/$schema"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "S",
+  "kind": "scene",
+  "device": { "vendor": "KORG", "model": "minilogue" },
+  "content": {}
+}

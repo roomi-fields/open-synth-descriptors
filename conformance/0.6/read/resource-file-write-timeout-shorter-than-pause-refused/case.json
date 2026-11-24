@@ -1,0 +1,9 @@
+{
+  "_about": "The wait for a reply is never shorter than the pause delay_ms of its step.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps/0/reply_timeout_ms"
+  }
+}

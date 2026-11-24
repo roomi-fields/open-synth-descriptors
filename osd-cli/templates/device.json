@@ -1,0 +1,8 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "FILL: the name of the device, as its maker writes it",
+    "vendor": "FILL: the maker of the device",
+    "osc_prefix": "FILL: the OSC address that starts every parameter of the device, for example /my_synth"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "sound_transfers": [
+    {
+      "id": "single",
+      "sound_id": "program",
+      "carries": "sound",
+      "match_frame": [
+        240,
+        66,
+        "any",
+        0,
+        1,
+        81,
+        64,
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        247
+      ],
+      "elements": {
+        "data": {
+          "from": 11,
+          "length": 4
+        },
+        "name": {
+          "from": 7,
+          "length": 4
+        },
+        "channel": {
+          "from": 2,
+          "length": 1
+        },
+        "header": {
+          "from": 3,
+          "length": 4
+        },
+        "checksum": {
+          "from": 15,
+          "length": 1
+        }
+      }
+    },
+    {
+      "id": "bank",
+      "sound_id": "program",
+      "carries": "bank",
+      "count": 2,
+      "stride": 8,
+      "match_frame": [
+        240,
+        66,
+        "any",
+        0,
+        1,
+        81,
+        76,
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        "any",
+        247
+      ],
+      "elements": {
+        "data": {
+          "from": 11,
+          "length": 4
+        },
+        "name": {
+          "from": 7,
+          "length": 4
+        }
+      }
+    }
+  ]
+}

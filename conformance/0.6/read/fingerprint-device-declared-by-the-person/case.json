@@ -1,0 +1,13 @@
+{
+  "_about": "A device no descriptor describes yet, or one the person has not matched, is named by the person: maker, model and firmware.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+    "observed": "2026-11-22",
+    "device": {
+      "vendor": "Example",
+      "model": "Mono One",
+      "firmware": "1.0"
+    }
+  }
+}

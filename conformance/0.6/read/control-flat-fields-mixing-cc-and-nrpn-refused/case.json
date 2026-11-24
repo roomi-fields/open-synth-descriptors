@@ -1,0 +1,5 @@
+{
+  "_about": "The flat fields of a control give one message kind: a CC, an NRPN or an RPN. A second way of reaching the control goes in `also`; flat fields that mix two kinds are refused at the control.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0" }
+}

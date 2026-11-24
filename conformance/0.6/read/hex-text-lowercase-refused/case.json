@@ -1,0 +1,5 @@
+{
+  "_about": "A hex text has one case, upper case (F0 42 3C): a lower-case digit is refused at the field.",
+  "read": "sound",
+  "fault": { "kind": "BadValue", "pointer": "/content/sysex" }
+}

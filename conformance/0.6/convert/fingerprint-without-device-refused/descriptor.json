@@ -1,0 +1,9 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/fingerprint.schema.json",
+  "observed": "2026-11-22",
+  "controls": [
+    {
+      "cc": 74
+    }
+  ]
+}

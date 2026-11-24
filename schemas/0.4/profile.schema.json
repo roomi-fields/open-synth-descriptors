@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synthhub.roomi-fields.com/osd/0.4/profile.schema.json",
+  "title": "OSD maker profile 0.4",
+  "description": "What several devices of a maker (or of a family) share: how they are recognised, how their programs work. A device descriptor names it in identity.profile or programs.profile and adds its own.",
+  "type": "object",
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people (provenance, caveats, usage); never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "$ref": "device.schema.json#/$defs/identity"
+    },
+    "programs": {
+      "$ref": "device.schema.json#/$defs/programs"
+    }
+  }
+}

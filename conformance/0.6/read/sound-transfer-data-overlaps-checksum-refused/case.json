@@ -1,0 +1,9 @@
+{
+  "_about": "A data that overlaps the checksum is refused at the data.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/data"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "commands": [
+    {"osc": "/x", "pre": [
+      {"bind": "a", "expr": "v + 1"},
+      {"bind": "b", "expr": "v - w"},
+      {"bind": "c", "expr": "(v + w) * 2"},
+      {"bind": "d", "expr": "v > 63 ? 127 : 0"},
+      {"bind": "e", "expr": "v < 3"},
+      {"bind": "f", "expr": "v == w"},
+      {"bind": "g", "expr": "v != 0 ? v - 1 : 0"}
+    ]}
+  ]
+}

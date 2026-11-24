@@ -1,0 +1,29 @@
+{
+  "_about": "A block's key set to null removes the profile's key.",
+  "resolve": "acme/synth",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "request": [
+        240,
+        126,
+        127,
+        6,
+        1,
+        247
+      ],
+      "reply": [
+        240,
+        126,
+        "{dev}",
+        6,
+        2,
+        67
+      ],
+      "profile": "acme"
+    }
+  }
+}

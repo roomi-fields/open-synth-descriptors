@@ -1,0 +1,12 @@
+{
+  "_about": "A file with midi_of appends its own routes to its target's in each route list and table it writes: commands, cc_params and triggers here.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "commands": [{ "osc": "/c1", "frame": [240, 247] }, { "osc": "/c2", "frame": [240, 247] }],
+    "cc_params": { "entries": [{ "osc": "/x1", "cc": 1 }, { "osc": "/x2", "cc": 2 }] },
+    "triggers": { "entries": [{ "osc": "/t1", "sound": "Kick", "note_range": [36, 36] }, { "osc": "/t2", "sound": "Snare", "note_range": [38, 38] }] },
+    "midi_of": "acme/b"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Mod",
+  "version": "1.0",
+  "kind": "module",
+  "targets": [
+    {
+      "device": {
+        "descriptor": "elektron/digitone",
+        "vendor": "Elektron",
+        "model": "Digitone"
+      },
+      "midi": {
+        "descriptor": "elektron/mod-midi"
+      },
+      "runs_on": {
+        "name": "Elektron OS",
+        "versions": [
+          "1.0"
+        ]
+      }
+    },
+    {
+      "device": {
+        "descriptor": "elektron/digitone-keys",
+        "vendor": "Elektron",
+        "model": "Digitone Keys"
+      },
+      "midi": {
+        "descriptor": "elektron/mod-keys-midi"
+      },
+      "runs_on": {
+        "name": "Elektron OS",
+        "versions": [
+          "1.0"
+        ]
+      }
+    }
+  ]
+}

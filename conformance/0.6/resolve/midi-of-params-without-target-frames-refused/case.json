@@ -1,0 +1,9 @@
+{
+  "_about": "The target has no params: the file's table is taken as it is and lacks get_frame, so the resolution is refused in the file.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "Missing",
+    "file": "acme/a",
+    "pointer": "/params/get_frame"
+  }
+}

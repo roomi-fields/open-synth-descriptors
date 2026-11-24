@@ -1,0 +1,9 @@
+{
+  "_about": "A name given by positions of the message that covers the data is refused: only `in_data` places a name in the data.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/name"
+  }
+}

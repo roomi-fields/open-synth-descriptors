@@ -1,0 +1,22 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "T", "osc_prefix": "/t" },
+  "resources": [
+    {
+      "resource": "DeviceDefinition",
+      "canSet": "full",
+      "export": "deluge",
+      "via": {
+        "file_write": {
+          "path": ["a", { "variable": "device", "suffix": ".xml" }],
+          "carried_by": "sysex",
+          "steps": [
+            { "step": "open", "send": [240, 0, 33, 123, { "file": "size" }, 247] },
+            { "step": "write", "chunk_bytes": 64, "coding": "msb_first_7in8", "send": [240, 0, 33, 123, { "file": "offset" }, { "file": "chunk" }, 247] },
+            { "step": "close", "send": [240, 0, 33, 123, 2, 247] }
+          ]
+        }
+      }
+    }
+  ]
+}

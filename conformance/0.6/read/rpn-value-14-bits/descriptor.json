@@ -1,0 +1,10 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      { "osc": "/tuning/fine", "rpn_msb": 0, "rpn_lsb": 1, "value_bits": 14, "range": [0, 16383] }
+    ]
+  }
+}

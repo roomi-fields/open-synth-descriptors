@@ -1,0 +1,13 @@
+{
+  "_about": "`license_terms` holds the author's own terms when they are not a known licence (the licence stays an SPDX id or one of its special words); `derived_from` names the sound this one is a version of: its `url` (required) and its `name`.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+    "name": "Warm pad v2",
+    "kind": "sound",
+    "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
+    "content": { "settings": { "/amp/attack": [90] } },
+    "license_terms": "Free to use in recordings; not to be resold as a sound pack.",
+    "derived_from": { "url": "https://example.org/sounds/warm-pad", "name": "Warm pad" }
+  }
+}

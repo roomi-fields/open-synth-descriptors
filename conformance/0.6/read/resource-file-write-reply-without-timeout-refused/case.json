@@ -1,0 +1,8 @@
+{
+  "_about": "A reply awaited has its reply_timeout_ms; without it the step is refused.",
+  "read": "device",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/resources/0/via/file_write/steps/0/reply_timeout_ms"
+  }
+}

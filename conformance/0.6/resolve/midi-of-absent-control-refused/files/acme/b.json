@@ -1,0 +1,25 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "params": {
+    "get_frame": [240, 247],
+    "set_frame": [240, 247],
+    "value_type": "u7",
+    "entries": [
+      { "osc": "/p0", "id": 3 }
+    ]
+  },
+  "sound_transfers": [
+    {
+      "id": "single",
+      "sound_id": "program",
+      "carries": "sound",
+      "match_frame": [240, 66, "any", 0, 1, 81, 64, "any", "any", "any", "any", "any", "any", "any", "any", "any", 247],
+      "elements": { "data": { "from": 11, "length": 4 }, "name": { "from": 7, "length": 4 } },
+      "places": [{ "control": "/params/entries/1", "from": 0, "length": 1 }]
+    }
+  ]
+}

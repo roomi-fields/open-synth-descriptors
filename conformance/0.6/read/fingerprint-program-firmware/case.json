@@ -1,0 +1,13 @@
+{
+  "_about": "A program that runs alike on several devices is named by the program, in the words of its card: name, version and kind (here a firmware).",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+    "observed": "2026-11-22",
+    "program": {
+      "name": "Elekloader mod",
+      "version": "2.0",
+      "kind": "firmware"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_about": "A program installed on a host system runs on two devices of two makers: one assembly without module whose stock is the program (kind application), its MIDI written once and reused by same_as in the second target. Resolved for the first device.",
+  "resolve_assembly": "lumen/build",
+  "device": "kestrel/pocket-one",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {"name": "Grainer", "osc_prefix": "/grainer"},
+    "params": {
+      "get_frame": [240, 247],
+      "set_frame": [240, 247],
+      "value_type": "u7",
+      "entries": [{"osc": "/grain/size"}, {"osc": "/grain/density"}]
+    }
+  }
+}

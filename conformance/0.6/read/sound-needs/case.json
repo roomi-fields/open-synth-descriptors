@@ -1,0 +1,17 @@
+{
+  "_about": "A sound names the modules it needs, each by its catalogue id and, optionally, the least version of it. A need without min_version asks only that the module be present. The reader reads them as written.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
+    "content": {
+      "settings": { "/amp/attack": [90] }
+    },
+    "needs": [
+      { "module": "acme/mod-a", "min_version": "1.2" },
+      { "module": "acme/mod-b" }
+    ]
+  }
+}

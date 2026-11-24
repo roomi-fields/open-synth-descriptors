@@ -1,0 +1,37 @@
+name: Pages
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release -p reference
+      - run: python tools/build_site.py _site
+      - run: python tools/install_mdbook.py
+      - run: python tools/build_book.py _site/book
+        env: { OSD_REFERENCE: target/release/osd-reference }
+      - run: python tools/check_book.py _site/book --site _site --public-list export/public.list
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,18 @@
+{
+  "_about": "A 0.6 firmware descriptor names its targets (a device each), and is read as it is.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "TRIBE",
+    "version": "0.3-beta",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "m-vave/fm-1",
+          "vendor": "M-VAVE",
+          "model": "FM-1"
+        }
+      }
+    ]
+  }
+}

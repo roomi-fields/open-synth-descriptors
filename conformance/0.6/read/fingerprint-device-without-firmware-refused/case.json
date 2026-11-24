@@ -1,0 +1,8 @@
+{
+  "_about": "A device named in a fingerprint carries its firmware: a descriptor alone is refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/device/firmware"
+  }
+}

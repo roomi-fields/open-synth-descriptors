@@ -1,0 +1,8 @@
+{
+  "_about": "A file without midi_of keeps get_frame, set_frame and value_type required in params.",
+  "read": "device",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/params/get_frame"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "commands": [
+    {"osc": "/ok", "frame": [240, "{dev}", 247]},
+    {"osc": "/x", "frame": [240, "{value}", "{checksum}", 247]}
+  ]
+}

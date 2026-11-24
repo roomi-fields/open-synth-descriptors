@@ -1,0 +1,515 @@
+{
+  "$schema": "https://w3id.org/osd/vocabulary/1/vocabulary.schema.json",
+  "state": "1",
+  "_about": "State 1 of the vocabulary of roles: the parts and settings a role is a path of. It holds the defined controllers of MIDI 1.0 that set a sound, the names of MIDI 2.0 that set a sound (M2-104-UM v1.1.2, table 22, Registered Per-Note Controllers, row by row in `source`), and the parts and settings the standard leaves to each maker and many devices share, each with the devices of two makers that share it (`shared_by`). A part says where it stands: `stands_under` lists the parts it may come under in a path, `at_top` whether it may open one (true when `stands_under` is absent, false when it is present, unless written). Row 79 of table 22, Sound Controller 10, is undefined and has no term.",
+  "terms": [
+    {
+      "name": "voice",
+      "type": "part",
+      "definition": "The sound generator that plays one note at a time or several, before its filter and its output.",
+      "words": [],
+      "source": [
+        { "controller": 5, "name": "Portamento Time" },
+        { "controller": 65, "name": "Portamento On/Off" },
+        { "controller": 84, "name": "Portamento Control" }
+      ]
+    },
+    {
+      "name": "sound",
+      "type": "part",
+      "definition": "The sound as a whole, what a program recalls.",
+      "words": [],
+      "source": [
+        { "controller": 70, "name": "Sound Controller 1 (Sound Variation)" }
+      ]
+    },
+    {
+      "name": "filter",
+      "type": "part",
+      "definition": "A filter that shapes the harmonic content of the sound.",
+      "words": [],
+      "source": [
+        { "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" },
+        { "controller": 74, "name": "Brightness" }
+      ]
+    },
+    {
+      "name": "envelope",
+      "type": "part",
+      "definition": "An envelope that shapes a setting of the part it stands under over the life of a note.",
+      "stands_under": ["filter", "amplifier", "oscillator", "voice"],
+      "words": [],
+      "source": [
+        { "controller": 72, "name": "Sound Controller 3 (Release Time)" },
+        { "controller": 73, "name": "Sound Controller 4 (Attack Time)" }
+      ]
+    },
+    {
+      "name": "output",
+      "type": "part",
+      "definition": "The output of the instrument, where the sound leaves it.",
+      "words": [],
+      "source": [
+        { "controller": 7, "name": "Channel Volume" },
+        { "controller": 8, "name": "Balance" },
+        { "controller": 10, "name": "Pan" }
+      ]
+    },
+    {
+      "name": "effect",
+      "type": "part",
+      "definition": "An effect unit, numbered when the instrument has several.",
+      "words": [
+        { "word": "Tremolo", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Celeste", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Phaser", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" }
+      ]
+    },
+    {
+      "name": "performance",
+      "type": "part",
+      "definition": "What a player moves while playing, apart from the notes.",
+      "words": [],
+      "source": [
+        { "controller": 11, "name": "Expression Controller" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Yamaha", "device": "DX7" }
+      ]
+    },
+    {
+      "name": "oscillator",
+      "type": "part",
+      "definition": "A source of a repeating waveform at a pitch, numbered when the instrument has several.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "noise",
+      "type": "part",
+      "definition": "A source of noise, which has no pitch.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "mixer",
+      "type": "part",
+      "definition": "The stage that sets the level of each source before the filter.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "amplifier",
+      "type": "part",
+      "definition": "The stage that sets the level of the sound over time, after the filter.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "lfo",
+      "type": "part",
+      "definition": "A low-frequency oscillator that moves a setting of the part it stands under, numbered when the instrument has several.",
+      "stands_under": ["oscillator", "filter", "amplifier"],
+      "at_top": true,
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "delay",
+      "type": "part",
+      "definition": "A kind of effect that repeats the sound after a time.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "reverb",
+      "type": "part",
+      "definition": "A kind of effect that adds the tail of a room to the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "chorus",
+      "type": "part",
+      "definition": "A kind of effect that thickens the sound with slightly detuned and delayed copies of it.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Korg", "device": "minilogue xd" }
+      ]
+    },
+    {
+      "name": "equalizer",
+      "type": "part",
+      "definition": "A kind of effect that raises or lowers the level of ranges of frequencies of the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Yamaha", "device": "Montage" },
+        { "maker": "Korg", "device": "Kronos" }
+      ]
+    },
+    {
+      "name": "arpeggiator",
+      "type": "part",
+      "definition": "A part that plays the notes of a held chord one after the other.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-60" },
+        { "maker": "Sequential", "device": "Prophet-6" }
+      ]
+    },
+    {
+      "name": "sequencer",
+      "type": "part",
+      "definition": "A part that plays a recorded series of notes and values in time.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "TR-808" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "vibrato",
+      "type": "part",
+      "definition": "A periodic variation of the pitch of the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "JV-1080" },
+        { "maker": "Yamaha", "device": "MU-80" }
+      ]
+    },
+    {
+      "name": "portamento-time",
+      "type": "setting",
+      "definition": "How long a note takes to glide to the next one.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 5, "name": "Portamento Time" }]
+    },
+    {
+      "name": "portamento",
+      "type": "setting",
+      "definition": "Whether notes glide from one to the next, on or off.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 65, "name": "Portamento On/Off" }]
+    },
+    {
+      "name": "portamento-start",
+      "type": "setting",
+      "definition": "The note from which the next glide starts.",
+      "applies_to": ["voice"],
+      "words": [{ "word": "Portamento Control", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 84, "name": "Portamento Control" }]
+    },
+    {
+      "name": "variation",
+      "type": "setting",
+      "definition": "Which variation of the sound plays, among those it holds.",
+      "applies_to": ["sound"],
+      "words": [],
+      "source": [
+        { "controller": 70, "name": "Sound Controller 1 (Sound Variation)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 70, "name": "Sound Controller 1 (Sound Variation)" }
+      ]
+    },
+    {
+      "name": "resonance",
+      "type": "setting",
+      "definition": "How much the filter emphasises the frequencies around its cutoff.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Timbre/Harmonic Intensity", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" }
+      ]
+    },
+    {
+      "name": "cutoff",
+      "type": "setting",
+      "definition": "The frequency above which the filter lets less of the sound through.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Brightness", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 74, "name": "Brightness" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 74, "name": "Sound Controller 5 (Brightness)" }
+      ]
+    },
+    {
+      "name": "attack-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to rise when a note starts.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "controller": 73, "name": "Sound Controller 4 (Attack Time)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 73, "name": "Sound Controller 4 (Attack Time)" }
+      ]
+    },
+    {
+      "name": "release-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to fall when a note ends.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "controller": 72, "name": "Sound Controller 3 (Release Time)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 72, "name": "Sound Controller 3 (Release Time)" }
+      ]
+    },
+    {
+      "name": "level",
+      "type": "setting",
+      "definition": "How loud a part is, the output as a whole or one source or effect in it.",
+      "applies_to": ["output", "oscillator", "noise", "mixer", "effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [
+        { "word": "Channel Volume", "origin": "MIDI 1.0" },
+        { "word": "Volume", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 7, "name": "Channel Volume" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 7, "name": "Volume" }
+      ]
+    },
+    {
+      "name": "balance",
+      "type": "setting",
+      "definition": "How the output leans between its left and right sides.",
+      "applies_to": ["output"],
+      "words": [],
+      "source": [
+        { "controller": 8, "name": "Balance" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 8, "name": "Balance" }
+      ]
+    },
+    {
+      "name": "pan",
+      "type": "setting",
+      "definition": "Where the output sits between left and right.",
+      "applies_to": ["output"],
+      "words": [],
+      "source": [
+        { "controller": 10, "name": "Pan" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 10, "name": "Pan" }
+      ]
+    },
+    {
+      "name": "expression",
+      "type": "setting",
+      "definition": "A level a player moves, which scales the output within the level already set.",
+      "applies_to": ["performance"],
+      "words": [{ "word": "Expression Controller", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 11, "name": "Expression Controller" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 11, "name": "Expression" }
+      ]
+    },
+    {
+      "name": "depth",
+      "type": "setting",
+      "definition": "How much of an effect, or of the vibrato, is applied to the sound.",
+      "applies_to": ["effect", "reverb", "chorus", "vibrato"],
+      "words": [
+        { "word": "Reverb Send Level", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Chorus Send Level", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 91, "name": "Effects 1 Depth (Reverb Send Level)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 92, "name": "Effects 2 Depth (formerly Tremolo Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 93, "name": "Effects 3 Depth (Chorus Send Level)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 94, "name": "Effects 4 Depth (formerly Celeste [Detune] Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 95, "name": "Effects 5 Depth (formerly Phaser Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 77, "name": "Sound Controller 8 (Vibrato Depth)" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "JV-1080" },
+        { "maker": "Yamaha", "device": "MU-80" }
+      ]
+    },
+    {
+      "name": "waveform",
+      "type": "setting",
+      "definition": "The shape of the repeating wave an oscillator or an lfo produces.",
+      "applies_to": ["oscillator", "lfo"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "pitch",
+      "type": "setting",
+      "definition": "The pitch of a note, or of what an oscillator sounds.",
+      "applies_to": ["voice", "oscillator"],
+      "words": [{ "word": "Pitch 7.25", "origin": "M2-104-UM v1.1.2" }],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 3, "name": "Pitch 7.25" }
+      ],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "detune",
+      "type": "setting",
+      "definition": "How far a part is tuned away from its nominal pitch.",
+      "applies_to": ["oscillator", "voice"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "decay-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to fall to its sustain level after its peak.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 75, "name": "Sound Controller 6 (Decay Time)" }
+      ],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "sustain-level",
+      "type": "setting",
+      "definition": "The level the envelope holds while a note is held.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "rate",
+      "type": "setting",
+      "definition": "How fast a part cycles or steps, in time or in frequency.",
+      "applies_to": ["lfo", "vibrato", "arpeggiator", "sequencer"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 76, "name": "Sound Controller 7 (Vibrato Rate)" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "delay-time",
+      "type": "setting",
+      "definition": "How long a part waits before it acts, or how long an effect holds the sound back.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer", "vibrato"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 78, "name": "Sound Controller 9 (Vibrato Delay)" }
+      ],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "feedback",
+      "type": "setting",
+      "definition": "How much of the output of an effect returns to its input.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "mix",
+      "type": "setting",
+      "definition": "How much of the effect is heard against the dry sound.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "amount",
+      "type": "setting",
+      "definition": "How strongly a part moves the setting it is routed to.",
+      "applies_to": ["envelope", "lfo"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "modulation",
+      "type": "setting",
+      "definition": "How far the player moves the modulation control, which sends a part's movement to the sound.",
+      "applies_to": ["performance"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 1, "name": "Modulation" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Yamaha", "device": "DX7" }
+      ]
+    },
+    {
+      "name": "breath",
+      "type": "setting",
+      "definition": "How hard the player blows into a breath controller.",
+      "applies_to": ["performance"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 2, "name": "Breath" }
+      ],
+      "shared_by": [
+        { "maker": "Yamaha", "device": "DX7" },
+        { "maker": "Yamaha", "device": "VL1" },
+        { "maker": "Akai", "device": "EWI" }
+      ]
+    }
+  ]
+}

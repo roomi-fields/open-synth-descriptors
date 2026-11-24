@@ -1,0 +1,6 @@
+{
+  "_about": "msb_first_7in8 (KORG minilogue xd MIDI Implementation, note 1), a full group: a byte of the signs, the sign of byte k at bit k (unlike Mcoded7, which puts the first sign at bit 6), then the seven low parts. The same bytes as the Mcoded7 case give 45 here, 51 there.",
+  "coding": "msb_first_7in8",
+  "bytes": "85 06 87 08 09 0A 8B",
+  "coded": "45 05 06 07 08 09 0A 0B"
+}

@@ -1,0 +1,12 @@
+{
+  "_about": "A fingerprint names what it was taken on. A device of the catalogue is named by its descriptor (which names maker and model) and the firmware it runs.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+    "observed": "2026-11-22",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "firmware": "2.01"
+    }
+  }
+}

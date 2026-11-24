@@ -1,0 +1,15 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "TRIBE",
+  "version": "0.3-beta",
+  "targets": [
+    {
+      "device": {
+        "descriptor": "m-vave/fm-1",
+        "vendor": "M-VAVE",
+        "model": "FM-1"
+      }
+    }
+  ],
+  "license": "NONE"
+}

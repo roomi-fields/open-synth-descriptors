@@ -1,0 +1,15 @@
+{
+  "_about": "A maker profile holds the identity and program frames; they convert as a device's do.",
+  "convert": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/profile.schema.json",
+    "identity": {
+      "request": [240, 126, 127, 6, 1, 247],
+      "reply": [240, 126, {"device_id": true}, 6, 2, 67, "any"]
+    },
+    "programs": {
+      "before": [[240, {"device_id": true}, {"arg": "bank", "add": 64}, 247]],
+      "dump": {"kind": "request", "request": [240, {"device_id": true}, 16, 247]}
+    }
+  }
+}

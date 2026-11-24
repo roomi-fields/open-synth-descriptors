@@ -1,0 +1,5 @@
+{
+  "_about": "A reply address that is a string with a brace is refused, at the address: a capture is written in an array of segments.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/replies/0/emit_osc"}
+}

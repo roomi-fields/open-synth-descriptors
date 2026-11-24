@@ -1,0 +1,8 @@
+{
+  "_about": "`stands_for` is a catalogue address `maker/device`: one segment is refused at the field, in the schema as in the reader.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/device/stands_for"
+  }
+}

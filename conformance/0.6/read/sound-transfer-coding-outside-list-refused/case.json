@@ -1,0 +1,8 @@
+{
+  "_about": "A coding word outside the closed list (none, msb_first_7in8) is refused at its address; another coding is given by a script.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/data/coding"
+  }
+}

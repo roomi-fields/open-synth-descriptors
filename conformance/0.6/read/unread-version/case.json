@@ -1,0 +1,8 @@
+{
+  "_about": "A `$schema` that names a version the reader does not read (0.9) is refused as an unread version, at the `$schema`.",
+  "read": "device",
+  "fault": {
+    "kind": "UnreadVersion",
+    "pointer": "/$schema"
+  }
+}

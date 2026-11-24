@@ -1,0 +1,14 @@
+{
+  "_about": "identity.to every_port (the default) sends the request to every port.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "identity": {
+      "to": "every_port"
+    }
+  }
+}

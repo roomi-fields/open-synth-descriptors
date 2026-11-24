@@ -1,0 +1,8 @@
+{
+  "_about": "A program named in a fingerprint carries its name and its version, as its card does.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/program/version"
+  }
+}

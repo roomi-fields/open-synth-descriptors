@@ -1,0 +1,9 @@
+{
+  "_about": "`midi_out.note_offset` is the number of semitones added to every note number sent to the device (an integer, negative below).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "midi_out": { "default_channel": 0, "note_offset": -12 }
+  }
+}

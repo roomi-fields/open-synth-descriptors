@@ -1,0 +1,18 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {"name": "Synth", "osc_prefix": "/synth"},
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/filter/cutoff",
+        "nrpn_msb": 1,
+        "nrpn_lsb": 2,
+        "value_bits": 14,
+        "range": [0, 127],
+        "also": [{"cc": 74, "range": [0, 127]}]
+      }
+    ]
+  },
+  "_sources": [{"type": "community-re", "url": "https://github.com/pencilresearch/midi", "license": "CC-BY-SA-4.0"}]
+}

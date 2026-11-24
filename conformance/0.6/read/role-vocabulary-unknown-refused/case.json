@@ -1,0 +1,6 @@
+{
+  "_about": "A state of the vocabulary the reader does not hold is refused. Which states a reader holds is the reader's, so the schema accepts the name.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/role_vocabulary" }
+}

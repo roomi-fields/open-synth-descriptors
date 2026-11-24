@@ -1,0 +1,9 @@
+{
+  "_about": "A control outside the pattern of the schema, /(cc_params|params)/entries/N, is refused where it is.",
+  "read": "device",
+  "schema_accepts": false,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/places/0/control"
+  }
+}

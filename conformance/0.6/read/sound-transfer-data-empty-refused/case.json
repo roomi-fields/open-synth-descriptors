@@ -1,0 +1,8 @@
+{
+  "_about": "An empty data is refused at its length.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/data/length"
+  }
+}

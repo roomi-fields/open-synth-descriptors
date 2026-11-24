@@ -1,0 +1,6 @@
+{
+  "_about": "Mcoded7 (M2-103-UM v1.2, 6.1.7), a full group: the seven bytes AAAAaaaa BBBBbbbb … GGGGgggg are sent as 0ABCDEFG then 0AAAaaaa … 0GGGgggg. Here the signs are 1 0 1 0 1 0 1, so the first byte sent is 0101 0101.",
+  "coding": "mcoded7",
+  "bytes": "81 02 83 04 85 06 87",
+  "coded": "55 01 02 03 04 05 06 07"
+}

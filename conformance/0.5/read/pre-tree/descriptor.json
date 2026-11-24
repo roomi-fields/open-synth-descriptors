@@ -1,0 +1,10 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "commands": [
+    {"osc": "/x", "pre": [
+      {"bind": "a", "expr": {"if": [{"gt": [{"arg": "v"}, 63]}, {"mul": [{"arg": "v"}, 2]}, {"sub": [127, {"add": [{"arg": "v"}, 0]}]}]}},
+      {"bind": "b", "expr": {"ne": [{"lt": [{"arg": "v"}, 1]}, {"eq": [{"arg": "w"}, 127]}]}}
+    ]}
+  ]
+}

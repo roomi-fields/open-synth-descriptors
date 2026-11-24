@@ -1,0 +1,79 @@
+{
+  "_about": "A file with midi_of keeps its identity, its notes and its own blocks, takes the rest from its target, and adds routes: its own replace the target's at the same address. The target's sources are kept as _midi_of_sources.",
+  "resolve": "acme/fw-2",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth",
+      "revision": "2",
+      "rate_limit_hz": 100
+    },
+    "sysex": {
+      "header": [
+        240,
+        67
+      ],
+      "footer": [
+        247
+      ]
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/x",
+          "cc": 1
+        },
+        {
+          "osc": "/y",
+          "cc": 3
+        }
+      ]
+    },
+    "commands": [
+      {
+        "osc": "/a",
+        "frame": [
+          240,
+          1,
+          247
+        ]
+      },
+      {
+        "osc": "/b",
+        "frame": [
+          240,
+          22,
+          247
+        ]
+      },
+      {
+        "osc": "/c",
+        "frame": [
+          240,
+          3,
+          247
+        ]
+      }
+    ],
+    "midi_out": {
+      "default_channel": 0
+    },
+    "midi_of": "acme/fw-1",
+    "identity": {
+      "reply_text": "fw 2"
+    },
+    "_sources": [
+      {
+        "type": "community-re",
+        "firmware": "2"
+      }
+    ],
+    "_midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "firmware": "1"
+      }
+    ]
+  }
+}

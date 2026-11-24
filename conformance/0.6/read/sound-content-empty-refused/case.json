@@ -1,0 +1,5 @@
+{
+  "_about": "The content of a sound holds at least one of `sysex`, `midi`, `settings`: an empty content is refused at the content.",
+  "read": "sound",
+  "fault": { "kind": "BadValue", "pointer": "/content" }
+}

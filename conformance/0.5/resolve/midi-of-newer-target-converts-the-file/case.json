@@ -1,0 +1,10 @@
+{
+  "_about": "A 0.4 file (no $schema) sharing the MIDI of a 0.5 target: the file is converted to 0.5, its own routes are joined to the target's, and the resolved device states 0.5.",
+  "resolve": "acme/fw-2",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }, { "osc": "/y", "cc": 3 }] },
+    "midi_of": "acme/fw-1"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "midi_in": {}
+}

@@ -1,0 +1,62 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth",
+    "vendor": "Acme",
+    "revision": "1",
+    "kind": "hardware",
+    "rate_limit_hz": 100
+  },
+  "sysex": {
+    "header": [
+      240,
+      67
+    ],
+    "footer": [
+      247
+    ]
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/x",
+        "cc": 1
+      },
+      {
+        "osc": "/y",
+        "cc": 2
+      }
+    ]
+  },
+  "commands": [
+    {
+      "osc": "/a",
+      "frame": [
+        240,
+        1,
+        247
+      ]
+    },
+    {
+      "osc": "/b",
+      "frame": [
+        240,
+        2,
+        247
+      ]
+    }
+  ],
+  "midi_out": {
+    "default_channel": 0
+  },
+  "_sources": [
+    {
+      "type": "vendor-doc",
+      "firmware": "1"
+    }
+  ],
+  "_limitations": [
+    "the stock firmware's"
+  ]
+}

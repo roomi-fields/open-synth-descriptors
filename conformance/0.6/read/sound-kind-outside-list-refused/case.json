@@ -1,0 +1,5 @@
+{
+  "_about": "A sound's kind outside the list and outside the extension form x-<registrant>-<term> is refused at the kind.",
+  "read": "sound",
+  "fault": {"kind": "BadValue", "pointer": "/kind"}
+}

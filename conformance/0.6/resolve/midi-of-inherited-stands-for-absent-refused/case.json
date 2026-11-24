@@ -1,0 +1,9 @@
+{
+  "_about": "The stands_for a file with midi_of inherits from its target is the resolved device's: absent from the catalogue, it is refused in the file asked for, not in the target.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/device/stands_for"
+  }
+}

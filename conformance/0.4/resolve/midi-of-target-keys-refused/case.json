@@ -1,0 +1,9 @@
+{
+  "_about": "A file with midi_of adds routes only: a key that is the target's is refused.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "UnknownField",
+    "file": "acme/a",
+    "pointer": "/sysex"
+  }
+}

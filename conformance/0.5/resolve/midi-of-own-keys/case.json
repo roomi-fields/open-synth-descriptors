@@ -1,0 +1,26 @@
+{
+  "_about": "A 0.5 file with midi_of carries its $schema like any 0.5 file: the result keeps the target's $schema and reads as 0.5.",
+  "resolve": "acme/fw-2",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth",
+      "revision": "2"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/x",
+          "cc": 1
+        },
+        {
+          "osc": "/y",
+          "cc": 3
+        }
+      ]
+    },
+    "midi_of": "acme/fw-1"
+  }
+}

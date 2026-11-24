@@ -1,0 +1,26 @@
+{
+  "_about": "A write step codes each chunk in 7 bits with `mcoded7` (Mcoded7, M2-103-UM v1.2, 6.1.7: a group of seven bytes is sent as the byte of their sign bits, the first byte's at bit 6, then their seven low parts). The bytes themselves are shown by the cases of `conformance/0.6/coding/`.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "resources": [
+      {
+        "resource": "X-File",
+        "canSet": "full",
+        "export": "midnam",
+        "via": {
+          "file_write": {
+            "path": ["a", { "variable": "device", "suffix": ".xml" }],
+            "carried_by": "sysex",
+            "steps": [
+              { "step": "open", "send": [240, 0, 33, 123, 1, 247] },
+              { "step": "write", "chunk_bytes": 7, "coding": "mcoded7", "send": [240, 0, 33, 123, 2, { "file": "chunk" }, 247] },
+              { "step": "close", "send": [240, 0, 33, 123, 3, 247] }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "_about": "A fingerprint names one subject: a device and a program together are refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/program"
+  },
+  "_schema_pointer_note": "The schema states the rule at the document (exactly one of device and program); the reader names the program refused.",
+  "schema_pointer": ""
+}

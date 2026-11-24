@@ -1,0 +1,9 @@
+{
+  "_about": "A file with midi_of that adds a script declares lua itself, even over a target that brings lua: without capabilities it is refused.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/capabilities"
+  }
+}

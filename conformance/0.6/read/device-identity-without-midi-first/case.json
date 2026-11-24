@@ -1,0 +1,9 @@
+{
+  "_about": "A device with a USB identity and no MIDI of its own (no params, controls or commands) is read without refusal: a host for programs.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {"name": "Pocket One", "vendor": "Kestrel", "osc_prefix": "/pocket-one"},
+    "identity": {"usb": [{"vendor_id": 1001, "product_id": 1}]}
+  }
+}

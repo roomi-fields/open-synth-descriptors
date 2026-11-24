@@ -1,0 +1,5 @@
+{
+  "_about": "An assembly with a field the format does not define is refused.",
+  "read": "assembly",
+  "fault": {"kind": "UnknownField", "pointer": "/colour"}
+}

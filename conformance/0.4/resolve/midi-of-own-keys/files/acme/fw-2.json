@@ -1,0 +1,43 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth",
+    "revision": "2"
+  },
+  "midi_of": "acme/fw-1",
+  "commands": [
+    {
+      "osc": "/b",
+      "frame": [
+        240,
+        22,
+        247
+      ]
+    },
+    {
+      "osc": "/c",
+      "frame": [
+        240,
+        3,
+        247
+      ]
+    }
+  ],
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/y",
+        "cc": 3
+      }
+    ]
+  },
+  "identity": {
+    "reply_text": "fw 2"
+  },
+  "_sources": [
+    {
+      "type": "community-re",
+      "firmware": "2"
+    }
+  ]
+}

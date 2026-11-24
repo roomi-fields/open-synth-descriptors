@@ -1,0 +1,7 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
+  "stock": {"firmware": "elektron/stock", "version": "1.0"},
+  "modules": [
+    {"module": "elektron/mod", "version": "1.0"}
+  ]
+}

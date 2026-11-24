@@ -1,0 +1,5 @@
+{
+  "_about": "A descriptor with a role names the vocabulary state it was written with (role_vocabulary); without it the role is refused.",
+  "read": "device",
+  "fault": { "kind": "Missing", "pointer": "/role_vocabulary" }
+}

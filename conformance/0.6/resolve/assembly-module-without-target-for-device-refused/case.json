@@ -1,0 +1,10 @@
+{
+  "_about": "A module with no target for the device the assembly is resolved for is refused, in the module's file, at its targets.",
+  "resolve_assembly": "elektron/build",
+  "device": "elektron/digitone-keys",
+  "fault": {
+    "kind": "BadValue",
+    "file": "elektron/mod",
+    "pointer": "/targets"
+  }
+}

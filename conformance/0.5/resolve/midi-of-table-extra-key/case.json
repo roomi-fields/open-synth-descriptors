@@ -1,0 +1,5 @@
+{
+  "_about": "Where the target has the route table, a file with midi_of adds entries only: another key of the table is refused.",
+  "resolve": "acme/a",
+  "fault": { "kind": "UnknownField", "file": "acme/a", "pointer": "/cc_params/channel" }
+}

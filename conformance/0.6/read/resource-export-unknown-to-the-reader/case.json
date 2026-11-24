@@ -1,0 +1,9 @@
+{
+  "_about": "`export` names the format that produces the content; the format names no tool and the list is open: a name the reader does not know is read as it stands, never an error.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "resources": [{"resource": "X-A", "canSet": "full", "export": "some-future-format"}]
+  }
+}

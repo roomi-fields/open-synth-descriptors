@@ -1,0 +1,5 @@
+{
+  "_about": "At most 8 midi_of links are followed from one file: d0 names d1, d1 names d2, and so on to d9, nine links, is refused.",
+  "resolve": "acme/d0",
+  "fault": { "kind": "LinkTooDeep", "file": "acme/d8", "pointer": "/midi_of" }
+}

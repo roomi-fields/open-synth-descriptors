@@ -1,0 +1,5 @@
+{
+  "_about": "The stock firmware of an assembly is an object `{firmware, version}`: a bare catalogue id in its place is refused.",
+  "read": "assembly",
+  "fault": {"kind": "BadValue", "pointer": "/stock"}
+}

@@ -1,0 +1,26 @@
+{
+  "_about": "A file with midi_of adds a scripted command and declares lua itself; its command comes after the target's and nothing is inherited (0.6).",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "midi_of": "acme/b",
+    "capabilities": [
+      "lua"
+    ],
+    "custom_commands": [
+      {
+        "osc": "/c1",
+        "script": "return {}"
+      },
+      {
+        "osc": "/c2",
+        "script": "return {}"
+      }
+    ]
+  },
+  "inherited": []
+}

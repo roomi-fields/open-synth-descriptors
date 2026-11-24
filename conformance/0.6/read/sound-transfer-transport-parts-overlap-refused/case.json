@@ -1,0 +1,9 @@
+{
+  "_about": "Two transport parts that overlap are refused at the later one (the order is channel, device number, header, checksum, bank number, program number).",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/device_number"
+  }
+}

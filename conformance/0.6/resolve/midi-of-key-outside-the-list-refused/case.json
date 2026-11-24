@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.6 file with midi_of holds only what it may add: a key that is its target's (sysex here) is refused.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "UnknownField",
+    "file": "acme/a",
+    "pointer": "/sysex"
+  }
+}

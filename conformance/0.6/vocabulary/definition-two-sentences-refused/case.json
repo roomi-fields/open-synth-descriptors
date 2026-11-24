@@ -1,0 +1,4 @@
+{
+  "_about": "A term has a definition of one sentence; two are refused, at the definition.",
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/definition" }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "TRIBE",
+  "version": "0.3-beta",
+  "kind": "module",
+  "targets": [
+    {
+      "device": {
+        "descriptor": "m-vave/fm-1",
+        "vendor": "M-VAVE",
+        "model": "FM-1"
+      },
+      "midi": {
+        "descriptor": "m-vave/fm-1.vendor.fw-tribe-0.3-beta",
+        "changes": "A ten-track groovebox: its own engines, clips and master controls."
+      }
+    }
+  ],
+  "author": [
+    {
+      "name": "apiel",
+      "url": "https://github.com/apiel"
+    }
+  ],
+  "repository": "https://github.com/apiel/fm1-tribe",
+  "license": "GPL-3.0",
+  "homepage": "https://apiel.github.io/fm1-tribe/"
+}

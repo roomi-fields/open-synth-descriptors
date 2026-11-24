@@ -1,0 +1,5 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "_sources": [{"type": "vendor-doc", "license": "none"}]
+}

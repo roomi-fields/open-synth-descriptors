@@ -1,0 +1,6 @@
+{
+  "_about": "A reply time shorter than the pause delay_ms is refused at the reply time. Comparing two fields is the reader's, so the schema accepts it.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/programs/dump/reply_timeout_ms" }
+}

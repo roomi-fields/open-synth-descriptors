@@ -1,0 +1,5 @@
+{
+  "_about": "An empty export names no format: refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/export"}
+}

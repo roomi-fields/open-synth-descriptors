@@ -1,0 +1,5 @@
+{
+  "_about": "A midi_of names a driver of the file's own maker: another maker's is refused.",
+  "resolve": "acme/a",
+  "fault": { "kind": "BadValue", "file": "acme/a", "pointer": "/midi_of" }
+}

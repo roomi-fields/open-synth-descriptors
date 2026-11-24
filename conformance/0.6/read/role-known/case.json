@@ -1,0 +1,16 @@
+{
+  "_about": "A role is a path: the part filter, then the setting cutoff, from the terms of the vocabulary state the descriptor names. Its paramPath, the path of Property Exchange (M2-117-UM), is /Filter/Cutoff.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/filter/cutoff", "cc": 74, "role": { "parts": [{ "part": "filter" }], "setting": "cutoff" } }
+      ]
+    }
+  },
+  "roles": [{ "pointer": "/cc_params/entries/0/role", "meaning": "known", "paramPath": "/Filter/Cutoff" }]
+}

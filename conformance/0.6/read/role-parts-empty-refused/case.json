@@ -1,0 +1,5 @@
+{
+  "_about": "A role holds at least one part: an empty list of parts is refused, at the list.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/parts" }
+}

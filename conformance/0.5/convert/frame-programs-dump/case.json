@@ -1,0 +1,11 @@
+{
+  "_about": "The request that dumps the current sound converts.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "programs": {
+      "dump": {"kind": "request", "request": [240, {"device_id": true}, 16, {"checksum": "twos7", "from": 1}, 247]}
+    }
+  }
+}

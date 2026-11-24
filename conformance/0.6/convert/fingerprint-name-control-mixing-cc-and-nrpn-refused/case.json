@@ -1,0 +1,5 @@
+{
+  "_about": "The control of a name in a fingerprint is a control too: its flat fields never mix a CC and an NRPN, and the converter refuses at /names/N/control, returning no text.",
+  "convert": "fingerprint",
+  "fault": { "kind": "NotConvertible", "pointer": "/names/0/control" }
+}

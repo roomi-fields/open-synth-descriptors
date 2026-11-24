@@ -1,0 +1,5 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {"name": "Slate Two", "vendor": "Marlin", "osc_prefix": "/slate-two"},
+  "identity": {"usb": [{"vendor_id": 2002, "product_id": 1}]}
+}

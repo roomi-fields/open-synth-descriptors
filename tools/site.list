@@ -1,0 +1,4 @@
+# What the public site holds: the one list the build, the pages workflow and the check read.
+# A line ending in / is a folder published whole; the other line is the home page source.
+schemas/
+tools/index.html

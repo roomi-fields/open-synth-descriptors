@@ -1,0 +1,17 @@
+{
+  "_about": "A 0.5 device with no script of its own and no capabilities declared takes a profile whose identity holds a script: it resolves, keeps no capabilities of its own, and lua is inherited from the profile.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply": [240, 126, "any", 6, 2],
+      "script": "return reply[5] == 2",
+      "profile": "acme"
+    }
+  },
+  "inherited": ["lua"]
+}

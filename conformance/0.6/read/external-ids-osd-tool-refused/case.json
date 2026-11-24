@@ -1,0 +1,6 @@
+{
+  "_about": "The tool OSD, in any case, is refused at the tool: the identity of OSD is never in external_ids. The schema accepts the descriptor; only the reader refuses it.",
+  "read": "sound",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/external_ids/0/tool" }
+}

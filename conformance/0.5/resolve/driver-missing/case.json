@@ -1,0 +1,5 @@
+{
+  "_about": "A driver the catalogue does not hold is refused as a missing link, at the root of the file asked for.",
+  "resolve": "acme/ghost",
+  "fault": { "kind": "LinkMissing", "file": "acme/ghost", "pointer": "" }
+}

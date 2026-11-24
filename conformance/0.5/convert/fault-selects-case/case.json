@@ -1,0 +1,5 @@
+{
+  "_about": "A selects word outside the terms and the table is refused at the value; the converter does not normalise the case.",
+  "convert": "device",
+  "fault": {"kind": "NotConvertible", "pointer": "/programs/selects"}
+}

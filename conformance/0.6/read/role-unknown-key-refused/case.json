@@ -1,0 +1,5 @@
+{
+  "_about": "A role holds parts and setting only: any other key is refused, at the key.",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/cc_params/entries/0/role/colour" }
+}

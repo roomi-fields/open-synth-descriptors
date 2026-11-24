@@ -1,0 +1,12 @@
+{
+  "_about": "The identify request takes the device's family and member, whole or one byte at an index; the reply recognises with any and captures.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "identity": {
+      "request": [240, 126, {"device_id": true}, 6, 1, {"identity": "family"}, {"identity": "member"}, {"identity": "family", "index": 2}, {"identity": "member", "index": 0}, 247],
+      "reply": [240, 126, {"device_id": true}, 6, 2, 67, "any", {"capture": "x"}, 247]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }, { "osc": "/y", "cc": 2 }] }
+}

@@ -1,0 +1,14 @@
+{
+  "_about": "An NRPN whose value is 7 bits says so in the words of the norm: the value lies in the data MSB (CC 6) alone, and its range is from 0 to 127.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/filter/cutoff", "nrpn_msb": 1, "nrpn_lsb": 2, "value_bits": 7, "range": [0, 127] }
+      ]
+    }
+  }
+}

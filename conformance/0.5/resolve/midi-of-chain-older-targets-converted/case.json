@@ -1,0 +1,10 @@
+{
+  "_about": "Each link is compared with its own target: a 0.5 file sharing a 0.4 file that shares another 0.4 file resolves into one 0.5 device; the older targets are converted, then joined.",
+  "resolve": "acme/c",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }, { "osc": "/y", "cc": 2 }, { "osc": "/z", "cc": 3 }] },
+    "midi_of": "acme/b"
+  }
+}

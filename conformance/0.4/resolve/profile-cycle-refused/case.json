@@ -1,0 +1,9 @@
+{
+  "_about": "Profile links that come back to a profile already followed are refused, in the file that writes the link back.",
+  "resolve": "acme/synth",
+  "fault": {
+    "kind": "LinkCycle",
+    "file": "acme/_profile.p2",
+    "pointer": "/identity/profile"
+  }
+}

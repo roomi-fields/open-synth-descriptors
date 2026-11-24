@@ -1,0 +1,14 @@
+{
+  "_about": "An RPN whose value is 14 bits says so in the words of the norm: the value lies over the data MSB (CC 6) and the data LSB (CC 38), MSB first.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/tuning/fine", "rpn_msb": 0, "rpn_lsb": 1, "value_bits": 14, "range": [0, 16383] }
+      ]
+    }
+  }
+}

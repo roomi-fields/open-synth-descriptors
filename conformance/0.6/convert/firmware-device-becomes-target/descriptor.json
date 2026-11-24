@@ -1,0 +1,17 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/firmware.schema.json",
+  "name": "Elekloader mod",
+  "version": "2.0",
+  "kind": "mod",
+  "device": {
+    "descriptor": "elektron/digitone",
+    "vendor": "Elektron",
+    "model": "Digitone"
+  },
+  "based_on": {
+    "name": "Elektron OS",
+    "version": "1.43",
+    "url": "https://www.elektron.se"
+  },
+  "license": "MIT"
+}

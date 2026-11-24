@@ -1,0 +1,78 @@
+{
+  "_about": "A script on the channel, device number, header, checksum, bank or program number leaves the identity computable.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "capabilities": [
+      "lua"
+    ],
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 11,
+            "length": 4
+          },
+          "channel": {
+            "script": "return msg[3]"
+          },
+          "device_number": {
+            "script": "return msg[3]"
+          },
+          "header": {
+            "script": "return {msg[4], msg[5]}"
+          },
+          "checksum": {
+            "script": "return msg[16]"
+          },
+          "bank_number": {
+            "script": "return 0"
+          },
+          "program_number": {
+            "script": "return 0"
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "identity": "55e5509f8052998294266ee5b50cb592938191fb5d67f73cac2e60b0276b1bdd"
+    }
+  ]
+}

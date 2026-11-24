@@ -1,0 +1,12 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      { "osc": "/filter/cutoff", "nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383] },
+      { "osc": "/tuning/fine", "rpn_msb": 0, "rpn_lsb": 1 },
+      { "osc": "/filter/resonance", "cc": 71 }
+    ]
+  }
+}

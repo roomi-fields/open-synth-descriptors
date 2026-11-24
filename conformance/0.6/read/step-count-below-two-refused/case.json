@@ -1,0 +1,8 @@
+{
+  "_about": "A step count below 2 is refused at the step count.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/step_count"
+  }
+}

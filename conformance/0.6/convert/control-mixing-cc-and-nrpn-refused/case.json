@@ -1,0 +1,5 @@
+{
+  "_about": "The flat fields of a 0.6 control never mix a CC and an NRPN, and the converter does not choose which to keep: it refuses at the control, and returns no text.",
+  "convert": "device",
+  "fault": { "kind": "NotConvertible", "pointer": "/cc_params/entries/0" }
+}

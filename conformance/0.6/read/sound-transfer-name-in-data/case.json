@@ -1,0 +1,69 @@
+{
+  "_about": "The name lies inside the unpacked data (`in_data`, from 0): the identity blanks its bytes (set to zero, the length kept), so the same sound renamed has the same identity.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 7,
+            "length": 8
+          },
+          "name": {
+            "in_data": {
+              "from": 0,
+              "length": 4
+            }
+          }
+        }
+      }
+    ]
+  },
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "identities": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "identity": "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83"
+    },
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 57 58 59 5a 05 06 07 08 00 f7",
+      "identity": "8326846b5e0221e2401c5aaf7d227577fe81536e5a4217a2c7c74feb8c6c9b83"
+    }
+  ]
+}

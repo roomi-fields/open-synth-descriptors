@@ -1,0 +1,9 @@
+{
+  "_about": "A driver that names no other file is read as it is written; the resolution of it lists the file it was built from and has nothing inherited.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/x", "cc": 1 }] }
+  }
+}

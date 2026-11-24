@@ -1,0 +1,9 @@
+{
+  "_about": "A place that goes past the data of the sound (4 bytes) is refused where it is.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/places/0"
+  }
+}

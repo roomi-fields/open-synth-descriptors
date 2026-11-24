@@ -1,0 +1,18 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+  "name": "Grainer",
+  "version": "1.2",
+  "kind": "application",
+  "targets": [
+    {
+      "device": {"descriptor": "kestrel/pocket-one", "vendor": "Kestrel", "model": "Pocket One"},
+      "midi": {"descriptor": "lumen/grainer-midi"},
+      "runs_on": {"name": "Hostix", "versions": ["3.0"]}
+    },
+    {
+      "device": {"descriptor": "marlin/slate-two", "vendor": "Marlin", "model": "Slate Two"},
+      "midi": {"same_as": "lumen/grainer-midi"},
+      "runs_on": {"name": "Hostix", "versions": ["3.0"]}
+    }
+  ]
+}

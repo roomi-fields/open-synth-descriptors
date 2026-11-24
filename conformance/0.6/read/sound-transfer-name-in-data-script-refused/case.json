@@ -1,0 +1,9 @@
+{
+  "_about": "An `in_data` name on a data given by a script is refused at the name: the script of the data may leave the name aside.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/elements/name"
+  }
+}

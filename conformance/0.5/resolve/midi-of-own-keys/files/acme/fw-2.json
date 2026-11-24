@@ -1,0 +1,17 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth",
+    "revision": "2"
+  },
+  "midi_of": "acme/fw-1",
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/y",
+        "cc": 3
+      }
+    ]
+  }
+}

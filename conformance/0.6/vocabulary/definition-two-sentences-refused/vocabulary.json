@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/vocabulary/1/vocabulary.schema.json",
+  "state": "1",
+  "terms": [
+    { "name": "filter", "type": "part", "definition": "A filter that shapes the harmonic content of the sound.", "words": [], "source": [{ "controller": 74, "name": "Brightness" }] },
+    { "name": "cutoff", "type": "setting", "definition": "The frequency above which the filter lets less of the sound through.", "applies_to": ["filter"], "words": [{ "word": "Brightness", "origin": "MIDI 1.0" }], "source": [{ "controller": 74, "name": "Brightness" }] },
+    { "name": "output", "type": "part", "definition": "The output of the instrument, where the sound leaves it.", "words": [], "source": [{ "controller": 10, "name": "Pan" }] },
+    { "name": "pan", "type": "setting", "definition": "Where the output sits between left and right.", "applies_to": ["output"], "words": [], "source": [{ "controller": 10, "name": "Pan" }] },
+    { "name": "resonance", "type": "setting", "definition": "How much the filter emphasises the frequencies around its cutoff. It is also a peak.", "applies_to": ["filter"], "words": [], "source": [{ "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" }] }
+  ]
+}

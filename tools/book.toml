@@ -1,0 +1,9 @@
+# The configuration of the book of the specification (read by tools/build_book.py).
+[book]
+title = "Open Synth Descriptors"
+language = "en"
+src = "src"
+
+[output.html]
+smart-punctuation = false
+git-repository-url = "https://github.com/roomi-fields/open-synth-descriptors"

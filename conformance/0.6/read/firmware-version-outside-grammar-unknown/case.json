@@ -1,0 +1,38 @@
+{
+  "_about": "The version of a firmware is free text, only displayed: 0.3-beta is read as it is. Compared, a version outside the grammar (a number then letters, components separated by one dot) answers unknown, never an invented order: the min_version 1.2 of a sound against 0.3-beta is unknown, and 0.3-beta fits no target either.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "0.3-beta",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "elektron/digitone",
+          "vendor": "Elektron",
+          "model": "Digitone"
+        },
+        "runs_on": {
+          "name": "Elektron OS",
+          "versions": {
+            "min": "1.40B",
+            "max": "1.41"
+          }
+        }
+      }
+    ]
+  },
+  "comparisons": [
+    { "a": "1.2", "b": "0.3-beta", "order": "unknown" },
+    { "a": "0.3-beta", "b": "1.2", "order": "unknown" },
+    { "a": "1..2", "b": "1.2", "order": "unknown" },
+    { "a": "B", "b": "1", "order": "unknown" },
+    { "a": ".1", "b": "1", "order": "unknown" },
+    { "a": "1.", "b": "1", "order": "unknown" }
+  ],
+  "fits": [
+    { "target": 0, "version": "0.3-beta", "fits": "unknown" },
+    { "target": 0, "version": "1..2", "fits": "unknown" }
+  ]
+}

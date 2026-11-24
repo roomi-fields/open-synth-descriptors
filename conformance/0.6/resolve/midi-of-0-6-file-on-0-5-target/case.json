@@ -1,0 +1,32 @@
+{
+  "_about": "A 0.6 file is judged by the rules of 0.6 even over a 0.5 target: the target is converted to 0.6, then the file adds params entries and declares its capabilities.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "midi_of": "acme/b",
+    "capabilities": [],
+    "params": {
+      "get_frame": [
+        240,
+        247
+      ],
+      "set_frame": [
+        240,
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/p1"
+        },
+        {
+          "osc": "/p2"
+        }
+      ]
+    }
+  }
+}

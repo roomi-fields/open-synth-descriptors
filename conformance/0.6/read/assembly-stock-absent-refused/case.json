@@ -1,0 +1,5 @@
+{
+  "_about": "An assembly without a stock firmware is refused.",
+  "read": "assembly",
+  "fault": {"kind": "Missing", "pointer": "/stock"}
+}

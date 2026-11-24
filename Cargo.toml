@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["osd", "osd-cli", "osd-formats", "reference"]
+exclude = ["tools/osc-bridge-parity"]
+
+[workspace.package]
+version = "0.6.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/roomi-fields/open-synth-descriptors"
+
+[workspace.dependencies]
+osd = { path = "osd", version = "0.6.0" }
+osd-formats = { path = "osd-formats", version = "0.6.0" }
+
+# The tests check the whole catalogue against the schemas: the libraries
+# they use run optimised.
+[profile.dev.package."*"]
+opt-level = 2

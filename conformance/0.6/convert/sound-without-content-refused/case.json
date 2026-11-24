@@ -1,0 +1,5 @@
+{
+  "_about": "The content of a 0.6 sound holds at least one of sysex, midi, settings, and the converter invents none: it refuses at the content, and returns no text.",
+  "convert": "sound",
+  "fault": { "kind": "NotConvertible", "pointer": "/content" }
+}

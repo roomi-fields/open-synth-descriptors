@@ -1,0 +1,5 @@
+{
+  "_about": "A file whose text is not JSON is refused as a syntax fault, at its root.",
+  "resolve": "acme/a",
+  "fault": { "kind": "Syntax", "file": "acme/a", "pointer": "" }
+}

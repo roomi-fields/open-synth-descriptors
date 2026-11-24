@@ -1,0 +1,4 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
+  "modules": [{"module": "acme/mod-a", "version": "1.0"}]
+}

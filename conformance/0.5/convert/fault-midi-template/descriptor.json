@@ -1,0 +1,6 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "midi_in": {
+    "note_on": "/note/on {velocity} {note} {channel}"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "_about": "A sound's kind may be an extension x-<registrant>-<term>, as a device's selects may; it is read with its value and written as it is.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+    "name": "Track",
+    "kind": "x-osd-track",
+    "device": { "descriptor": "acme/synth", "vendor": "Acme", "model": "Synth" },
+    "content": { "settings": { "/amp/attack": [90] } }
+  }
+}

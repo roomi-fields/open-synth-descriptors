@@ -1,0 +1,5 @@
+{
+  "_about": "A profile that is not a string is refused, at the profile of its block.",
+  "resolve": "acme/synth",
+  "fault": { "kind": "BadValue", "file": "acme/synth", "pointer": "/identity/profile" }
+}

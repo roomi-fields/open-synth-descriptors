@@ -1,0 +1,310 @@
+{
+  "_about": "A sound of a bank and a single sound that share a sound_id and have the same data have the same settings.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "cc": 74,
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "cutoff"
+          }
+        },
+        {
+          "osc": "/fenv",
+          "cc": 73,
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              },
+              {
+                "part": "envelope"
+              }
+            ],
+            "setting": "attack-time"
+          }
+        },
+        {
+          "osc": "/aenv",
+          "cc": 72,
+          "role": {
+            "parts": [
+              {
+                "part": "amplifier"
+              },
+              {
+                "part": "envelope"
+              }
+            ],
+            "setting": "attack-time"
+          }
+        },
+        {
+          "osc": "/pan",
+          "cc": 10,
+          "role": {
+            "parts": [
+              {
+                "part": "output"
+              }
+            ],
+            "setting": "pan"
+          }
+        }
+      ]
+    },
+    "params": {
+      "get_frame": [
+        240,
+        247
+      ],
+      "set_frame": [
+        240,
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/p0",
+          "id": 3,
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "cutoff"
+          }
+        },
+        {
+          "osc": "/p1",
+          "id": 4,
+          "role": {
+            "parts": [
+              {
+                "part": "output"
+              }
+            ],
+            "setting": "pan"
+          }
+        }
+      ]
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "sound_id": "program",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          64,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 11,
+            "length": 4
+          },
+          "name": {
+            "from": 7,
+            "length": 4
+          },
+          "checksum": {
+            "from": 15,
+            "length": 1
+          }
+        },
+        "places": [
+          {
+            "control": "/cc_params/entries/0",
+            "from": 0,
+            "length": 2
+          },
+          {
+            "control": "/params/entries/1",
+            "from": 3,
+            "length": 1
+          }
+        ]
+      },
+      {
+        "id": "bank",
+        "sound_id": "program",
+        "carries": "bank",
+        "count": 2,
+        "stride": 8,
+        "match_frame": [
+          240,
+          66,
+          "any",
+          0,
+          1,
+          81,
+          76,
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 11,
+            "length": 4
+          },
+          "name": {
+            "from": 7,
+            "length": 4
+          }
+        },
+        "places": [
+          {
+            "control": "/cc_params/entries/0",
+            "from": 0,
+            "length": 2
+          },
+          {
+            "control": "/params/entries/1",
+            "from": 3,
+            "length": 1
+          }
+        ]
+      }
+    ]
+  },
+  "roles": [
+    {
+      "pointer": "/cc_params/entries/0/role",
+      "meaning": "known",
+      "paramPath": "/Filter/Cutoff"
+    },
+    {
+      "pointer": "/cc_params/entries/1/role",
+      "meaning": "known",
+      "paramPath": "/Filter/Envelope/AttackTime"
+    },
+    {
+      "pointer": "/cc_params/entries/2/role",
+      "meaning": "known",
+      "paramPath": "/Amplifier/Envelope/AttackTime"
+    },
+    {
+      "pointer": "/cc_params/entries/3/role",
+      "meaning": "known",
+      "paramPath": "/Output/Pan"
+    },
+    {
+      "pointer": "/params/entries/0/role",
+      "meaning": "known",
+      "paramPath": "/Filter/Cutoff"
+    },
+    {
+      "pointer": "/params/entries/1/role",
+      "meaning": "known",
+      "paramPath": "/Output/Pan"
+    }
+  ],
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    },
+    {
+      "pointer": "/sound_transfers/1",
+      "without_lua": true
+    }
+  ],
+  "settings": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 40 41 42 43 44 05 06 07 08 00 f7",
+      "settings": [
+        {
+          "control": "/cc_params/entries/0",
+          "param_path": "/Filter/Cutoff",
+          "value": 1286
+        },
+        {
+          "control": "/params/entries/1",
+          "param_path": "/Output/Pan",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "transfer": "bank",
+      "index": 1,
+      "message": "f0 42 3c 00 01 51 4c 41 42 43 44 01 02 03 04 45 46 47 48 05 06 07 08 f7",
+      "settings": [
+        {
+          "control": "/cc_params/entries/0",
+          "param_path": "/Filter/Cutoff",
+          "value": 1286
+        },
+        {
+          "control": "/params/entries/1",
+          "param_path": "/Output/Pan",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "transfer": "bank",
+      "index": 0,
+      "message": "f0 42 3c 00 01 51 4c 41 42 43 44 01 02 03 04 45 46 47 48 05 06 07 08 f7",
+      "settings": [
+        {
+          "control": "/cc_params/entries/0",
+          "param_path": "/Filter/Cutoff",
+          "value": 258
+        },
+        {
+          "control": "/params/entries/1",
+          "param_path": "/Output/Pan",
+          "value": 4
+        }
+      ]
+    }
+  ]
+}

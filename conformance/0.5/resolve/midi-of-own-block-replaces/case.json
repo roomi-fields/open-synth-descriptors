@@ -1,0 +1,11 @@
+{
+  "_about": "The identity or programs block a file with midi_of writes replaces its target's whole block, not key by key.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "identity": { "reply": [240, 126, "any", 6, 2, 68] },
+    "programs": { "selects": "bank" },
+    "midi_of": "acme/b"
+  }
+}

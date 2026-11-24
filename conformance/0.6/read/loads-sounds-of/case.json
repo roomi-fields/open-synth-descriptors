@@ -1,0 +1,9 @@
+{
+  "_about": "`loads_sounds_of` lists the devices (their address prefix without the slash) whose sounds this one loads as they are.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "loads_sounds_of": ["minilogue"]
+  }
+}

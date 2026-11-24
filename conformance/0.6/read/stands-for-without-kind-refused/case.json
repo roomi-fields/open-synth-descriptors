@@ -1,0 +1,9 @@
+{
+  "_about": "A device that gives no `kind` cannot stand for another: `stands_for` is refused at the field. The schema reports the missing kind at the device.",
+  "read": "device",
+  "schema_pointer": "/device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/device/stands_for"
+  }
+}

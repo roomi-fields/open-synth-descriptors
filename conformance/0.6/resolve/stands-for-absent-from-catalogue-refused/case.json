@@ -1,0 +1,9 @@
+{
+  "_about": "A software device whose stands_for names an address the catalogue does not hold is refused, in the file asked for.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/device/stands_for"
+  }
+}

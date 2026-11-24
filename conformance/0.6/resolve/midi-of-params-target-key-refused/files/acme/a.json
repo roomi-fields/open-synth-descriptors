@@ -1,0 +1,16 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "midi_of": "acme/b",
+  "params": {
+    "value_type": "u14",
+    "entries": [
+      {
+        "osc": "/p2"
+      }
+    ]
+  }
+}

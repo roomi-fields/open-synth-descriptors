@@ -1,0 +1,6 @@
+{
+  "_about": "A part stands only under the parts its term lists (stands_under): the filter stands under no part, so it cannot come after an oscillator. The refusal is at the part that does not stand there.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/role/parts/1" }
+}

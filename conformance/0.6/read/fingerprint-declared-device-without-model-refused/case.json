@@ -1,0 +1,8 @@
+{
+  "_about": "A device the person declares carries maker, model and firmware: a maker without a model is refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/device/descriptor"
+  }
+}

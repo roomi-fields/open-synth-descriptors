@@ -1,0 +1,5 @@
+{
+  "_about": "The flat form of earlier drafts, a part, an index and a setting, is no longer a role: a role is a list of parts and a setting. The refusal is at the key `part`.",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/cc_params/entries/0/role/part" }
+}

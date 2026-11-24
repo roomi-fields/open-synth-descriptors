@@ -1,0 +1,5 @@
+{
+  "_about": "carried_by of a file write is sysex; another word is refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/via/file_write/carried_by"}
+}

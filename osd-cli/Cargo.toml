@@ -1,0 +1,25 @@
+[package]
+name = "osd-cli"
+version.workspace = true
+edition.workspace = true
+description = "The osd command: validate, convert and start an Open Synth Descriptors file."
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["midi", "osc", "synthesizer", "descriptor"]
+categories = ["command-line-utilities", "multimedia::audio"]
+
+[[bin]]
+name = "osd"
+path = "src/main.rs"
+
+[dependencies]
+osd.workspace = true
+osd-formats.workspace = true
+serde_json = "1"
+
+[dev-dependencies]
+osd.workspace = true
+serde_json = { version = "1", features = ["preserve_order"] }
+jsonschema = { version = "0.60", default-features = false }
+tempfile = "3"

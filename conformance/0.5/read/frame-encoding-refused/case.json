@@ -1,0 +1,5 @@
+{
+  "_about": "An encoding outside u14_msb, u14_lsb, s32, ascii and bytes is refused, at the element.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/frame/1"}
+}

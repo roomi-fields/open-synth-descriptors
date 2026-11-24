@@ -1,0 +1,23 @@
+{
+  "_about": "An integer written with a zero fraction (1.0, 1e1) is that integer, as JSON Schema reads it, and is written back without a fraction.",
+  "read": "device",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "midi_out": {
+      "default_channel": 1,
+      "note_offset": 10
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "cc": 7,
+          "range": [0, 127]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "_about": "A custom command (osc-bridge extension) says with `profile` which behaviour of the bridge it takes (`default`, or `preset_ingest` for a command that loads a whole preset) and, with `wrap_sysex`, that the bytes its script returns are wrapped in F0 … F7 by the bridge.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "capabilities": ["lua"],
+    "custom_commands": [
+      { "osc": "/preset", "script": "return {1, 2}", "profile": "preset_ingest", "wrap_sysex": true }
+    ]
+  }
+}

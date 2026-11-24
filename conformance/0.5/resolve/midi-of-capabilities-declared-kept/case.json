@@ -1,0 +1,11 @@
+{
+  "_about": "The capabilities a driver declares were checked on its own text and are kept as declared; the lua a maker profile brings is not declared and is inherited. A file with midi_of cannot declare capabilities (they are its target's), so the profile carries the lua here.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "capabilities": [],
+    "identity": { "reply": [240, 126, "any", 6, 2], "script": "return reply[5] == 2", "profile": "acme" }
+  },
+  "inherited": ["lua"]
+}

@@ -1,0 +1,5 @@
+{
+  "_about": "A block names a profile of its own maker: another maker's is refused.",
+  "resolve": "acme/synth",
+  "fault": { "kind": "BadValue", "file": "acme/synth", "pointer": "/identity/profile" }
+}

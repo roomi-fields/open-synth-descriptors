@@ -1,0 +1,8 @@
+{
+  "_about": "A place and a script together are refused where the setting is.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/places/0"
+  }
+}

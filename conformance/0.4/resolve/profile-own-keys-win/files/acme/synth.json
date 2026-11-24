@@ -1,0 +1,33 @@
+{
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "profile": "acme",
+    "family": [
+      1,
+      0
+    ],
+    "member": [
+      2,
+      0
+    ],
+    "firmware": {
+      "decode": "ascii",
+      "at": [
+        12,
+        15
+      ]
+    }
+  },
+  "programs": {
+    "profile": "acme",
+    "banks": [
+      {
+        "name": "User",
+        "size": 64
+      }
+    ]
+  }
+}

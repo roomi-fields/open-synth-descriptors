@@ -1,0 +1,6 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "replies": [
+    {"match_frame": [240, "{dev}", "{any}", "{id}", "{value:u14_msb}", "{any}", 247], "emit_osc": "/r/{id}"}
+  ]
+}

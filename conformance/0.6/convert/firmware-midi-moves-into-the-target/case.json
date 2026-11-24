@@ -1,0 +1,27 @@
+{
+  "_about": "A 0.5 firmware's midi moves into its only target; its based_on stays a lineage and no runs_on is invented.",
+  "convert": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "elektron/digitone",
+          "vendor": "Elektron",
+          "model": "Digitone"
+        },
+        "midi": {
+          "descriptor": "elektron/mod-midi",
+          "changes": "adds a route"
+        },
+        "based_on": {
+          "name": "Elektron OS",
+          "version": "1.43"
+        }
+      }
+    ]
+  }
+}

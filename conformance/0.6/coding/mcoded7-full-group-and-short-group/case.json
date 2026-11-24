@@ -1,0 +1,6 @@
+{
+  "_about": "Mcoded7 (M2-103-UM v1.2, 6.1.7): complete groups of seven bytes are coded first, then the bytes left over as a short group. Eight bytes are one full group (all signs set) and a short group of one byte (its sign, 0100 0000).",
+  "coding": "mcoded7",
+  "bytes": "FF FF FF FF FF FF FF 80",
+  "coded": "7F 7F 7F 7F 7F 7F 7F 7F 40 00"
+}

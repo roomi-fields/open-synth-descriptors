@@ -1,0 +1,9 @@
+{
+  "_about": "Where the target has params, the file gives none of get_frame, set_frame and value_type: they are the target's.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "UnknownField",
+    "file": "acme/a",
+    "pointer": "/params/value_type"
+  }
+}

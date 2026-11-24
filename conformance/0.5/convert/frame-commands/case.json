@@ -1,0 +1,12 @@
+{
+  "_about": "Each 0.4 string form of a command frame becomes its structure: arguments with their encoding or offset, the device id, the three checksums.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "commands": [
+      {"osc": "/x", "frame": [240, {"device_id": true}, {"arg": "channel", "add": 48}, {"arg": "value"}, {"arg": "wide", "encoding": "u14_msb"}, {"arg": "low", "encoding": "u14_lsb"}, {"arg": "big", "encoding": "s32"}, {"arg": "text", "encoding": "ascii"}, {"arg": "raw", "encoding": "bytes"}, {"checksum": "twos7", "from": 1}, 247]},
+      {"osc": "/y", "frame": [240, {"arg": "n", "add": 32}, {"checksum": "sum7", "from": 1, "length": 4}, {"checksum": "xor7", "from": 1}, 247]}
+    ]
+  }
+}

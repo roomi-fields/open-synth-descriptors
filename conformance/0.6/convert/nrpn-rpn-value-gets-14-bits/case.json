@@ -1,0 +1,16 @@
+{
+  "_about": "A 0.5 NRPN or RPN had one coding, the 14 bits of the data MSB and LSB: it gets value_bits 14, which 0.6 requires. A control that is neither stays as it is.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/filter/cutoff", "nrpn_msb": 1, "nrpn_lsb": 2, "range": [0, 16383], "value_bits": 14 },
+        { "osc": "/tuning/fine", "rpn_msb": 0, "rpn_lsb": 1, "value_bits": 14 },
+        { "osc": "/filter/resonance", "cc": 71 }
+      ]
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "_about": "Two controls of a 0.5 table claim the same message (the same CC on the same channel): 0.6 refuses the later claim, so the converter refuses at the later control, naming the earlier, and returns no text.",
+  "convert": "device",
+  "fault": { "kind": "NotConvertible", "pointer": "/cc_params/entries/1" }
+}

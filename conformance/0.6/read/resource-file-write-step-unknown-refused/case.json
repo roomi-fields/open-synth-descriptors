@@ -1,0 +1,8 @@
+{
+  "_about": "A step is open, write or close; another word is refused at the step.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/resources/0/via/file_write/steps/2/step"
+  }
+}

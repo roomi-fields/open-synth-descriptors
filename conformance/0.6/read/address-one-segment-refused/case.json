@@ -1,0 +1,5 @@
+{
+  "_about": "An array of segments holds at least one capture: an address without capture, one string segment included, is written as a string.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/commands/0/osc"}
+}

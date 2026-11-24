@@ -1,0 +1,6 @@
+{
+  "_about": "msb_first_7in8 (KORG minilogue xd MIDI Implementation, note 1), a short group of two bytes: the signs are in the low bits of the first byte sent (the sign of byte 0 at bit 0), then the two low parts.",
+  "coding": "msb_first_7in8",
+  "bytes": "80 01",
+  "coded": "01 00 01"
+}

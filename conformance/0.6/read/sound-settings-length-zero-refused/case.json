@@ -1,0 +1,8 @@
+{
+  "_about": "A place of no width is refused at its length.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sound_transfers/0/places/0/length"
+  }
+}

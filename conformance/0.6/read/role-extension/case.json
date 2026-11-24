@@ -1,0 +1,16 @@
+{
+  "_about": "A term the vocabulary lacks is written as an extension x-<registrant>-<term>, here in the middle of a path: the descriptor is valid, the role reads as no known role, and its paramPath keeps the extension as written.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "role_vocabulary": "1",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        { "osc": "/filter/ladder/cutoff", "cc": 20, "role": { "parts": [{ "part": "filter" }, { "part": "x-acme-ladder" }], "setting": "cutoff" } }
+      ]
+    }
+  },
+  "roles": [{ "pointer": "/cc_params/entries/0/role", "meaning": "none", "paramPath": "/Filter/x-acme-ladder/Cutoff" }]
+}

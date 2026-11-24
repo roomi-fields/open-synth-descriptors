@@ -1,0 +1,8 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "programs": {
+    "delay_ms": 200,
+    "dump": { "kind": "request", "request": [240, 1, 247], "reply_timeout_ms": 200 }
+  }
+}

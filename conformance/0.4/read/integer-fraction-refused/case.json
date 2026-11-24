@@ -1,0 +1,8 @@
+{
+  "_about": "A number with a non-zero fraction where an integer is expected is refused.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/midi_out/default_channel"
+  }
+}

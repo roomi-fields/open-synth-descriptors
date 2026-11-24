@@ -1,0 +1,52 @@
+{
+  "_about": "A module runs on several devices: one target each, in either form of versions or none.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "elektron/digitone",
+          "vendor": "Elektron",
+          "model": "Digitone"
+        },
+        "midi": {
+          "descriptor": "elektron/digitone-midi"
+        },
+        "runs_on": {
+          "name": "Elektron OS",
+          "versions": [
+            "1.43",
+            "1.44"
+          ]
+        }
+      },
+      {
+        "device": {
+          "vendor": "Elektron",
+          "model": "Digitone Keys"
+        },
+        "midi": {
+          "same_as": "elektron/digitone-midi",
+          "changes": "the keys"
+        },
+        "runs_on": {
+          "name": "Elektron OS",
+          "versions": {
+            "min": "1.43",
+            "max": "1.44"
+          }
+        }
+      },
+      {
+        "device": {
+          "vendor": "Elektron",
+          "model": "Digitakt"
+        }
+      }
+    ]
+  }
+}

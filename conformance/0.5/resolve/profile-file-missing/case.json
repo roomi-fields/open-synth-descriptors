@@ -1,0 +1,5 @@
+{
+  "_about": "A profile whose file the catalogue does not hold is refused as a missing link.",
+  "resolve": "acme/synth",
+  "fault": { "kind": "LinkMissing", "file": "acme/synth", "pointer": "/identity/profile" }
+}

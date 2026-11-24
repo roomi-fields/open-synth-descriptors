@@ -1,0 +1,8 @@
+{
+  "_about": "A fidelity outside `faithful`, `modelled`, `principle` is refused at the field, in the schema as in the reader.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/device/fidelity"
+  }
+}

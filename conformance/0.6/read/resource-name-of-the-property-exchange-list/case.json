@@ -1,0 +1,9 @@
+{
+  "_about": "The name of a resource is any name: one of the list of MIDI-CI Property Exchange (ChannelList, DeviceInfo, ...) as it stands, or a name of its own, with or without the prefix X- that Property Exchange writes for one.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "resources": [{"resource": "ChannelList", "canSet": "none", "export": "midnam"}]
+  }
+}

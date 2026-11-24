@@ -1,0 +1,5 @@
+{
+  "_about": "The modules of an assembly are a list of pinned modules: a text in their place is refused.",
+  "read": "assembly",
+  "fault": {"kind": "BadValue", "pointer": "/modules"}
+}

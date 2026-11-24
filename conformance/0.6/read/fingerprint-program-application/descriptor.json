@@ -1,0 +1,9 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+  "observed": "2026-11-22",
+  "program": {
+    "name": "Grainer",
+    "version": "1.2",
+    "kind": "application"
+  }
+}

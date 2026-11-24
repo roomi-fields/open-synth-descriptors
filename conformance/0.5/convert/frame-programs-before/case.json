@@ -1,0 +1,11 @@
+{
+  "_about": "Each message sent before a program recall converts.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+    "device": {"name": "T", "osc_prefix": "/t"},
+    "programs": {
+      "before": [[240, {"device_id": true}, {"arg": "bank", "add": 32}, 247], [176, 0, {"arg": "msb"}]]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_about": "Eight midi_of links are followed.",
+  "resolve": "acme/a0",
+  "result": {
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth",
+      "revision": "0"
+    },
+    "midi_out": {
+      "default_channel": 3
+    },
+    "midi_of": "acme/a1"
+  }
+}

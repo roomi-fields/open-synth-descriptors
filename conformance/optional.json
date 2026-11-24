@@ -1,0 +1,13 @@
+[
+  "0.6/read/sound-settings-bank-sound",
+  "0.6/read/sound-settings-compare",
+  "0.6/read/sound-settings-placed",
+  "0.6/read/sound-transfer-data-script",
+  "0.6/read/sound-transfer-identity",
+  "0.6/read/sound-transfer-name-in-data",
+  "0.6/read/sound-transfer-name-in-packed-data",
+  "0.6/read/sound-transfer-name-script-data-by-positions",
+  "0.6/read/sound-transfer-name-script-outside-data",
+  "0.6/read/sound-transfer-packed-7bit",
+  "0.6/read/sound-transfer-transport-scripts"
+]

@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.5 file is judged by the rules of 0.5 even over a 0.6 target: it may not declare capabilities.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "UnknownField",
+    "file": "acme/a",
+    "pointer": "/capabilities"
+  }
+}

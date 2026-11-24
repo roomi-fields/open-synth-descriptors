@@ -1,0 +1,5 @@
+{
+  "_about": "A control of a fingerprint is a control like a device's: its flat fields never mix a CC and an NRPN, and the converter refuses at the control /controls/N, returning no text.",
+  "convert": "fingerprint",
+  "fault": { "kind": "NotConvertible", "pointer": "/controls/1" }
+}

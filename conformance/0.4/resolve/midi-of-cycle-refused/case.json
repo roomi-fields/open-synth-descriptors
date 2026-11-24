@@ -1,0 +1,9 @@
+{
+  "_about": "midi_of links that come back to a file already followed are refused, in the file that writes the link back.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "LinkCycle",
+    "file": "acme/b",
+    "pointer": "/midi_of"
+  }
+}

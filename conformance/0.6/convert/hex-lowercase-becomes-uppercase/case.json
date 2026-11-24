@@ -1,0 +1,11 @@
+{
+  "_about": "0.5 read a hex text in either case; 0.6 has upper case only. The converter writes the same bytes in upper case.",
+  "convert": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": { "descriptor": "korg/minilogue", "vendor": "KORG", "model": "minilogue" },
+    "content": { "sysex": "F0 42 3C 00 F7" }
+  }
+}

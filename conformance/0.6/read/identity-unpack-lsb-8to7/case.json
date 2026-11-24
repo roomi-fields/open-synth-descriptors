@@ -1,0 +1,9 @@
+{
+  "_about": "`identity.unpack` (published in 0.5, its spelling kept) says the reply of the identify request is coded in 7 bits, the bit 7 of each byte of a group gathered in a byte of the low bits first: lsb_8to7. The word of the common coding is `coding`.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "identity": { "reply": [240, 126, "any", 6, 2, "any"], "unpack": "lsb_8to7" }
+  }
+}

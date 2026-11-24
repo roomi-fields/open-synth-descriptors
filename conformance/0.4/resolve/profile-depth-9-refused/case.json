@@ -1,0 +1,9 @@
+{
+  "_about": "A ninth profile link is refused, in the file that writes it.",
+  "resolve": "acme/synth",
+  "fault": {
+    "kind": "LinkTooDeep",
+    "file": "acme/_profile.p8",
+    "pointer": "/identity/profile"
+  }
+}

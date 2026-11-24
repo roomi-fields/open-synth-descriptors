@@ -1,0 +1,26 @@
+{
+  "_about": "A target names its base firmware versions as a range, bounds included.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "elektron/digitone",
+          "vendor": "Elektron",
+          "model": "Digitone"
+        },
+        "runs_on": {
+          "name": "Elektron OS",
+          "versions": {
+            "min": "1.40B",
+            "max": "1.41"
+          }
+        }
+      }
+    ]
+  }
+}

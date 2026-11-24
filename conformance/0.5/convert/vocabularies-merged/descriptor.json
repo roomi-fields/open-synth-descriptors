@@ -1,0 +1,6 @@
+{
+  "device": {"name": "T", "osc_prefix": "/t"},
+  "programs": {"selects": "patch", "banks": [{"name": "A", "size": 8, "selects": "track"}]},
+  "cc_params": {"channel": 0, "entries": [{"osc": "/a", "cc": 1, "expects": "switch"}]},
+  "_sources": [{"type": "hardware-verified-partial", "license": "MIT"}]
+}

@@ -1,0 +1,5 @@
+{
+  "_about": "An entry of external_ids without its value is refused at the value.",
+  "read": "sound",
+  "fault": { "kind": "Missing", "pointer": "/external_ids/0/value" }
+}

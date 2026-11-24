@@ -1,0 +1,5 @@
+{
+  "_about": "An empty resource name names nothing: refused at the field.",
+  "read": "device",
+  "fault": {"kind": "BadValue", "pointer": "/resources/0/resource"}
+}

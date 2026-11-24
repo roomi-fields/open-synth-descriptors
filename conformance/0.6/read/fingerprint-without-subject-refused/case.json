@@ -1,0 +1,8 @@
+{
+  "_about": "A fingerprint names its subject, a device or a program: one that names neither is refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/device"
+  }
+}

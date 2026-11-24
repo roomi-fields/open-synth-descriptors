@@ -1,0 +1,8 @@
+{
+  "_about": "An empty minimum version is refused at the version; a need that asks no version leaves min_version out.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/needs/0/min_version"
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Deluge",
+    "vendor": "Synthstrom Audible",
+    "osc_prefix": "/deluge"
+  },
+  "resources": [
+    {
+      "resource": "X-DeviceDefinition",
+      "canSet": "full",
+      "mediaTypes": [
+        "application/xml"
+      ],
+      "export": "deluge",
+      "via": {
+        "file_write": {
+          "path": [
+            "MIDI_DEVICES",
+            "DEFINITION",
+            {
+              "variable": "vendor"
+            },
+            {
+              "variable": "device",
+              "suffix": ".xml"
+            }
+          ],
+          "carried_by": "sysex",
+          "steps": [
+            {
+              "step": "open",
+              "send": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                4,
+                0,
+                {
+                  "text": "{\"open\":{\"path\":\""
+                },
+                {
+                  "file": "path"
+                },
+                {
+                  "text": "\",\"write\":1}}"
+                },
+                247
+              ],
+              "reply": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                5,
+                "any",
+                {
+                  "capture_json": "fid"
+                }
+              ],
+              "reply_timeout_ms": 1000
+            },
+            {
+              "step": "write",
+              "chunk_bytes": 0,
+              "coding": "msb_first_7in8",
+              "send": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                4,
+                0,
+                {
+                  "text": "{\"write\":{\"fid\":"
+                },
+                {
+                  "captured": "fid",
+                  "as": "decimal"
+                },
+                {
+                  "text": ",\"addr\":"
+                },
+                {
+                  "file": "offset",
+                  "as": "decimal"
+                },
+                {
+                  "text": ",\"size\":"
+                },
+                {
+                  "file": "chunk_size",
+                  "as": "decimal"
+                },
+                {
+                  "text": "}}"
+                },
+                0,
+                {
+                  "file": "chunk"
+                },
+                247
+              ],
+              "reply": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                5,
+                "any"
+              ],
+              "reply_timeout_ms": 1000
+            },
+            {
+              "step": "close",
+              "send": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                4,
+                0,
+                {
+                  "text": "{\"close\":{\"fid\":"
+                },
+                {
+                  "captured": "fid",
+                  "as": "decimal"
+                },
+                {
+                  "text": "}}"
+                },
+                247
+              ],
+              "reply": [
+                240,
+                0,
+                33,
+                123,
+                1,
+                5,
+                "any"
+              ],
+              "reply_timeout_ms": 1000
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

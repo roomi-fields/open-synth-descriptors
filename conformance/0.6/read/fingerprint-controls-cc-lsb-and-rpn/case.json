@@ -1,0 +1,27 @@
+{
+  "_about": "A control of a fingerprint knows the words of a device's control: a CC with its LSB (`cc`, `cc_lsb`), an RPN (`rpn_msb`, `rpn_lsb`) or an NRPN (`nrpn_msb`, `nrpn_lsb`), each of one message kind.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+    "observed": "2026-11-21",
+    "controls": [
+      {
+        "cc": 1,
+        "cc_lsb": 33
+      },
+      {
+        "rpn_msb": 0,
+        "rpn_lsb": 1
+      },
+      {
+        "nrpn_msb": 1,
+        "nrpn_lsb": 2,
+        "channel": 3
+      }
+    ],
+    "device": {
+      "descriptor": "korg/minilogue",
+      "firmware": "2.01"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_about": "`first_pc` is the Program Change number (0 to 127) of the first program of a bank; `first_number` is the number the device shows for it (1 when it counts from 1).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "programs": {
+      "banks": [
+        { "name": "A", "msb": 0, "lsb": 1, "size": 100, "first_pc": 0, "first_number": 1 }
+      ]
+    }
+  }
+}
