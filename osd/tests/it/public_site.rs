@@ -378,3 +378,62 @@ fn public_check_runs_only_cargo_python_and_cargo_deny() {
     assert!(has("cargo build -p osd --target wasm32-unknown-unknown"), "{commands:?}");
     assert!(has("cargo deny check"), "{commands:?}");
 }
+
+/// The paths a workflow line names: tokens made only of path characters that hold a `/` or end in
+/// a file extension the repository uses. Generated folders and `uses:` lines are not paths of the
+/// repository.
+fn paths_named(line: &str) -> Vec<String> {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with('#') || trimmed.trim_start_matches("- ").starts_with("uses:") {
+        return Vec::new();
+    }
+    const EXTENSIONS: [&str; 7] = [".py", ".rs", ".toml", ".list", ".md", ".json", ".yml"];
+    const GENERATED: [&str; 6] = ["_site", "_book", "target/", "dist/", "artefacts/", "bin/"];
+    line.split_whitespace()
+        .map(|t| t.trim_matches(|c| "\"',;:{}()[]".contains(c)))
+        .filter(|t| !t.is_empty() && !t.starts_with('-') && !t.starts_with('/') && !t.contains("://"))
+        .filter(|t| t.chars().all(|c| c.is_ascii_alphanumeric() || "._/*-".contains(c)))
+        .filter(|t| t.contains('/') || EXTENSIONS.iter().any(|e| t.ends_with(e)))
+        .filter(|t| !GENERATED.iter().any(|g| t.starts_with(g)))
+        .map(String::from)
+        .collect()
+}
+
+fn covered_by(list: &str, path: &str) -> bool {
+    let path = path.split('*').next().unwrap();
+    list.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).any(|l| {
+        if l.ends_with('/') {
+            path.starts_with(l)
+        } else {
+            path == l
+        }
+    })
+}
+
+/// In the workshop (`export/public.list` present) each path a public workflow names is covered by
+/// the list; in the public tree (no list) it is a file or folder of the tree itself.
+#[test]
+fn a_public_workflow_names_only_paths_the_public_list_covers() {
+    let root = common::repo();
+    let list = std::fs::read_to_string(root.join("export/public.list")).ok();
+    let mut refused = Vec::new();
+    for workflow in [CHECK_WORKFLOW, PAGES, ".github/workflows/release.yml"] {
+        for (n, line) in read(workflow).lines().enumerate() {
+            for path in paths_named(line) {
+                let ok = match &list {
+                    Some(list) => covered_by(list, &path),
+                    None => {
+                        let before_glob = path.split('*').next().unwrap();
+                        let base = before_glob.trim_end_matches('/');
+                        let base = if path.contains('*') { base.rsplit_once('/').map_or("", |(d, _)| d) } else { base };
+                        root.join(base).exists()
+                    }
+                };
+                if !ok {
+                    refused.push(format!("{workflow}:{}: {path}", n + 1));
+                }
+            }
+        }
+    }
+    assert!(refused.is_empty(), "a public workflow names a path the public tree does not hold:\n{}", refused.join("\n"));
+}
