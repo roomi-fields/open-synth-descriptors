@@ -1,0 +1,6 @@
+{
+  "_about": "Two ways of the CC 7 that both send claim it on the sender side twice: the later is refused as BadValue.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/ways/1" }
+}

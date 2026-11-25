@@ -1,0 +1,36 @@
+{
+  "_about": "A slice is not checked against `value_bits` or `range`: [0, 1000] on a 7-bit message with a `range` is read.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                0,
+                122
+              ],
+              "value_bits": 7,
+              "slice": [
+                0,
+                1000
+              ],
+              "range": [
+                0,
+                10
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

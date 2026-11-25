@@ -1,0 +1,21 @@
+{
+  "_about": "A `default` of 64 in the 7-bit first way, then a 14-bit NRPN: the first way is not the most precise, so `scale` is written as the first way's range (0 to 127 for a simple CC) and `default` stays 64.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "default": 64,
+          "scale": [0, 127],
+          "ways": [
+            { "ctrlType": "cc", "ctrlIndex": [74] },
+            { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14 }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_about": "A 0.6 device whose only Lua field is a transform_reverse takes a 0.7 profile: converted to 0.7, it loses that field, and the lua it declared goes with it.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "identity": {
+      "ports": [{ "operator": "equals", "value": "Synth" }],
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [{ "osc": "/x", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] }]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "_about": "A control with a `cc` way and an `nrpn` way (14 bits) is valid; the reader keeps the ways in the order written.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "ways": [
+            { "ctrlType": "cc", "ctrlIndex": [74] },
+            { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14 }
+          ]
+        }
+      ]
+    }
+  }
+}

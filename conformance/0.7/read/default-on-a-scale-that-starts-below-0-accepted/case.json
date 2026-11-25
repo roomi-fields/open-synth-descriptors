@@ -1,0 +1,18 @@
+{
+  "_about": "A `scale` [-64, 63] on a way of range [0, 127]: the conversion is the affine mapping of one range onto the other, rounded to the nearest with the half upward, so -64 is 0, 0 is 64 and 63 is 127 on the way; `default` 0 is in the scale and is valid.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/pan",
+          "scale": [-64, 63],
+          "default": 0,
+          "ways": [{ "ctrlType": "cc", "ctrlIndex": [10], "range": [0, 127] }]
+        }
+      ]
+    }
+  }
+}

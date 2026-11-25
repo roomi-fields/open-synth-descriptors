@@ -1,0 +1,9 @@
+{
+  "_about": "Two values of one dimension never pin the same channel: refused at the second.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/contexts/part/values/1/channel"
+  }
+}

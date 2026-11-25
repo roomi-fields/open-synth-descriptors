@@ -1,0 +1,8 @@
+{
+  "_about": "The endpoint rule says its value.",
+  "read": "device",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/identity/endpoint_name/value"
+  }
+}

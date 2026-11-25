@@ -1,0 +1,50 @@
+{
+  "_about": "Two ways of one control are claims like any other: a CC in one mode and an NRPN in another, and two ways on one message in two modes, are admitted.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "contexts": {
+      "channel_setting": {
+        "values": [
+          {
+            "id": "single"
+          },
+          {
+            "id": "multi"
+          }
+        ]
+      }
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "channel_setting": "single"
+              }
+            },
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "channel_setting": "multi"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

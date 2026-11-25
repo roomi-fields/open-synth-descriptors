@@ -1,0 +1,26 @@
+{
+  "version": "2026-11-24",
+  "providers": [
+    {
+      "id": "electra-one",
+      "name": "Electra One",
+      "kind": "partner",
+      "url": "https://electra.one",
+      "credit": "Identifier from the source term `electra-preset` of spec/0.6.md, section 6.6. Name read on the maker's page docs.electra.one/developers/presetformat.html, which declares no licence; address as proposal 0010, section 7, writes it."
+    },
+    {
+      "id": "pencilresearch",
+      "name": "pencilresearch",
+      "kind": "partner",
+      "url": "https://github.com/pencilresearch/midi",
+      "credit": "Identifier from the source term `pencilresearch` of spec/0.6.md, section 6.6. Name and address read at https://github.com/pencilresearch/midi, licence CC-BY-SA-4.0 at commit 215c64e8d3b3."
+    },
+    {
+      "id": "knobkraft",
+      "name": "KnobKraft Orm",
+      "kind": "partner",
+      "url": "https://github.com/christofmuc/KnobKraft-orm",
+      "credit": "Identifier from the source term `knobkraft` of spec/0.6.md, section 6.6. Name and address read at https://github.com/christofmuc/KnobKraft-orm, licence AGPL-3.0."
+    }
+  ]
+}

@@ -145,9 +145,22 @@ fn convert_without_to_writes_the_published_0_6() {
 }
 
 #[test]
+fn convert_with_to_0_7_converts_a_0_6_text_as_osd_convert_to_renders_it() {
+    for kind in common::KINDS {
+        let file = path_of(&common::example_path(kind));
+        let text = std::fs::read_to_string(&file).unwrap();
+        let run = osd(&["convert", "--to", "0.7", &file]);
+        assert_eq!(run.code, 0, "{kind}: {:?}", run.stderr);
+        assert_eq!(run.stdout, osd::convert_to(&text, common::kind_of(kind), osd::Version::V0_7).unwrap(), "{kind}");
+        let doc: Value = serde_json::from_str(&run.stdout).unwrap();
+        assert_eq!(doc["$schema"], format!("https://w3id.org/osd/0.7/{kind}.schema.json"), "{kind}");
+    }
+}
+
+#[test]
 fn convert_with_to_an_unknown_version_is_a_misuse() {
     let file = path_of(&common::example_path("device"));
-    for version in ["0.9", "banana", "0.7"] {
+    for version in ["0.99", "banana", "0.8"] {
         let run = osd(&["convert", "--to", version, &file]);
         assert_eq!(run.code, 2, "{version}: {:?}", run.stderr);
         assert_eq!(run.stdout, "", "{version}");

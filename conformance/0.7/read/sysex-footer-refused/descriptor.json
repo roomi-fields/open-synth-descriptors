@@ -1,0 +1,5 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "S", "osc_prefix": "/s" },
+  "sysex": { "header": [240, 67], "footer": [247] }
+}

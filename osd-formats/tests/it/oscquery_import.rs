@@ -42,12 +42,13 @@ fn the_import_reads_strictly_with_the_prefix_the_name_and_the_source_given() {
     let (d, _) = imported(&sample());
     assert_eq!(d["device"]["osc_prefix"], "/synth");
     assert_eq!(d["device"]["name"], "synth");
-    assert_eq!(d["_sources"].as_array().unwrap().len(), 1);
+    assert_eq!(d["sources"].as_array().unwrap().len(), 1);
+    assert!(d.get("_sources").is_none(), "{d}");
     let src = source();
-    assert_eq!(d["_sources"][0]["license"], src.license.clone().unwrap());
-    assert_eq!(d["_sources"][0]["url"], src.url.clone().unwrap());
-    assert_eq!(d["_sources"][0]["author"], src.author.clone().unwrap());
-    assert_eq!(d["$schema"], "https://w3id.org/osd/0.6/device.schema.json");
+    assert_eq!(d["sources"][0]["license"], src.license.clone().unwrap());
+    assert_eq!(d["sources"][0]["url"], src.url.clone().unwrap());
+    assert_eq!(d["sources"][0]["author"], src.author.clone().unwrap());
+    assert_eq!(d["$schema"], "https://w3id.org/osd/0.7/device.schema.json");
 }
 
 #[test]

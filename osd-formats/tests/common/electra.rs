@@ -13,7 +13,7 @@ pub const KINDS: [&str; 18] = [
 ];
 
 /// The kinds carried as controls; then the kind carried as a command.
-pub const CONTROL_KINDS: [&str; 4] = ["cc7", "cc14", "nrpn", "rpn"];
+pub const CONTROL_KINDS: [&str; 5] = ["cc7", "cc14", "nrpn", "rpn", "relcc"];
 pub const COMMAND_KIND: &str = "sysex";
 
 /// A source with the credit and licence of a preset.
@@ -86,16 +86,16 @@ pub fn device(entries: Value, commands: Value) -> osd::Resolved {
     super::resolved(super::device_from(&doc.to_string()))
 }
 
-/// A device of 0.6 from the JSON of its entries: one source, no command.
+/// A device of 0.7 from the JSON of its entries: one source, no command.
 pub fn device6(entries: Value) -> osd::Resolved {
     let doc = json!({
-        "$schema": "https://w3id.org/osd/0.6/device.schema.json",
-        "_sources": [{"type": "community-re", "url": "https://example.org/d", "license": "CC0-1.0"}],
+        "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+        "sources": [{"type": "community-re", "url": "https://example.org/d", "license": "CC0-1.0"}],
         "device": {"name": "Trundler", "osc_prefix": "/trundler"},
         "role_vocabulary": "1",
         "cc_params": {"entries": entries},
     });
-    super::resolved(super::device_from(&doc.to_string()))
+    super::resolved(super::device_from_fixture(doc))
 }
 
 /// The longest `name` of a control (page, control, attribute `name`: maxLength 40).
@@ -253,6 +253,14 @@ pub const FORMER_POLICY: &str = "silent address";
 pub fn json_of(d: &osd::Device) -> Value {
     let text = osd::write(&osd::Descriptor::Device(Box::new(d.clone())));
     assert!(osd::read(&text, osd::Kind::Device).is_ok(), "the import is not read strictly: {text}");
+    serde_json::from_str(&text).unwrap()
+}
+
+/// A device as the JSON of 0.7 (its controls as ways), whatever version it was read in: the
+/// device of an older case is carried to 0.7 by the converter before it is compared.
+pub fn json_of_0_7(d: &osd::Device) -> Value {
+    let text = osd::write(&osd::Descriptor::Device(Box::new(d.clone())));
+    let text = osd::convert_to(&text, osd::Kind::Device, osd::Version::V0_7).unwrap_or_else(|f| panic!("the device does not convert: {f:?}\n{text}"));
     serde_json::from_str(&text).unwrap()
 }
 

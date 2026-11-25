@@ -1,0 +1,23 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t",
+    "revision": "2",
+    "rate_limit_hz": 50,
+    "transport": { "kind": "midi", "rate_limit_hz": 100 }
+  },
+  "capabilities": ["lua"],
+  "_coverage": { "controls": 3 },
+  "_sources": [{ "type": "vendor-doc", "notes": "A test device.", "imported_at": "2026-01-01" }],
+  "sysex": { "header": [240, 67], "footer": [247] },
+  "midi_out": { "default_channel": 1, "note_offset": 0 },
+  "identity": { "reply": [240, 126, "any", 6, 2], "sends": { "clock": true } },
+  "cc_params": { "entries": [{ "osc": "/a", "cc": 1, "transform": "x * 2", "transform_reverse": "x // 2" }] },
+  "params": {
+    "get_frame": [240, 247],
+    "set_frame": [240, 247],
+    "value_type": "u7",
+    "entries": [{ "osc": "/b", "id": 3, "transform": "x * 2", "transform_reverse": "x // 2" }]
+  }
+}

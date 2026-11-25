@@ -1,0 +1,4 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "S", "osc_prefix": "/s", "transport": { "kind": "midi", "rate_limit_hz": 100 } }
+}

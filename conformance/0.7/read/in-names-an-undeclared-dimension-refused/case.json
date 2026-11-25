@@ -1,0 +1,9 @@
+{
+  "_about": "`in` names a dimension the device does not declare.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/in/mode"
+  }
+}

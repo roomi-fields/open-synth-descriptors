@@ -6,7 +6,7 @@ The first behaviour is the one of SyntHub's service. Where the service departs f
 
 ## What the export writes
 
-A device becomes one `MasterDeviceNames` with its `Manufacturer` and `Model`, one `CustomDeviceMode`, one `ChannelNameSet` and the lists the descriptor holds: its controls become a `ControlNameList` (a `Control` is a CC, a 14-bit CC, an NRPN or an RPN), its triggers a `NoteNameList`, its programs a `PatchBank` of `Patch` numbers. The name of a control is its remark `_name`, otherwise the words of its address; a patch with no name is named `<bank> <number>`. `osc_prefix` is lost: MIDNAM names, it does not address. The `Author` holds the credit and the licence of the sources; a device with no `_sources` is not exported (`NoSources`). What the DTD cannot hold of the descriptor is in the losses, by its JSON pointer, with its reason; nothing is invented for what the descriptor does not say.
+A device becomes one `MasterDeviceNames` with its `Manufacturer` and `Model`, one `CustomDeviceMode`, one `ChannelNameSet` and the lists the descriptor holds: its controls become a `ControlNameList` (a `Control` is a CC, a 14-bit CC, an NRPN or an RPN), its triggers a `NoteNameList`, its programs a `PatchBank` of `Patch` numbers. The name of a control is its `title`, otherwise the words of its address; a patch with no name is named `<bank> <number>`. `osc_prefix` is lost: MIDNAM names, it does not address. The `Author` holds the credit and the licence of the sources; a device with no `sources` is not exported (`NoSources`). What the DTD cannot hold of the descriptor is in the losses, by its JSON pointer, with its reason; nothing is invented for what the descriptor does not say.
 
 The `values` of a control are written as `ValueNameList` (one `Value` per label, its `Number` and its `Name`) that its `Values` uses by `UsesValueNameList`; equal lists are written once and shared. A control with no `range` is written with the bounds MIDI fixes for its type: 0 to 127 for a 7-bit controller, 0 to 16383 for a 14-bit one, an NRPN or an RPN.
 
@@ -72,9 +72,9 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 | `ControlNameList` | carried | the controls of the device | MIDINameDocument10.dtd, ELEMENT ControlNameList |
 | `ControlNameList@Name` | lost | the descriptor does not name a list of controls | MIDINameDocument10.dtd, ATTLIST ControlNameList |
 | `Control` | carried | a control: its binding, its name and its values | MIDINameDocument10.dtd, ELEMENT Control |
-| `Control@Type` | carried | `cc`, `cc` with `cc_lsb`, `nrpn_msb` with `nrpn_lsb`, `rpn_msb` with `rpn_lsb` | MIDINameDocument10.dtd, ATTLIST Control |
+| `Control@Type` | carried | a way of `ctrlType` `cc`, `cc` with two numbers, `nrpn` or `rpn`; the first such way is written, each other way is a loss at `/cc_params/entries/N/ways/M` | MIDINameDocument10.dtd, ATTLIST Control |
 | `Control@Number` | carried | the controller or parameter number | MIDINameDocument10.dtd, ATTLIST Control |
-| `Control@Name` | carried | the remark `_name` of a control | MIDINameDocument10.dtd, ATTLIST Control |
+| `Control@Name` | carried | the `title` of a control | MIDINameDocument10.dtd, ATTLIST Control |
 | `Values` | carried | the range of a control | MIDINameDocument10.dtd, ELEMENT Values |
 | `Values@Min` | carried | the lowest value of the range | MIDINameDocument10.dtd, ATTLIST Values |
 | `Values@Max` | carried | the highest value of the range | MIDINameDocument10.dtd, ATTLIST Values |

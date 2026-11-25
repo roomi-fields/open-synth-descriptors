@@ -1,0 +1,8 @@
+{
+  "_about": "A `polarity` outside `bipolar` and `unipolar` (`centered`, the old word of `orientation`) is refused as BadValue at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/polarity"
+  }
+}

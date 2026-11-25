@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.6 descriptor without `capabilities` and without a Lua field converts as before: the converter adds no `capabilities`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": { "entries": [{ "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] }] }
+  }
+}

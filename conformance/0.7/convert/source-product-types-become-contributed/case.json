@@ -1,0 +1,53 @@
+{
+  "_about": "Each of the four source types named after a product becomes `contributed`, with the old word as the first line of `notes`, the text there following unchanged, in `sources` and in `midi_of_sources`; `electra-preset`, `pencilresearch` and `knobkraft` get their partner in `provider`, `midnam`, a format and not a supplier, gets none.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "contributed",
+        "provider": "electra-one",
+        "notes": "type in 0.6: electra-preset\nconverted from a partner"
+      },
+      {
+        "type": "contributed",
+        "provider": "pencilresearch",
+        "notes": "type in 0.6: pencilresearch\nconverted from a partner"
+      },
+      {
+        "type": "contributed",
+        "provider": "knobkraft",
+        "notes": "type in 0.6: knobkraft\nconverted from a partner"
+      },
+      {
+        "type": "contributed",
+        "notes": "type in 0.6: midnam\nconverted from a partner"
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "contributed",
+        "provider": "electra-one",
+        "notes": "type in 0.6: electra-preset"
+      },
+      {
+        "type": "contributed",
+        "provider": "pencilresearch",
+        "notes": "type in 0.6: pencilresearch"
+      },
+      {
+        "type": "contributed",
+        "provider": "knobkraft",
+        "notes": "type in 0.6: knobkraft"
+      },
+      {
+        "type": "contributed",
+        "notes": "type in 0.6: midnam"
+      }
+    ]
+  }
+}

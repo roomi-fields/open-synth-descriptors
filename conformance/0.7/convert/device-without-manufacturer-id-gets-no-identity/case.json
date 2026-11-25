@@ -1,0 +1,14 @@
+{
+  "_about": "A file with no `manufacturer_id` gets no `manufacturerId` and no `identity` block; `device_id` does not move.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t",
+      "device_id": [
+        0
+      ]
+    }
+  }
+}

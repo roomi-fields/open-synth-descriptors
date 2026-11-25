@@ -1,0 +1,6 @@
+{
+  "_about": "A `default` 64 is above the `scale` [-64, 63]: it is read in the scale, not in the range of the way, so it is refused as BadValue at `default`.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/default" }
+}

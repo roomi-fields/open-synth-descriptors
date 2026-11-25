@@ -24,7 +24,7 @@ fn export_prints_each_loss_on_the_error_output_then_the_credit_to_carry() {
     let credit = lines.iter().position(|l| *l == "credit to carry with the file:");
     let (losses, block) = lines.split_at(credit.unwrap_or(lines.len()));
     assert!(losses.iter().all(|l| l.starts_with('/') && l.contains(": ")), "{:?}", run.stderr);
-    assert!(losses.iter().any(|l| l.starts_with("/_sources: ")), "{:?}", run.stderr);
+    assert!(losses.iter().any(|l| l.starts_with("/sources: ")), "{:?}", run.stderr);
     assert!(credit.is_some(), "{:?}", run.stderr);
     assert!(block.len() > 1 && block[1..].iter().all(|l| l.starts_with("  ")), "{:?}", run.stderr);
 }

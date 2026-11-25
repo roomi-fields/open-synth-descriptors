@@ -8,8 +8,17 @@
 mod tests;
 
 use crate::credit::source_text;
-use crate::{Fault, FaultKind, Loss, Translated};
-use osd::{DumpKind, FrameToken, Resolved};
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use osd::{Device, DumpKind, FrameToken, Resolved, Source};
+
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "knobkraft",
+    media_type: "text/x-python",
+    extension: "py",
+    import,
+    export,
+    import_into: None,
+};
 
 /// The functions of the interface the export cannot write, each with its reason.
 const LEFT_TO_HAND: [(&str, &str); 20] = [
@@ -98,19 +107,20 @@ fn python_string(s: &str) -> String {
     out
 }
 
-pub(crate) fn import_refusal() -> Fault {
-    Fault {
+/// This format is exported only: every file is refused.
+fn import(_: &str, _: &Source) -> Result<Translated<Device>, Fault> {
+    Err(Fault {
         kind: FaultKind::InvalidFile,
         place: "format".to_string(),
         rule: "KnobKraft does not import: an adaptation is code that only its host, KnobKraft Orm, runs, and osd-formats never reads nor runs it".to_string(),
-    }
+    })
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     let sources = d.sources.as_deref().unwrap_or_default();
     if sources.is_empty() {
-        return Err(Fault { kind: FaultKind::NoSources, place: "/_sources".into(), rule: "a device without sources is not written: its credit and licence cannot be".into() });
+        return Err(Fault { kind: FaultKind::NoSources, place: "/sources".into(), rule: "a device without sources is not written: its credit and licence cannot be".into() });
     }
     if d.sound_transfers.as_ref().is_none_or(|t| t.is_empty()) {
         return Err(Fault {
@@ -136,7 +146,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             Standing::NotRecognised => format!("Licence not recognised, not checked against AGPL-3.0: {license}"),
         };
         text.push_str(&format!("# {warning}\n"));
-        lose(&mut losses, &format!("/_sources/{i}/license"), warning);
+        lose(&mut losses, &format!("/sources/{i}/license"), warning);
     }
     text.push('\n');
     text.push_str(&format!("def name():\n    return {}\n", python_string(&d.device.name)));
@@ -150,12 +160,12 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             if banks.iter().all(|b| b.size == size) {
                 text.push_str(&format!("\ndef numberOfPatchesPerBank():\n    return {size}\n"));
             } else {
-                lose(&mut losses, "numberOfPatchesPerBank", "the banks do not all have the same size: the function returns one number");
+                lose(&mut losses, "/programs/banks", "numberOfPatchesPerBank: the banks do not all have the same size: the function returns one number");
             }
         }
         None => {
-            lose(&mut losses, "numberOfBanks", "the descriptor gives no banks");
-            lose(&mut losses, "numberOfPatchesPerBank", "the descriptor gives no banks");
+            lose(&mut losses, "/sound_transfers", "numberOfBanks: the descriptor gives no banks");
+            lose(&mut losses, "/sound_transfers", "numberOfPatchesPerBank: the descriptor gives no banks");
         }
     }
 
@@ -167,11 +177,11 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             let list = bytes.iter().map(|b| format!("0x{b:02X}")).collect::<Vec<_>>().join(", ");
             text.push_str(&format!("\ndef createEditBufferRequest(channel):\n    return [{list}]\n"));
         }
-        _ => lose(&mut losses, "createEditBufferRequest", "the descriptor gives no request of the current sound made of fixed bytes"),
+        _ => lose(&mut losses, if dump.is_some() { "/programs/dump" } else { "/sound_transfers" }, "createEditBufferRequest: the descriptor gives no request of the current sound made of fixed bytes"),
     }
 
     for (function, reason) in LEFT_TO_HAND {
-        lose(&mut losses, function, reason);
+        lose(&mut losses, "/sound_transfers", format!("{function}: {reason}"));
     }
     Ok(Translated { value: text, lost: losses })
 }

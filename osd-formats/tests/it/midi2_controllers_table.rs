@@ -1,6 +1,7 @@
 //! The document of destiny docs/midi2-controllers.md: one line per property of tables 6 and 12
 //! of M2-117-UM v1.0, with its fate, its reason and its piece.
 
+// @lit spec/0.7.md
 use crate::common::midi2::PROPERTIES;
 
 const DOC: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/midi2-controllers.md");
@@ -44,8 +45,35 @@ fn the_properties_the_import_cannot_read_back_are_lost_and_the_others_carried() 
         let line = lines.iter().find(|l| l[0] == name).unwrap();
         assert_eq!(line[1], "carried", "{name}");
     }
-    let title = lines.iter().find(|l| l[0] == "title").unwrap();
-    assert_eq!(title[1], "lost");
+}
+
+#[test]
+fn title_and_description_are_carried_with_their_piece_and_the_title_sentence_names_the_derivation() {
+    let lines = doc_lines();
+    for name in ["title", "description"] {
+        let line = lines.iter().find(|l| l[0] == name).unwrap();
+        assert_eq!(line[1], "carried", "{name}");
+        assert!(line[3].contains("M2-117-UM v1.0") && line[3].contains("tables 6 and 12"), "{name}: {:?}", line[3]);
+    }
+    let text = std::fs::read_to_string(DOC).unwrap();
+    let sentence = text.lines().find(|l| l.contains("The standard requires a `title`")).unwrap_or_else(|| panic!("no sentence on the title in {DOC}"));
+    assert!(!sentence.contains("holds none"), "{sentence}");
+    let (role, section, osc) = (sentence.find("role"), sentence.find("section"), sentence.find("osc"));
+    assert!(role.is_some() && section > role && osc > section && sentence.contains("absent"), "the title of the control, then role path, section, osc, only when title is absent: {sentence}");
+}
+
+#[test]
+fn the_specification_says_title_and_description_are_carried_by_the_title_and_description_of_the_control() {
+    let spec = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../spec/0.7.md")).unwrap();
+    let from = spec.find("### 22.1 ").expect("section 22.1");
+    let to = spec[from..].find("### 22.2 ").expect("section 22.2") + from;
+    let spec = &spec[from..to];
+    for name in ["title", "description"] {
+        let row = spec.lines().find(|l| l.starts_with(&format!("| `{name}` |"))).unwrap_or_else(|| panic!("no row for {name}"));
+        assert!(!row.contains("not carried"), "{row}");
+        let field = row.split('|').nth(2).unwrap();
+        assert!(field.contains(&format!("`{name}`")), "{row}");
+    }
 }
 
 #[test]

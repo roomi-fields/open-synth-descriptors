@@ -1,0 +1,42 @@
+{
+  "_about": "`equals` takes the whole name, `contains` a part, `starts_with` its start, `ends_with` its end; the value is a text, never a pattern.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/2",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/3",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/4",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/5",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/6",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/7",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/8",
+      "verdict": "not_matched"
+    }
+  ]
+}

@@ -6,15 +6,17 @@ The standard names nine `ctrlType` values: `cc`, `chPress`, `pPress`, `nrpn`, `r
 
 ## What the export writes
 
-One JSON object `{ "ChCtrlList": [...], "CtrlMapList": [...] }`. Each control of `cc_params` (CC, 14-bit CC, NRPN, RPN), in the order of the device, is one entry of `ChCtrlList`. A control with `values` gets a `ctrlMapId` and one entry of `CtrlMapList`; equal lists of values share one id. A device with no `_sources` is not exported (`NoSources`). The list has no place for a credit or a licence: the losses name `/_sources`, and the command prints them.
+One JSON object `{ "ChCtrlList": [...], "CtrlMapList": [...] }`. Each control of `cc_params` (CC, 14-bit CC, NRPN, RPN), in the order of the device, is one entry of `ChCtrlList`. A control with `values` gets a `ctrlMapId` and one entry of `CtrlMapList`; equal lists of values share one id. A device with no `sources` is not exported (`NoSources`). The list has no place for a credit or a licence: the losses name `/sources`, and the command prints them.
 
 The SysEx settings of the `params` block stay whole in the OSD descriptor and are not written: the standard has no `ctrlType` for them. The losses name them once, at `/params`, with the number of entries not written.
 
-The standard requires a `title`, the descriptor holds none: the title written is the `paramPath` of the control's role, else its `section` when that starts with `/`, else its `osc` address. A `section` is written as a `paramPath` only for a control without a role and only when it starts with `/`; a free section is never written as a path.
+The standard requires a `title`: the export writes the `title` of the control, and, only when `title` is absent, the `paramPath` of its role, else its `section` when that starts with `/`, else its `osc` address; the `description` of the control is written when it has one. A control without a `title` comes back from a round trip with the derived title as its explicit `title`. A `section` is written as a `paramPath` only for a control without a role and only when it starts with `/`; a free section is never written as a path.
 
 ## What the import reads
 
-A `ChCtrlList` or `AllCtrlList` array, or the object above. A `ctrlType` outside the nine of the standard (`param` among them), a `ctrlMapId` that the object's `CtrlMapList` does not hold, an entry without `ctrlType` or `ctrlIndex`, or a JSON that is not a list is refused (`InvalidFile`) at its JSON pointer. An entry of `chPress`, `pPress`, `pBend`, `pnrc`, `pnac` or `pnp` is a type of the standard that the descriptor has no field for: it is not carried, and the losses name it at the entry's pointer. The import never makes a `params` block, so it never makes up a SysEx frame. A `paramPath` whose segments are known terms of the role vocabulary (state 1) becomes a role; another is kept as the control's `section` when it starts with `/`, and the losses name it "no known role" at the entry's pointer. The device has the source's author as vendor (else the host of its url) and the name "MIDI 2.0 device": the list holds no identity, and the losses name `/vendor` and `/name`. The source of the descriptor is the one given to the import.
+A `ChCtrlList` or `AllCtrlList` array, or the object above. A `ctrlType` outside the nine of the standard (`param` among them), a `ctrlMapId` that the object's `CtrlMapList` does not hold, an entry without `ctrlType` or `ctrlIndex`, or a JSON that is not a list is refused (`InvalidFile`) at its JSON pointer. An entry of `chPress`, `pPress` or `pBend` becomes a way of that `ctrlType`. 
+
+An entry of `pnrc`, `pnac` or `pnp` is a type of the standard that the descriptor has no field for: it is not carried, and the losses name it at the entry's pointer. The import never makes a `params` block, so it never makes up a SysEx frame. A `paramPath` whose segments are known terms of the role vocabulary (state 1) becomes a role; another is kept as the control's `section` when it starts with `/`, and the losses name it "no known role" at the entry's pointer. The device has the source's author as vendor (else the host of its url) and the name "MIDI 2.0 device": the list holds no identity, and the losses name `/vendor` and `/name`. The source of the descriptor is the one given to the import.
 
 ## Properties of the controller object
 
@@ -22,10 +24,10 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 
 | Property | Fate | Reason | Piece |
 |---|---|---|---|
-| `title` | lost | the label belongs to the role and to the tool that lays it out: the export derives one, the import carries none and names it at its pointer | M2-117-UM v1.0, tables 6 and 12: title; spec/0.6.md |
-| `description` | lost | free text for people is not read by a program | M2-117-UM v1.0, tables 6 and 12: description |
+| `title` | carried | the `title` of the control, written and read back; the export derives one when `title` is absent; a title that is not a string or is empty is not read and is named at its pointer | M2-117-UM v1.0, tables 6 and 12: title; spec/0.6.md |
+| `description` | carried | the `description` of the control, written and read back; an empty one is kept; one that is not a string is not read and is named at its pointer | M2-117-UM v1.0, tables 6 and 12: description |
 | `channel` | carried | the norm counts it 1-256, across the Groups of a Function Block; OSD's is 0 to 15, one Group: the export writes it + 1, the import reads it − 1 and refuses a channel above 16 naming its Group, or below 1 | M2-117-UM v1.0, tables 6 and 12: channel |
-| `ctrlType` | carried | `cc`, `nrpn` and `rpn` are written and read back; `chPress`, `pPress`, `pBend`, `pnrc`, `pnac` and `pnp` are read and lost, the descriptor has no field for them | M2-117-UM v1.0, tables 6 and 12: ctrlType |
+| `ctrlType` | carried | `cc`, `nrpn`, `rpn`, `chPress`, `pPress` and `pBend` are ways, written and read back; `pnrc`, `pnac` and `pnp` are lost on import (0.7 has no ctrlType for them) | M2-117-UM v1.0, tables 6 and 12: ctrlType |
 | `ctrlIndex` | carried | `[cc]` or `[msb, lsb]`, the numbers of the address fields | M2-117-UM v1.0, tables 6 and 12: ctrlIndex |
 | `priority` | carried | same meaning, 1 to 5 | M2-117-UM v1.0, tables 6 and 12: priority |
 | `default` | carried | an unsigned 32-bit value in the norm, the raw value of the range in OSD: scaled up and back by M2-115-U v1.0.2, Min-Center-Max (CC, NRPN, RPN of LSB 32 to 127) or Zero-Extension (RPN of LSB 0 to 31); a negative default is lost | M2-117-UM v1.0, tables 6 and 12: default |

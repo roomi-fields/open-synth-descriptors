@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Each format is one module of its own behind one contract (name, media type, extension, import, export, import into a base), and the list of formats holds one line per module, so that a converter is changed or added by one pull request (`CONTRIBUTING.md`, « Add a converter »). `Format::imports_into` says whether a file of the format can be added to a descriptor. The refusal of `import_into` for the other formats is still `InvalidFile` at `format`, with a new rule text: it names the format refused and each format that can (`midnam cannot be added to a descriptor: only these formats can: midi-csv, midi-triggers-csv`).
+
+- A control with no message (an entry with no way) of a base before 0.7 no longer makes `import_into` fail: it is kept with `ways: []`. The pencilresearch/midi CSV export writes the row of such a control with no CC nor NRPN and names in the losses the control at its pointer (an import drops the row) and each of its `scale`, `range`, `transmit`, `recognize`, `nrpn_lsb_range`. The OSCQuery export writes the node of such an entry (`cc_params` or `params`) with the entry's `range` as its `RANGE` and names in the losses each of its `scale`, `transmit`, `recognize`, `nrpn_lsb_range`.
+
+- `import_into` converts a base before 0.7 to 0.7 by the converter chain of `osd` (`convert_to`) before it adds the file, so that the descriptor reads in 0.7 whatever the age of the base: every block of the base comes out as the chain gives it, and what the chain removes is not a loss of the file. A base the chain or the reader refuses is the new fault `NotConvertible`, at the pointer `osd` gives.
+
+- 0.7 (candidate): the `provider` of a source (proposal 0010). An import writes the one the caller gives and guesses none from the format. `credit_to_carry` and the credit text of the Deluge, KnobKraft, MIDNAM and OSCQuery exports name a source's `provider` after its type.
+
+- The imports write a 0.7 descriptor, whose credit is `sources`; the exports name the credit at `/sources` in their losses and in `NoSources` (a descriptor read from a text before 0.7 is the same device). `credit_to_carry` lists the sources when `lost` names `/sources`; the KnobKraft licence warnings are losses at `/sources/N/license`.
+
+- The partners' converters write and read the fields of 0.7 instead of the `_` keys: the midi.guide CSV of the controls reads `title`, `description`, `value_description` and `notes` (columns `parameter_name`, `parameter_description`, `usage`, `notes`), the CSV of the triggers `description`, Electra One and MIDNAM `title` (a control's name; a command's for Electra One). An import writes a `title` only when the source gives a non-empty name, never the address, and no empty `title`; an export without a `title` keeps the fallback by the address it declared. An export names in the losses a `description`, `value_description` or `notes` the preset or the DTD has no place for. `_name`, `_usage`, `_description` and `_notes` are no longer read: a 0.6 descriptor goes through the converter of `osd` first (proposal 0007).
+
 ## 0.6.0 - 2026-11-23
 
 - The NRPN and RPN values say their width (0.6 `value_bits`): the MIDI 2.0 controllers import writes `7` for a `numSigBits` of 7 and `14` for any other width, and reads `value_bits` back for `numSigBits`; the Electra One preset, the pencilresearch/midi CSV and MIDNAM, which do not say the width, write `14` on every NRPN and RPN.

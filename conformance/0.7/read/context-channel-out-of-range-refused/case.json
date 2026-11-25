@@ -1,0 +1,8 @@
+{
+  "_about": "A `channel` is 0 to 15: 16 is refused.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/contexts/part/values/0/channel"
+  }
+}

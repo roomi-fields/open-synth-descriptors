@@ -1,0 +1,8 @@
+{
+  "_about": "A command's `id` that is not an integer is refused as BadValue at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/commands/0/id"
+  }
+}

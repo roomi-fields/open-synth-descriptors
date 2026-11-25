@@ -1,0 +1,6 @@
+{
+  "_about": "A `cc` [39] way and a `cc` [7, 39] 14-bit way both claim the CC number 39 on both sides: the later is refused as BadValue, naming the earlier.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/ways/1" }
+}

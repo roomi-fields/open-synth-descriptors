@@ -1,0 +1,14 @@
+{
+  "_about": "A list present and empty holds no name that matches.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "not_matched"
+    }
+  ]
+}

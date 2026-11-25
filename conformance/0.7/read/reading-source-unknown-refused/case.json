@@ -1,0 +1,9 @@
+{
+  "_about": "The `source` of a reading names an `id` of the sources of the file: one that names none is refused as BadValue at `source`.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/commands/0/readings/0/source"
+  }
+}

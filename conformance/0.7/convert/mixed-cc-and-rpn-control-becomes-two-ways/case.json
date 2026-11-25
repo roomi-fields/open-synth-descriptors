@@ -1,0 +1,35 @@
+{
+  "_about": "A 0.4 control that gives a CC 0 and the RPN 0, 0 becomes one control with two ways: a zero is a number of the source.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                0
+              ]
+            },
+            {
+              "ctrlType": "rpn",
+              "ctrlIndex": [
+                0,
+                0
+              ],
+              "value_bits": 14
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

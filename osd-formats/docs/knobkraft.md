@@ -14,7 +14,7 @@ The licence of the skeleton and the licences of its sources are two things: each
 - an identifier known not to be allowed (for example `GPL-2.0`, `CC-BY-SA-4.0`, `CC-BY-NC-4.0`): the line `# Licence not allowed under AGPL-3.0: <licence>` under its `# Source:` line;
 - anything else (free text, an expression, an unknown identifier, no licence): the line `# Licence not recognised, not checked against AGPL-3.0: <licence>`.
 
-Each such line is also a loss at `/_sources/N/license`, with the same words: whoever publishes the completed skeleton checks that licence. A source without a declared licence is published credited until a claim, the project's rule.
+Each such line is also a loss at `/sources/N/license`, with the same words: whoever publishes the completed skeleton checks that licence. A source without a declared licence is published credited until a claim, the project's rule.
 
 | Licence | Piece |
 |---|---|
@@ -33,7 +33,7 @@ A skeleton: a Python text of comments (the credit), then the functions whose con
 - `numberOfPatchesPerBank()`, the size of the banks when all are the same;
 - `createEditBufferRequest(channel)`, the bytes of `programs.dump.request` when the dump is a `request` or an `edit_buffer` made of fixed bytes.
 
-The export writes no value the descriptor does not give. Each other function is not written and is named lost, by its name, with its reason: it is left to write by hand. A device without `_sources` is not exported (`NoSources`), nor one without `sound_transfers` (`NoSoundTransfers`).
+The export writes no value the descriptor does not give. Each other function is not written and is named lost, by its name, with its reason: it is left to write by hand. A device without `sources` is not exported (`NoSources`), nor one without `sound_transfers` (`NoSoundTransfers`).
 
 ## What of an adaptation is data of a device, and what is code that only the host runs
 

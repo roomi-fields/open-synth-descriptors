@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.7 descriptor credits its sources under `sources`, an ordinary field: it reads and is written back as it is, with `title`, `version` and `sha256` in a source.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "sources": [{ "type": "vendor-doc", "title": "Acme manual", "version": "1.2", "sha256": "ab", "license": "CC0-1.0", "url": "https://x.org/manual", "notes": "n" }]
+  }
+}

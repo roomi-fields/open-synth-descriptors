@@ -1,0 +1,8 @@
+{
+  "_about": "An empty `title` of a trigger is refused as BadValue.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/triggers/entries/0/title"
+  }
+}

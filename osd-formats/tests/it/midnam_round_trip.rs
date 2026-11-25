@@ -23,9 +23,15 @@ fn carried(d: &Value) -> Value {
         .into_iter()
         .flatten()
         .map(|e| {
-            let mut c = pick(e, &["cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb", "value_bits", "range", "default", "values"]);
+            // MIDNAM carries one message per control: the first way, with the entry's default and values.
+            let first = &e["ways"][0];
+            let mut c = pick(first, &["ctrlType", "ctrlIndex", "value_bits", "range"]);
+            for (k, v) in pick(e, &["default", "values"]).as_object().unwrap() {
+                c.as_object_mut().unwrap().insert(k.clone(), v.clone());
+            }
             // The range of the span MIDI fixes for the kind is not written back.
-            let span = if e.get("cc").is_some() && e.get("cc_lsb").is_none() { 127 } else { 16383 };
+            let simple_cc = first["ctrlType"] == "cc" && first["ctrlIndex"].as_array().is_some_and(|i| i.len() == 1);
+            let span = if simple_cc { 127 } else { 16383 };
             if c.get("range") == Some(&json!([0, span])) {
                 c.as_object_mut().unwrap().remove("range");
             }
@@ -45,7 +51,7 @@ fn back(device: &osd::Resolved) -> (Value, Vec<osd_formats::Loss>) {
 }
 
 fn original(device: &osd::Resolved) -> Value {
-    json_of(&device.device)
+    crate::common::electra::json_of_0_7(&device.device)
 }
 
 #[test]
@@ -68,13 +74,13 @@ fn every_control_note_and_bank_comes_back_with_its_binding_range_default_and_nam
 }
 
 #[test]
-fn the_remark_name_of_a_control_comes_back_and_the_name_built_from_the_address_too() {
+fn the_title_of_a_control_comes_back_and_the_name_built_from_the_address_too() {
     let d = device_with(json!({"cc_params": {"entries": [
         {"osc": "/filter/cutoff", "cc": 74, "range": [0, 127]},
-        {"osc": "/env/a", "cc": 73, "range": [0, 127], "_name": "Attack time"},
+        {"osc": "/env/a", "cc": 73, "range": [0, 127], "title": "Attack time"},
     ]}}));
     let (b, _) = back(&d);
-    let names: Vec<&str> = b["cc_params"]["entries"].as_array().unwrap().iter().map(|e| e["_name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = b["cc_params"]["entries"].as_array().unwrap().iter().map(|e| e["title"].as_str().unwrap()).collect();
     assert_eq!(names, vec!["Filter Cutoff", "Attack time"]);
 }
 
@@ -82,8 +88,8 @@ fn the_remark_name_of_a_control_comes_back_and_the_name_built_from_the_address_t
 fn a_control_without_a_range_comes_back_without_one() {
     let d = device_with(json!({"cc_params": {"entries": [{"osc": "/a", "cc": 1}, {"osc": "/b", "nrpn_msb": 1, "nrpn_lsb": 1, "value_bits": 14}]}}));
     let (b, _) = back(&d);
-    assert!(b["cc_params"]["entries"][0].get("range").is_none());
-    assert!(b["cc_params"]["entries"][1].get("range").is_none());
+    assert!(b["cc_params"]["entries"][0]["ways"][0].get("range").is_none());
+    assert!(b["cc_params"]["entries"][1]["ways"][0].get("range").is_none());
 }
 
 #[test]
@@ -112,7 +118,7 @@ fn the_devices_of_the_cases_and_the_examples_with_their_controls_come_back_as_th
 #[test]
 fn the_export_lists_every_element_present_that_the_format_does_not_carry() {
     let d = device_with(json!({
-        "sysex": {"header": [240, 1], "footer": [247]},
+        "sysex": {"header": [240, 1]},
         "commands": [{"osc": "/dump", "frame": [240, 1, 247]}],
         "midi_out": {"default_channel": 3},
         "cc_params": {"entries": [{"osc": "/a", "cc": 1, "range": [0, 127], "section": "Filter"}]},

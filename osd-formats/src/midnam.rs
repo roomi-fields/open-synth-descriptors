@@ -2,18 +2,29 @@
 //! exporter. The rules are the DTD's (MIDINameDocument10.dtd and MIDIEvents10.dtd); the fate of
 //! each element and attribute is in docs/midnam.md.
 
+mod dtd;
+
 use crate::credit::{address_words, credit_text, name_segment, uncarried_source_fields};
-use crate::midi_csv::check_source;
-use crate::midnam_dtd::check_tree;
+use crate::importer::check_source;
 use crate::xml::{self, escape, Node};
-use crate::{Fault, FaultKind, Loss, Translated};
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use dtd::check_tree;
 use osd::{Device, Resolved, Source};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "midnam",
+    media_type: "application/xml",
+    extension: "midnam",
+    import,
+    export,
+    import_into: None,
+};
+
 const PUBLIC_ID: &str = "-//MIDI Manufacturers Association//DTD MIDINameDocument 1.0//EN";
 const SYSTEM_ID: &str = "http://www.midi.org/dtds/MIDINameDocument10.dtd";
-const SCHEMA_URL: &str = "https://w3id.org/osd/0.6/device.schema.json";
+const SCHEMA_URL: &str = "https://w3id.org/osd/0.7/device.schema.json";
 
 fn fault(kind: FaultKind, place: impl Into<String>, rule: impl Into<String>) -> Fault {
     Fault { kind, place: place.into(), rule: rule.into() }
@@ -53,16 +64,26 @@ fn at_attr(n: &Node, attr: &str) -> String {
     format!("line {}, {}@{attr}", n.line, n.name)
 }
 
-/// The binding of a control: its JSON keys, or the reason the number does not fit its type.
-fn binding(kind: &str, number: i64) -> Result<Vec<(&'static str, i64)>, &'static str> {
+/// The way of a control: its `ctrlType`, its `ctrlIndex` and its `value_bits`, or the reason the
+/// number does not fit its type.
+fn binding(kind: &str, number: i64) -> Result<Map<String, Value>, &'static str> {
+    let way = |kind: &str, index: Vec<i64>, bits: Option<i64>| {
+        let mut w = Map::new();
+        w.insert("ctrlType".into(), json!(kind));
+        w.insert("ctrlIndex".into(), json!(index));
+        if let Some(b) = bits {
+            w.insert("value_bits".into(), json!(b));
+        }
+        w
+    };
     match kind {
-        "7bit" if (0..=127).contains(&number) => Ok(vec![("cc", number)]),
+        "7bit" if (0..=127).contains(&number) => Ok(way("cc", vec![number], None)),
         "7bit" => Err("a 7-bit control number is from 0 to 127"),
-        "14bit" if (0..=95).contains(&number) => Ok(vec![("cc", number), ("cc_lsb", number + 32)]),
+        "14bit" if (0..=95).contains(&number) => Ok(way("cc", vec![number, number + 32], Some(14))),
         "14bit" => Err("the number of a 14-bit control is its MSB controller: its LSB, 32 above, is from 32 to 127"),
-        "NRPN" if (0..=16383).contains(&number) => Ok(vec![("nrpn_msb", number >> 7), ("nrpn_lsb", number & 127), ("value_bits", 14)]),
+        "NRPN" if (0..=16383).contains(&number) => Ok(way("nrpn", vec![number >> 7, number & 127], Some(14))),
         "NRPN" => Err("an NRPN number is from 0 to 16383"),
-        "RPN" if (0..=16383).contains(&number) => Ok(vec![("rpn_msb", number >> 7), ("rpn_lsb", number & 127), ("value_bits", 14)]),
+        "RPN" if (0..=16383).contains(&number) => Ok(way("rpn", vec![number >> 7, number & 127], Some(14))),
         _ => Err("an RPN number is from 0 to 16383"),
     }
 }
@@ -220,13 +241,10 @@ fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses
     let kind = c.attr("Type").unwrap_or("7bit");
     let number_text = c.attr("Number").unwrap_or("");
     let number = whole(number_text).ok_or_else(|| invalid(at_attr(c, "Number"), format!("{number_text:?} is not a whole number")))?;
-    let keys = binding(kind, number).map_err(|rule| invalid(at_attr(c, "Number"), rule))?;
+    let mut way = binding(kind, number).map_err(|rule| invalid(at_attr(c, "Number"), rule))?;
     let name = c.attr("Name").unwrap_or("");
     let mut entry = Map::new();
     entry.insert("osc".into(), json!(address_of(name, format!("{}_{number}", kind.to_lowercase()), used)));
-    for (k, v) in keys {
-        entry.insert(k.into(), json!(v));
-    }
     if let Some(values) = c.kid("Values") {
         let bound = |attr: &str, losses: &mut Vec<Loss>| {
             let text = values.attr(attr)?;
@@ -241,7 +259,7 @@ fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses
         // The bounds MIDI fixes for the type are the range of a control that gives none.
         if let (Some(lo), Some(hi)) = (lo, hi) {
             if (lo, hi) != (0, span) {
-                entry.insert("range".into(), json!([lo, hi]));
+                way.insert("range".into(), json!([lo, hi]));
             }
         }
         let (low, high) = (lo.unwrap_or(0), hi.unwrap_or(span));
@@ -266,22 +284,23 @@ fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses
             (None, None) => None,
         };
         if let Some(list) = list {
-            let mut map = Map::new();
+            let mut named = Vec::new();
             for (label, number) in lists.pairs(list, losses) {
                 if (low..=high).contains(&number) {
-                    map.insert(label, json!(number));
+                    named.push(json!({"value": number, "title": label}));
                 } else {
                     lost_element(losses, values, None, &format!("the value {number} named {label:?} is outside the range of the control {low} to {high}"));
                 }
             }
-            if !map.is_empty() {
-                entry.insert("values".into(), Value::Object(map));
+            if !named.is_empty() {
+                entry.insert("values".into(), Value::Array(named));
             }
         }
     }
     if !name.is_empty() {
-        entry.insert("_name".into(), json!(name));
+        entry.insert("title".into(), json!(name));
     }
+    entry.insert("ways".into(), json!([Value::Object(way)]));
     Ok(Value::Object(entry))
 }
 
@@ -306,7 +325,7 @@ fn notes_of(list: &Node, used: &mut BTreeSet<String>, entries: &mut Vec<Value>, 
     Ok(())
 }
 
-pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let root = xml::parse(text).map_err(|e| invalid(format!("line {}", e.line), e.rule))?;
     if root.name != "MIDINameDocument" {
@@ -494,17 +513,6 @@ impl Writer {
     }
 }
 
-fn text_remark(remarks: &osd::Remarks, key: &str, at: &str, losses: &mut Vec<Loss>) -> Option<String> {
-    match remarks.get(key) {
-        Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
-        Some(Value::String(_)) | None => None,
-        Some(_) => {
-            loss(losses, format!("{at}/{key}"), "a name is text: this remark is not text");
-            None
-        }
-    }
-}
-
 struct Control {
     name: String,
     binding: Binding,
@@ -525,65 +533,70 @@ fn controls_of(d: &Device, losses: &mut Vec<Loss>) -> Vec<Control> {
     }
     for (n, e) in cc.entries.iter().enumerate() {
         let at = format!("/cc_params/entries/{n}");
-        let name = text_remark(&e.remarks, "_name", &at, losses).unwrap_or_else(|| address_words(&e.osc));
+        let name = e.title.clone().unwrap_or_else(|| address_words(&e.osc));
         for (field, present) in [
+            ("description", e.description.is_some()),
+            ("value_description", e.value_description.is_some()),
+            ("notes", e.notes.is_some()),
             ("section", e.section.is_some()),
             ("expects", e.expects.is_some()),
-            ("orientation", e.orientation.is_some()),
+            ("polarity", e.polarity.is_some()),
             ("channel", e.channel.is_some()),
             ("transform", e.transform.is_some()),
             ("transform_reverse", e.transform_reverse.is_some()),
             ("role", e.role.is_some()),
-            ("nrpn_lsb_range", e.nrpn_lsb_range.is_some()),
         ] {
             if present {
                 loss(losses, format!("{at}/{field}"), "a Control of the DTD has a type, a number, a name and values: nothing for it");
             }
         }
-        for key in e.remarks.keys().filter(|k| *k != "_name") {
+        for key in e.remarks.keys() {
             loss(losses, format!("{at}/{}", segment(key)), "the DTD has no element for it");
         }
-        let mut bindings: Vec<(Binding, &'static str)> = Vec::new();
-        match (e.cc, e.cc_lsb) {
-            (Some(cc), Some(lsb)) if cc <= 95 && lsb == cc + 32 => bindings.push((Binding::Cc14(cc), "cc")),
-            (Some(cc), lsb) => {
-                if lsb.is_some() {
-                    loss(losses, format!("{at}/cc_lsb"), "a 14-bit control of the DTD pairs a controller with the one 32 above it");
+        // The first way, in the order written, that a Control of the DTD can carry is written; each
+        // other way is a loss at its own place.
+        let mut written: Option<(Binding, usize)> = None;
+        for (m, w) in e.ways.iter().enumerate() {
+            let here = format!("{at}/ways/{m}");
+            let carried = match (w.ctrl_type.as_str(), w.ctrl_index.as_deref().unwrap_or_default()) {
+                ("cc", [msb, lsb]) if *msb <= 95 && *lsb == msb + 32 => Some((Binding::Cc14(*msb as u8), None)),
+                ("cc", [msb, _]) => Some((Binding::Cc(*msb as u8), Some("a 14-bit control of the DTD pairs a controller with the one 32 above it"))),
+                ("cc", [n]) => Some((Binding::Cc(*n as u8), None)),
+                ("nrpn", [msb, lsb]) => Some((Binding::Nrpn((*msb as u16) << 7 | *lsb as u16), None)),
+                ("rpn", [msb, lsb]) => Some((Binding::Rpn((*msb as u16) << 7 | *lsb as u16), None)),
+                _ => None,
+            };
+            match (carried, &written) {
+                (Some((binding, note)), None) => {
+                    if let Some(note) = note {
+                        loss(losses, format!("{here}/ctrlIndex"), note);
+                    }
+                    if w.nrpn_lsb_range.is_some() {
+                        loss(losses, format!("{here}/nrpn_lsb_range"), "a Control of the DTD has a type, a number, a name and values: nothing for it");
+                    }
+                    written = Some((binding, m));
                 }
-                bindings.push((Binding::Cc(cc), "cc"));
-            }
-            (None, Some(_)) => loss(losses, format!("{at}/cc_lsb"), "an LSB without its CC"),
-            (None, None) => {}
-        }
-        for (msb, lsb, field, make) in [
-            (e.nrpn_msb, e.nrpn_lsb, "nrpn", Binding::Nrpn as fn(u16) -> Binding),
-            (e.rpn_msb, e.rpn_lsb, "rpn", Binding::Rpn as fn(u16) -> Binding),
-        ] {
-            match (msb, lsb) {
-                (Some(m), Some(l)) => bindings.push((make(u16::from(m) << 7 | u16::from(l)), field)),
-                (None, None) => {}
-                (Some(_), None) => loss(losses, format!("{at}/{field}_msb"), format!("an {field} needs its MSB and its LSB")),
-                (None, Some(_)) => loss(losses, format!("{at}/{field}_lsb"), format!("an {field} needs its MSB and its LSB")),
+                (Some(_), Some(_)) => loss(losses, here, "a Control of the DTD has one type and one number: the first binding is written"),
+                (None, _) => loss(losses, here, format!("a Control of the DTD is a Control Change, an NRPN or an RPN: a {} message has no type there", w.ctrl_type)),
             }
         }
-        if bindings.is_empty() {
+        let Some((binding, m)) = written else {
             loss(losses, at, "the control has no complete MIDI binding to write");
             continue;
-        }
-        let (binding, _) = bindings.remove(0);
-        for (_, field) in bindings {
-            loss(losses, format!("{at}/{field}"), "a Control of the DTD has one type and one number: the first binding is written");
-        }
-        let range = match e.range {
+        };
+        let way = &e.ways[m];
+        let range = match way.range {
             Some([lo, hi]) if lo > hi => {
-                loss(losses, format!("{at}/range"), "the lowest value is above the highest");
+                loss(losses, format!("{at}/ways/{m}/range"), "the lowest value is above the highest");
                 None
             }
             r => r,
         };
-        let mut values: Vec<(i64, String)> = e.values.iter().flatten().map(|(label, n)| (*n, label.clone())).collect();
+        // The default and the named values are in the reference scale of the control: the Values of
+        // the DTD are those of the way written.
+        let mut values: Vec<(i64, String)> = e.values.iter().flatten().map(|v| (e.in_way(v.value, way), v.title.clone())).collect();
         values.sort();
-        out.push(Control { name, binding, range, default: e.default, values });
+        out.push(Control { name, binding, range, default: e.default.map(|d| e.in_way(d, way)), values });
     }
     out
 }
@@ -593,10 +606,10 @@ fn patch_name(bank: &str, number: &str) -> String {
     format!("{bank} {number}")
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     let Some(sources) = d.sources.as_ref().filter(|s| !s.is_empty()) else {
-        return Err(fault(FaultKind::NoSources, "/_sources", "a device without sources is not written: its credit and licence cannot be"));
+        return Err(fault(FaultKind::NoSources, "/sources", "a device without sources is not written: its credit and licence cannot be"));
     };
     let mut losses = Vec::new();
     let info = &d.device;
@@ -606,7 +619,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     for (pointer, present) in [
         ("/device/revision", info.revision.is_some()),
-        ("/device/manufacturer_id", info.manufacturer_id.is_some()),
+        ("/identity/manufacturerId", d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some())),
         ("/device/device_id", info.device_id.is_some()),
         ("/device/rate_limit_hz", info.rate_limit_hz.is_some()),
         ("/device/kind", info.kind.is_some()),
@@ -642,7 +655,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     for (n, s) in sources.iter().enumerate() {
         for field in uncarried_source_fields(s) {
-            loss(&mut losses, format!("/_sources/{n}/{}", segment(&field)), "the Author carries the credit and the licence of a source, nothing more");
+            loss(&mut losses, format!("/sources/{n}/{}", segment(&field)), "the Author carries the credit and the licence of a source, nothing more");
         }
     }
     if let Some(p) = &d.params {
@@ -684,6 +697,8 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 }
             };
             for (field, present) in [
+                ("title", e.title.is_some()),
+                ("description", e.description.is_some()),
                 ("section", e.section.is_some()),
                 ("channel", e.channel.is_some()),
                 ("channel_mode", e.channel_mode.is_some()),

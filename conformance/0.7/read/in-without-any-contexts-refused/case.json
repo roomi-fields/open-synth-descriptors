@@ -1,0 +1,9 @@
+{
+  "_about": "A device with no `contexts` declares no dimension: any `in` is refused.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/in/part"
+  }
+}

@@ -55,8 +55,8 @@ fn import_prints_the_descriptor_with_its_triggers_and_the_source_given() {
     assert_eq!(entries[0]["channel"], 9);
     assert_eq!(entries[0]["note_range"], serde_json::json!([36, 38]));
     assert_eq!(entries[1].get("channel"), None);
-    assert_eq!(doc["_sources"][0]["license"], "CC-BY-SA-4.0");
-    assert_eq!(doc["_sources"][0]["url"], "https://github.com/pencilresearch/midi");
+    assert_eq!(doc["sources"][0]["license"], "CC-BY-SA-4.0");
+    assert_eq!(doc["sources"][0]["url"], "https://github.com/pencilresearch/midi");
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn export_of_a_descriptor_without_sources_is_exit_1() {
     std::fs::write(&file, r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "device": {"name": "T", "osc_prefix": "/t"}}"#).unwrap();
     let run = osd_in(dir.path(), &["export", "midi-triggers-csv", &file]);
     assert_eq!(run.code, 1, "{:?}", run.stderr);
-    assert!(run.stderr.contains("_sources"), "{:?}", run.stderr);
+    assert!(run.stderr.contains("/sources") && !run.stderr.contains("_sources"), "{:?}", run.stderr);
     assert_eq!(run.stdout, "");
 }
 
@@ -144,7 +144,7 @@ fn into_adds_the_triggers_to_the_descriptor_of_the_controller_file_with_both_sou
     assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))));
     assert_eq!(doc["cc_params"]["entries"].as_array().unwrap().len(), 1);
     assert_eq!(doc["triggers"]["entries"].as_array().unwrap().len(), 2);
-    assert_eq!(doc["_sources"].as_array().unwrap().len(), 2);
+    assert_eq!(doc["sources"].as_array().unwrap().len(), 2);
     assert!(run.stderr.lines().any(|l| l.starts_with("line 3: ")), "{:?}", run.stderr);
 }
 
@@ -160,7 +160,7 @@ fn into_adds_the_controllers_to_the_descriptor_of_the_triggers_file() {
     let doc: Value = serde_json::from_str(&run.stdout).unwrap();
     assert_eq!(doc["cc_params"]["entries"].as_array().unwrap().len(), 1);
     assert_eq!(doc["triggers"]["entries"].as_array().unwrap().len(), 2);
-    assert_eq!(doc["_sources"].as_array().unwrap().len(), 2);
+    assert_eq!(doc["sources"].as_array().unwrap().len(), 2);
 }
 
 #[test]

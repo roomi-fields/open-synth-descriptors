@@ -19,16 +19,19 @@ fn a_list_imports_as_controls_with_their_address_range_default_priority_and_mode
     let (d, _) = imported(&text);
     let c = controls(&d);
     assert_eq!(c.len(), 3);
-    assert_eq!(c[0]["cc"], 74);
-    assert_eq!(c[0]["range"], json!([5, 120]));
+    assert_eq!((c[0]["ways"][0]["ctrlType"].clone(), c[0]["ways"][0]["ctrlIndex"].clone()), (json!("cc"), json!([74])));
+    assert_eq!(c[0]["ways"][0]["range"], json!([5, 120]));
     assert_eq!(c[0]["default"], 70);
     assert_eq!(c[0]["priority"], 2);
-    assert_eq!(c[0]["transmit"], "absolute");
-    assert_eq!(c[0]["recognize"], "both");
+    assert_eq!(c[0]["ways"][0]["transmit"], "absolute");
+    assert_eq!(c[0]["ways"][0]["recognize"], "both");
     assert_eq!(c[0]["step_count"], 91);
     assert_eq!(c[0]["channel"], 2);
-    assert_eq!((c[1]["nrpn_msb"].clone(), c[1]["nrpn_lsb"].clone()), (json!(3), json!(9)));
-    assert_eq!((c[2]["rpn_msb"].clone(), c[2]["rpn_lsb"].clone()), (json!(0), json!(2)));
+    assert_eq!((c[1]["ways"][0]["ctrlType"].clone(), c[1]["ways"][0]["ctrlIndex"].clone()), (json!("nrpn"), json!([3, 9])));
+    assert_eq!((c[2]["ways"][0]["ctrlType"].clone(), c[2]["ways"][0]["ctrlIndex"].clone()), (json!("rpn"), json!([0, 2])));
+    for flat in ["cc", "range", "transmit", "recognize", "nrpn_msb"] {
+        assert!(c[0].get(flat).is_none(), "{flat} is on the way, not the control: {}", c[0]);
+    }
 }
 
 #[test]
@@ -41,8 +44,9 @@ fn a_14_bit_cc_gets_its_lsb_pair() {
     let (d, _) = imported(&text);
     let cc = d["cc_params"]["entries"].as_array().unwrap();
     assert_eq!(cc.len(), 2);
-    assert_eq!(cc[0]["cc_lsb"], 33);
-    assert!(cc[1].get("cc_lsb").is_none(), "{}", cc[1]);
+    assert_eq!(cc[0]["ways"][0]["ctrlIndex"], json!([1, 33]));
+    assert_eq!(cc[0]["ways"][0]["value_bits"], 14);
+    assert_eq!(cc[1]["ways"][0]["ctrlIndex"], json!([2]));
 }
 
 #[test]
@@ -64,7 +68,7 @@ fn an_entry_of_a_standard_type_the_descriptor_cannot_carry_is_a_loss_at_its_poin
         "ChCtrlList": [
             cc_entry(1),
             {"title": "Press", "ctrlType": "chPress"},
-            {"title": "Poly", "ctrlType": "pPress"},
+            {"title": "Poly", "ctrlType": "pPress", "ctrlIndex": [60]},
             {"title": "Bend", "ctrlType": "pBend"},
             {"title": "Reg", "ctrlType": "pnrc", "ctrlIndex": [3]},
             {"title": "Assign", "ctrlType": "pnac", "ctrlIndex": [4]},
@@ -76,9 +80,19 @@ fn an_entry_of_a_standard_type_the_descriptor_cannot_carry_is_a_loss_at_its_poin
     .to_string();
     let (d, lost) = imported(&text);
     let c = controls(&d);
-    assert_eq!(c.len(), 2, "only the two CC are carried: {c:?}");
-    assert_eq!((c[0]["cc"].clone(), c[1]["cc"].clone()), (json!(1), json!(2)));
-    for n in 1..=6 {
+    let kinds: Vec<(Value, Value)> = c.iter().map(|e| (e["ways"][0]["ctrlType"].clone(), e["ways"][0]["ctrlIndex"].clone())).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            (json!("cc"), json!([1])),
+            (json!("chPress"), Value::Null),
+            (json!("pPress"), json!([60])),
+            (json!("pBend"), Value::Null),
+            (json!("cc"), json!([2])),
+        ],
+        "the CC, the pressures and the bend are ways; the three others are not carried: {c:?}"
+    );
+    for n in 4..=6 {
         let at = lost_at(&lost, &format!("/ChCtrlList/{n}"));
         assert_eq!(at.len(), 1, "entry {n}: {lost:?}");
         assert!(at[0].reason.contains("ctrlType"), "{:?}", at[0]);
@@ -87,7 +101,7 @@ fn an_entry_of_a_standard_type_the_descriptor_cannot_carry_is_a_loss_at_its_poin
 
 #[test]
 fn a_list_of_only_standard_types_the_descriptor_cannot_carry_still_imports() {
-    let (d, lost) = imported(&json!([{"ctrlType": "pBend"}, {"ctrlType": "chPress"}]).to_string());
+    let (d, lost) = imported(&json!([{"ctrlType": "pnp"}, {"ctrlType": "pnrc", "ctrlIndex": [1]}]).to_string());
     assert!(controls(&d).is_empty(), "{d}");
     assert_eq!(lost_at(&lost, "/0").len(), 1, "{lost:?}");
     assert_eq!(lost_at(&lost, "/1").len(), 1, "{lost:?}");
@@ -124,7 +138,9 @@ fn the_type_hints_become_expects_words_and_a_map_becomes_the_named_values() {
     assert_eq!(c[0]["expects"], "switch");
     assert_eq!(c[1]["expects"], "momentary");
     assert_eq!(c[2]["expects"], "discrete");
-    assert_eq!(c[2]["values"], json!({"Saw": 0, "Square": 1, "Tri": 2}));
+    let mut values = c[2]["values"].as_array().expect("values are a list of {value, title}").clone();
+    values.sort_by_key(|v| v["value"].as_i64());
+    assert_eq!(values, vec![json!({"value": 0, "title": "Saw"}), json!({"value": 1, "title": "Square"}), json!({"value": 2, "title": "Tri"})]);
 }
 
 #[test]
@@ -178,14 +194,59 @@ fn the_losses_of_an_object_are_placed_by_its_json_pointer() {
     let text = json!({"ChCtrlList": [cc_entry(0), a], "CtrlMapList": []}).to_string();
     let (_, lost) = imported(&text);
     assert!(lost_at(&lost, "/ChCtrlList/1").iter().any(|l| l.reason.contains("no known role")), "{lost:?}");
-    assert_eq!(lost_at(&lost, "/ChCtrlList/0/title").len(), 1, "{lost:?}");
+    assert!(lost_at(&lost, "/ChCtrlList/0/title").is_empty(), "{lost:?}");
 }
 
 #[test]
-fn the_title_is_named_lost_at_its_pointer_for_each_entry() {
-    let (_, lost) = imported(&json!([cc_entry(1), cc_entry(2)]).to_string());
-    assert_eq!(lost_at(&lost, "/0/title").len(), 1, "{lost:?}");
-    assert_eq!(lost_at(&lost, "/1/title").len(), 1, "{lost:?}");
+fn the_title_and_the_description_of_each_entry_become_the_title_and_description_of_its_control() {
+    let mut b = cc_entry(2);
+    b["description"] = json!("Brightness of the sound");
+    let (d, lost) = imported(&json!([cc_entry(1), b]).to_string());
+    let c = controls(&d);
+    assert_eq!(c[0]["title"], "Control 1");
+    assert!(c[0].get("description").is_none(), "{}", c[0]);
+    assert_eq!(c[1]["title"], "Control 2");
+    assert_eq!(c[1]["description"], "Brightness of the sound");
+    for p in ["/0/title", "/1/title", "/1/description"] {
+        assert!(lost_at(&lost, p).is_empty(), "{p}: {lost:?}");
+    }
+}
+
+#[test]
+fn an_empty_description_is_accepted_and_written() {
+    let mut e = cc_entry(1);
+    e["description"] = json!("");
+    let (d, lost) = imported(&json!([e]).to_string());
+    assert_eq!(controls(&d)[0]["description"], "");
+    assert!(lost_at(&lost, "/0/description").is_empty(), "{lost:?}");
+}
+
+#[test]
+fn a_title_that_is_not_a_string_or_is_empty_is_not_written_and_named_lost_at_its_pointer_with_its_reason() {
+    let mut a = cc_entry(1);
+    a["title"] = json!(5);
+    let mut b = cc_entry(2);
+    b["title"] = json!("");
+    let (d, lost) = imported(&json!([a, b]).to_string());
+    for c in controls(&d) {
+        assert!(c.get("title").is_none(), "{c}");
+    }
+    let la = lost_at(&lost, "/0/title");
+    let lb = lost_at(&lost, "/1/title");
+    assert_eq!((la.len(), lb.len()), (1, 1), "{lost:?}");
+    assert!(la[0].reason.contains("not a string") && !la[0].reason.contains("holds no title"), "{:?}", la[0]);
+    assert!(lb[0].reason.contains("empty title") && !lb[0].reason.contains("holds no title"), "{:?}", lb[0]);
+}
+
+#[test]
+fn a_description_that_is_not_a_string_is_not_written_and_named_lost_at_its_pointer() {
+    let mut a = cc_entry(1);
+    a["description"] = json!({"x": 1});
+    let (d, lost) = imported(&json!([a]).to_string());
+    assert!(controls(&d)[0].get("description").is_none());
+    let l = lost_at(&lost, "/0/description");
+    assert_eq!(l.len(), 1, "{lost:?}");
+    assert!(l[0].reason.contains("not a string"), "{:?}", l[0]);
 }
 
 #[test]
@@ -207,10 +268,11 @@ fn the_identity_is_the_author_as_vendor_else_the_host_of_the_url_and_a_fixed_nam
 #[test]
 fn the_import_carries_the_source_given_and_every_control_has_its_own_address() {
     let (d, _) = imported(&json!([cc_entry(1), cc_entry(2), cc_entry(3)]).to_string());
-    assert_eq!(d["_sources"].as_array().unwrap().len(), 1);
-    assert_eq!(d["_sources"][0]["license"], "CC-BY-4.0");
-    assert_eq!(d["_sources"][0]["author"], "A maker");
-    assert_eq!(d["$schema"], "https://w3id.org/osd/0.6/device.schema.json");
+    assert_eq!(d["sources"].as_array().unwrap().len(), 1);
+    assert!(d.get("_sources").is_none(), "{d}");
+    assert_eq!(d["sources"][0]["license"], "CC-BY-4.0");
+    assert_eq!(d["sources"][0]["author"], "A maker");
+    assert_eq!(d["$schema"], "https://w3id.org/osd/0.7/device.schema.json");
     let mut oscs: Vec<String> = controls(&d).iter().map(|e| e["osc"].as_str().unwrap().to_string()).collect();
     oscs.sort();
     oscs.dedup();
@@ -219,8 +281,16 @@ fn the_import_carries_the_source_given_and_every_control_has_its_own_address() {
 
 #[test]
 fn the_order_of_the_controls_and_of_the_losses_follows_the_source() {
-    let (d, lost) = imported(&json!([cc_entry(9), cc_entry(3), cc_entry(5)]).to_string());
-    let cc: Vec<i64> = controls(&d).iter().map(|e| e["cc"].as_i64().unwrap()).collect();
+    let entries: Vec<Value> = [9, 3, 5]
+        .iter()
+        .map(|n| {
+            let mut e = cc_entry(*n);
+            e["title"] = json!(7);
+            e
+        })
+        .collect();
+    let (d, lost) = imported(&json!(entries).to_string());
+    let cc: Vec<i64> = controls(&d).iter().map(|e| e["ways"][0]["ctrlIndex"][0].as_i64().unwrap()).collect();
     assert_eq!(cc, [9, 3, 5]);
     let titles: Vec<&str> = lost.iter().filter(|l| l.place.ends_with("/title")).map(|l| l.place.as_str()).collect();
     assert_eq!(titles, ["/0/title", "/1/title", "/2/title"]);
@@ -308,22 +378,22 @@ fn a_channel_of_zero_or_below_is_refused_the_norm_counting_from_one() {
 #[test]
 fn a_7_bit_range_and_default_are_scaled_down_from_32_bits_by_cutting_the_low_bits() {
     let c = one(json!({"title": "A", "ctrlType": "cc", "ctrlIndex": [1], "numSigBits": 7, "minMax": [167772160u64, 4294967295u64], "default": 3238268993u64}));
-    assert_eq!(c["range"], json!([5, 127]));
+    assert_eq!(c["ways"][0]["range"], json!([5, 127]));
     assert_eq!(c["default"], 96);
 }
 
 #[test]
 fn a_14_bit_nrpn_is_scaled_down_to_its_14_bits() {
     let c = one(json!({"title": "A", "ctrlType": "nrpn", "ctrlIndex": [1, 2], "numSigBits": 14, "minMax": [1310720u64, 4294967295u64], "default": 2147483648u64}));
-    assert_eq!(c["range"], json!([5, 16383]));
+    assert_eq!(c["ways"][0]["range"], json!([5, 16383]));
     assert_eq!(c["default"], 8192);
-    assert_eq!(c["value_bits"], 14);
+    assert_eq!(c["ways"][0]["value_bits"], 14);
 }
 
 #[test]
 fn a_32_bit_range_and_default_are_read_as_they_are() {
     let c = one(json!({"title": "A", "ctrlType": "cc", "ctrlIndex": [20], "numSigBits": 32, "minMax": [0u64, 4294967295u64], "default": 3000000000u64}));
-    assert_eq!(c["range"], json!([0u64, 4294967295u64]));
+    assert_eq!(c["ways"][0]["range"], json!([0u64, 4294967295u64]));
     assert_eq!(c["default"], 3000000000u64);
 }
 
@@ -340,5 +410,5 @@ fn an_rpn_of_lsb_below_32_is_scaled_down_with_rounding_and_clamped() {
     // min-center-max cuts off: the same 32-bit value is 10, not 11
     assert_eq!(rpn(32, 0x15FF0000), 10);
     let c = one(json!({"title": "A", "ctrlType": "rpn", "ctrlIndex": [0, 2], "numSigBits": 7, "minMax": [0u64, 4294967295u64]}));
-    assert_eq!(c["range"], json!([0, 127]), "the clamp");
+    assert_eq!(c["ways"][0]["range"], json!([0, 127]), "the clamp");
 }

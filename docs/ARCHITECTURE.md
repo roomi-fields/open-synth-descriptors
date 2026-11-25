@@ -53,6 +53,7 @@ flowchart TB
 | Part | Responsibility | Owns | Language |
 |---|---|---|---|
 | `schemas/<version>/` | the shape of each kind of descriptor: device, maker profile, sound, fingerprint, firmware, assembly | the published JSON schemas | |
+| `schemas/providers.json` | the table of providers: who supplies the facts a source cites, one identifier each; the table has its own version and date, outside the versions of the format, and grows by pull request | the entries and their schema `schemas/providers.schema.json`; `osd` embeds a copy (`osd/providers.json`) | |
 | `spec/` | the text of each version, the vocabulary of roles, and how a published version is corrected | the prose of the format | |
 | `conformance/` | the meaning: for each case, what a reader returns; how a reader runs the suite; the version of the suite | the cases and their expected results | |
 | `examples/` | one readable example of each kind of descriptor | the example files | |

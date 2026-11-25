@@ -70,13 +70,13 @@ fn a_device_with_only_a_sysex_block_loses_exactly_that_block() {
     let t = export(&device(r#", "sysex": {"header": [240], "footer": [247]}"#), Format::MidiCsv).unwrap();
     let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
     places.sort();
-    assert_eq!(places, ["/_sources", "/sysex"]);
+    assert_eq!(places, ["/sources", "/sysex"]);
 }
 
 #[test]
 fn the_sources_of_a_device_are_in_the_losses_once_with_the_reason_the_csv_has_no_column_for_the_credit() {
     let t = export(&device(""), Format::MidiCsv).unwrap();
-    let lost: Vec<_> = t.lost.iter().filter(|l| l.place == "/_sources").collect();
+    let lost: Vec<_> = t.lost.iter().filter(|l| l.place == "/sources").collect();
     assert_eq!(lost.len(), 1, "{:?}", t.lost);
     let reason = lost[0].reason.to_lowercase();
     assert!(reason.contains("column") && reason.contains("credit") && reason.contains("licence"), "{reason}");
@@ -90,7 +90,7 @@ fn several_sources_still_give_one_loss_of_the_sources() {
         {"type": "community-re", "url": "https://example.org/c", "license": "MIT"}],
         "device": {"name": "T", "osc_prefix": "/t"}}"#;
     let t = export(&resolved(device_from(text)), Format::MidiCsv).unwrap();
-    assert_eq!(t.lost.iter().filter(|l| l.place == "/_sources").count(), 1, "{:?}", t.lost);
+    assert_eq!(t.lost.iter().filter(|l| l.place == "/sources").count(), 1, "{:?}", t.lost);
     assert_eq!(parse(&t.value), vec![HEADER.to_vec()]);
 }
 
@@ -135,7 +135,7 @@ fn a_device_without_sources_is_refused_with_a_typed_fault() {
     let text = r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "device": {"name": "T", "osc_prefix": "/t"}}"#;
     let f = export(&resolved(device_from(text)), Format::MidiCsv).expect_err("refused");
     assert_eq!(f.kind, FaultKind::NoSources);
-    assert!(f.place.contains("_sources"), "{:?}", f.place);
+    assert_eq!(f.place, "/sources");
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn the_default_of_a_control_with_only_an_nrpn_goes_to_the_nrpn_default_cell() {
     let t = export(&d, Format::MidiCsv).unwrap();
     let r = &parse(&t.value)[1];
     assert_eq!((cell(r, "nrpn_default_value"), cell(r, "cc_default_value")), ("100".into(), "".into()));
-    assert!(!t.lost.iter().any(|l| l.place != "/_sources"), "{:?}", t.lost);
+    assert!(!t.lost.iter().any(|l| l.place != "/sources"), "{:?}", t.lost);
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn a_second_nrpn_way_is_a_loss_at_its_pointer_and_the_first_nrpn_still_fills_its
     assert_eq!((cell(&records[1], "cc_msb"), cell(&records[1], "nrpn_msb"), cell(&records[1], "nrpn_lsb")), ("74".into(), "1".into(), "2".into()));
     let at: Vec<_> = t.lost.iter().filter(|l| l.place.starts_with("/cc_params/entries/0")).collect();
     assert_eq!(at.len(), 1, "{:?}", t.lost);
-    assert_eq!(at[0].place, "/cc_params/entries/0/also/1");
+    assert_eq!(at[0].place, "/cc_params/entries/0/ways/2");
     assert!(!at[0].reason.is_empty());
 }
 
@@ -267,7 +267,7 @@ fn a_second_cc_way_and_an_rpn_way_are_losses_at_their_pointers() {
     assert_eq!((records.len(), cell(&records[1], "cc_msb"), cell(&records[1], "cc_lsb")), (2, "74".into(), "".into()));
     let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).filter(|p| p.starts_with("/cc_params/entries/0")).collect();
     places.sort();
-    assert_eq!(places, ["/cc_params/entries/0/also/0", "/cc_params/entries/0/also/1"]);
+    assert_eq!(places, ["/cc_params/entries/0/ways/1", "/cc_params/entries/0/ways/2"]);
 }
 
 #[test]

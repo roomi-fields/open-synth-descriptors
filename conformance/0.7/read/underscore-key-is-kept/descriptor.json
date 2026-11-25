@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "_note": "checked",
+  "cc_params": { "entries": [{ "osc": "/x", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }], "_limitations": "only the first half of the range is heard" }] }
+}

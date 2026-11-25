@@ -1,0 +1,48 @@
+{
+  "_about": "The ten terms of evidence stay as they are: the converter writes no `provider` and no line of `notes`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "hardware-verified",
+        "notes": "kept"
+      },
+      {
+        "type": "hardware-observed"
+      },
+      {
+        "type": "software-verified",
+        "notes": "kept"
+      },
+      {
+        "type": "vendor-doc"
+      },
+      {
+        "type": "vendor-osc-api",
+        "notes": "kept"
+      },
+      {
+        "type": "vendor-self-described"
+      },
+      {
+        "type": "third-party-osc",
+        "notes": "kept"
+      },
+      {
+        "type": "community-re"
+      },
+      {
+        "type": "contributed",
+        "notes": "kept"
+      },
+      {
+        "type": "test-fixture"
+      }
+    ]
+  }
+}

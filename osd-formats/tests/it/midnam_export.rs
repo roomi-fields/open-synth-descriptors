@@ -39,7 +39,7 @@ fn every_device_of_the_conformance_cases_and_the_examples_that_names_a_source_ex
 
 #[test]
 fn a_device_without_a_source_is_not_exported() {
-    let d = device_with(json!({"_sources": null}));
+    let d = device_with(json!({"sources": null}));
     let f = export(&d, Format::Midnam).unwrap_err();
     assert_eq!(f.kind, FaultKind::NoSources);
     let mut empty = device_with(json!({}));
@@ -58,7 +58,7 @@ fn the_manufacturer_and_the_model_are_the_vendor_and_the_name_of_the_device() {
 
 #[test]
 fn the_author_carries_the_credit_and_the_licence_of_every_source() {
-    let d = device_with(json!({"_sources": [
+    let d = device_with(json!({"sources": [
         {"type": "community-re", "url": "https://example.org/one", "author": "Dee", "license": "CC-BY-4.0"},
         {"type": "vendor-doc", "attribution": "The Maker", "license": "CC0-1.0"},
     ]}));
@@ -127,7 +127,7 @@ fn the_name_of_a_control_is_its_remark_name_or_else_the_words_of_its_address() {
     let doc = json!({
         "cc_params": {"entries": [
             {"osc": "/filter/cutoff", "cc": 74, "range": [0, 127]},
-            {"osc": "/amp_env/attack", "cc": 73, "range": [0, 127], "_name": "Attack time"},
+            {"osc": "/amp_env/attack", "cc": 73, "range": [0, 127], "title": "Attack time"},
         ]}
     });
     let root = parsed(&exported(&device_with(doc)).0);
@@ -138,7 +138,7 @@ fn the_name_of_a_control_is_its_remark_name_or_else_the_words_of_its_address() {
 #[test]
 fn the_text_of_a_name_with_xml_signs_is_escaped_and_read_back_as_it_was() {
     let doc = json!({"device": {"name": "A & B <mk2>", "vendor": "Lofty \"Co\"", "osc_prefix": "/ab"},
-        "cc_params": {"entries": [{"osc": "/x", "cc": 1, "range": [0, 127], "_name": "Cut <off> & \"res\""}]}});
+        "cc_params": {"entries": [{"osc": "/x", "cc": 1, "range": [0, 127], "title": "Cut <off> & \"res\""}]}});
     let root = parsed(&exported(&device_with(doc)).0);
     assert_eq!(root.kid("MasterDeviceNames").unwrap().kid("Model").unwrap().text, "A & B <mk2>");
     assert_eq!(root.kid("MasterDeviceNames").unwrap().kid("Manufacturer").unwrap().text, "Lofty \"Co\"");
@@ -208,7 +208,7 @@ fn a_device_with_no_bank_still_has_the_patch_bank_the_dtd_requires_and_it_holds_
 fn full_device() -> osd::Resolved {
     device_with(json!({
         "identity": {"request": [240, 126, 127, 6, 1, 247]},
-        "sysex": {"header": [240, 1], "footer": [247]},
+        "sysex": {"header": [240, 1]},
         "midi_out": {"default_channel": 3},
         "commands": [{"osc": "/dump", "frame": [240, 1, 247]}],
         "params": {"get_frame": [240, 1, 247], "set_frame": [240, 2, 247], "value_type": "u7",
@@ -230,7 +230,7 @@ fn each_element_the_format_cannot_carry_has_a_loss_with_its_place() {
         "/midi_out",
         "/cc_params/entries/0/section",
         "/cc_params/entries/0/expects",
-        "/cc_params/entries/0/orientation",
+        "/cc_params/entries/0/polarity",
     ] {
         let found = lost_at(&lost, place);
         assert_eq!(found.len(), 1, "{place}: {lost:?}");
@@ -249,7 +249,7 @@ fn a_device_of_controls_only_loses_its_osc_prefix_and_nothing_else() {
 #[test]
 fn what_is_carried_is_not_in_the_losses() {
     let (_, lost) = exported(&full_device());
-    for place in ["/cc_params/entries/0", "/cc_params/entries/0/cc", "/cc_params/entries/0/range", "/device/name", "/device/vendor", "/_sources"] {
+    for place in ["/cc_params/entries/0", "/cc_params/entries/0/cc", "/cc_params/entries/0/range", "/device/name", "/device/vendor", "/sources"] {
         assert!(lost_at(&lost, place).is_empty(), "{place} is carried: {lost:?}");
     }
 }

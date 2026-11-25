@@ -117,6 +117,7 @@ macro_rules! object {
         $name:ident {
             $( $(#[$fmeta:meta])* $key:literal $field:ident: $ty:ty = $codec:expr, )*
         }
+        $(kept { $(#[$kmeta:meta])* $kept:ident: $kty:ty })?
         $(check $check:path)?
     ) => {
         $(#[$meta])*
@@ -126,6 +127,7 @@ macro_rules! object {
             /// The keys starting with `_` that the schema does not name: notes
             /// for people, kept as they are.
             pub remarks: $crate::json::Remarks,
+            $( $(#[$kmeta])* pub $kept: $kty, )?
         }
 
         impl $crate::json::Object for $name {
@@ -136,6 +138,7 @@ macro_rules! object {
                 let out = $name {
                     $( $field: $crate::json::field(o, $key, at, $codec)?, )*
                     remarks: $crate::json::remarks(o, Self::KEYS),
+                    $( $kept: Default::default(), )?
                 };
                 $( $check(&out, at)?; )?
                 Ok(out)

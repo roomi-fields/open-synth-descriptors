@@ -3,12 +3,21 @@
 //! (docs.electra.one/developers/presetformat.html, documentation 5.0.0); the fate of each kind
 //! of message and the numbers the export lays out by are in docs/electra-one.md.
 
-use crate::midi_csv::{check_source, slug, unique};
-use crate::{Fault, FaultKind, Loss, Translated};
-use osd::{Address, Algorithm, Arg, ArgType, CcEntry, CcParams, Command, Device, DeviceInfo, Encoding, FramePart, FrameToken, Resolved, Source, Version};
+use crate::importer::{check_source, slug, unique};
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use osd::{Address, Algorithm, Arg, ArgType, CcEntry, CcParams, Command, Device, DeviceInfo, Encoding, FramePart, FrameToken, Resolved, Source, Version, Way};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "electra-one",
+    media_type: "application/json",
+    extension: "epr",
+    import,
+    export,
+    import_into: None,
+};
 
 /// Every kind of message the maker documents (page, "type" of a message).
 const KINDS: [&str; 18] = [
@@ -53,7 +62,6 @@ fn why_lost(kind: &str) -> &'static str {
         "start" | "stop" | "tune" => "a realtime message is no control of the descriptor",
         "atpoly" | "atchannel" | "pitchbend" => "the descriptor has no control bound to this channel message",
         "spp" => "a song position is no control of the descriptor",
-        "relcc" => "a relative CC steps a value, the descriptor has no field for steps",
         "macro" => "a macro holds a parameter of the performance, which the descriptor has no field for",
         "virtual" | "none" => "the value sends nothing: no MIDI binding to describe",
         _ => "the descriptor has no field for it",
@@ -189,7 +197,7 @@ fn sha256_hex(data: &[u8]) -> String {
     Sha256::digest(data).iter().map(|b| format!("{b:02x}")).collect()
 }
 
-pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let root: Value = serde_json::from_str(text).map_err(|e| invalid("", format!("the file is not valid JSON: {e}")))?;
     let Some(root) = root.as_object() else {
@@ -215,7 +223,6 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
     let overlays: Vec<Value> = root.get("overlays").and_then(Value::as_array).cloned().unwrap_or_default();
     // The overlays a carried control refers to: their labels are its `values`.
     let mut overlays_read: BTreeSet<usize> = BTreeSet::new();
-    let mut any_values = false;
     for (key, reason) in [
         ("pages", "the pages are the look of the preset"),
         ("devices", "the ports and channels of the preset's devices (and each message's deviceId) are the setup of the controller"),
@@ -297,11 +304,11 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                 Some(Value::String(k)) if KINDS.contains(&k.as_str()) => k.as_str(),
                 Some(_) => return Err(invalid(format!("{at}/type"), "the type is one of the documented message types")),
             };
-            let remark = |name: &str| (!name.is_empty()).then(|| Value::String(name.to_string()));
+            let title = |name: &str| (!name.is_empty()).then(|| name.to_string());
             match kind {
-                "cc7" | "cc14" | "nrpn" | "rpn" => {
+                "cc7" | "cc14" | "nrpn" | "rpn" | "relcc" => {
                     let max = match kind {
-                        "cc7" => 127,
+                        "cc7" | "relcc" => 127,
                         "cc14" => 31,
                         _ => 16383,
                     };
@@ -323,6 +330,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                         }
                     };
                     for key in message.keys().filter(|k| !["type", "parameterNumber", "deviceId"].contains(&k.as_str())) {
+                        // The way of a relative CC says that it is relative; the encoding of the steps is no field of the way.
                         loss(&mut losses, format!("{at}/{}", segment(key)), "how the controller encodes the value: the descriptor has no field for it");
                     }
                     let path = {
@@ -334,32 +342,25 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                             joined.join("/")
                         }
                     };
-                    let split = |n: u64| (Some((n >> 7) as u8), Some((n & 127) as u8));
-                    let (nrpn, rpn) = match kind {
-                        "nrpn" => (split(number), (None, None)),
-                        "rpn" => ((None, None), split(number)),
-                        _ => ((None, None), (None, None)),
+                    let split = |n: u64| vec![(n >> 7) as i64, (n & 127) as i64];
+                    // A preset does not say the width of an NRPN or RPN value: the full 14 bits.
+                    let way = match kind {
+                        "nrpn" | "rpn" => Way { ctrl_type: kind.into(), ctrl_index: Some(split(number)), value_bits: Some(14), range, ..Default::default() },
+                        "cc14" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64, number as i64 + 32]), value_bits: Some(14), range, ..Default::default() },
+                        "relcc" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), range, transmit: Some(osd::Direction::Relative), recognize: Some(osd::Direction::Relative), ..Default::default() },
+                        _ => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), range, ..Default::default() },
                     };
+                    // The literal survives the addition of a field: `..Default::default()` closes it.
+                    #[allow(clippy::needless_update)]
                     let mut entry = CcEntry {
                         osc: unique(format!("/{path}"), &mut used),
-                        cc: matches!(kind, "cc7" | "cc14").then(|| number as u8),
-                        cc_lsb: (kind == "cc14").then(|| number as u8 + 32),
-                        nrpn_msb: nrpn.0,
-                        nrpn_lsb: nrpn.1,
-                        nrpn_lsb_range: None,
-                        rpn_msb: rpn.0,
-                        rpn_lsb: rpn.1,
-                        // A preset does not say the width of an NRPN or RPN value: the full 14 bits.
-                        value_bits: (kind == "nrpn" || kind == "rpn").then_some(14),
-                        range,
-                        also: None,
+                        title: title(&name),
+                        ways: vec![way],
                         default: None,
                         priority: None,
                         step_count: None,
-                        transmit: None,
-                        recognize: None,
                         values: None,
-                        orientation: None,
+                        polarity: None,
                         channel: None,
                         section: section.clone(),
                         expects: None,
@@ -367,12 +368,9 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                         transform_reverse: None,
                         role: None,
                         remarks: Default::default(),
+                        ..Default::default()
                     };
-                    if let Some(r) = remark(&name) {
-                        entry.remarks.insert("_name".to_string(), r);
-                    }
-                    entry.values = labels.filter(|l| !l.is_empty());
-                    any_values |= entry.values.is_some() || entry.value_bits.is_some();
+                    entry.values = labels.filter(|l| !l.is_empty()).map(|l| osd::NamedValues(l.into_iter().map(|(title, value)| osd::NamedValue { value, title, remarks: Default::default() }).collect()));
                     entries.push(entry);
                 }
                 "sysex" => {
@@ -439,8 +437,11 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                     if let Some(n) = message.get("parameterNumber").and_then(Value::as_u64) {
                         parameter_numbers.insert(osc.clone(), json!(n));
                     }
-                    let mut command = Command {
+                    // The literal survives the addition of a field: `..Default::default()` closes it.
+                    #[allow(clippy::needless_update)]
+                    let command = Command {
                         osc: Address::Text(osc),
+                        title: title(&name),
                         section: section.clone(),
                         notes: None,
                         args: args.map(|a| vec![a]),
@@ -449,10 +450,8 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
                         forward: None,
                         script: None,
                         remarks: Default::default(),
+                        ..Default::default()
                     };
-                    if let Some(r) = remark(&name) {
-                        command.remarks.insert("_name".to_string(), r);
-                    }
                     commands.push(command);
                 }
                 _ => loss(
@@ -472,21 +471,23 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         s if s.is_empty() => "/electra-one-preset".to_string(),
         s => format!("/{s}"),
     };
-    // The caller's source (credit, revision, date) carries the hash of the text received and the
+    // The caller's source (credit, revision) carries the hash of the text received and the
     // parameter number of each command.
     let mut source = source.clone();
+    if source.imported_at.take().is_some() {
+        loss(&mut losses, "/sources/0/imported_at", "0.7 has no field for the date of an import (`sources[].imported_at` is removed)");
+    }
     source.extra.insert("sha256".to_string(), Value::String(sha256_hex(text.as_bytes())));
     if !parameter_numbers.is_empty() {
         source.extra.insert("parameter_numbers".to_string(), Value::Object(parameter_numbers));
     }
     let device = Device {
-        schema: Some(if any_values { Version::V0_6 } else { Version::V0_5 }),
+        schema: Some(Version::V0_7),
         device: DeviceInfo {
             name,
             vendor: None,
             revision: None,
             osc_prefix: prefix,
-            manufacturer_id: None,
             device_id: None,
             rate_limit_hz: None,
             kind: None,
@@ -497,6 +498,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         },
         capabilities: None,
         midi_of: None,
+        contexts: None,
         loads_sounds_of: None,
         sound_transfers: None,
         resources: None,
@@ -513,6 +515,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
         subscriptions: None,
         custom_commands: None,
         sources: Some(vec![source]),
+        midi_of_sources: None,
         coverage: None,
         role_vocabulary: None,
         remarks: Default::default(),
@@ -525,6 +528,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
 enum Message {
     Cc7(u8),
     Cc14(u8),
+    Relcc(u8),
     Nrpn(u16),
     Rpn(u16),
     Sysex(Vec<u8>),
@@ -590,10 +594,11 @@ fn last_segment(address: &str) -> String {
 }
 
 /// The type of control the descriptor's own words ask for (page, control `type`: fader, list, pad).
-fn look_of(e: &CcEntry) -> (Look, bool) {
-    let range = e.range.filter(|[lo, hi]| lo <= hi);
+fn look_of(e: &CcEntry, way: &Way) -> (Look, bool) {
+    let range = way.range.filter(|[lo, hi]| lo <= hi);
     if let Some(values) = e.values.as_ref().filter(|v| !v.is_empty()) {
-        let mut items: Vec<(i64, String)> = values.iter().map(|(label, n)| (*n, label.clone())).collect();
+        // The labels are the named values as the way written carries them.
+        let mut items: Vec<(i64, String)> = values.iter().map(|v| (e.in_way(v.value, way), v.title.clone())).collect();
         items.sort_by_key(|(n, _)| *n);
         return (Look::List(items), true);
     }
@@ -605,17 +610,6 @@ fn look_of(e: &CcEntry) -> (Look, bool) {
             _ => (Look::Fader, false),
         },
         _ => (Look::Fader, false),
-    }
-}
-
-fn text_remark(remarks: &osd::Remarks, key: &str, at: &str, losses: &mut Vec<Loss>) -> Option<String> {
-    match remarks.get(key) {
-        Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
-        Some(Value::String(_)) | None => None,
-        Some(_) => {
-            loss(losses, format!("{at}/{key}"), "a name is text: this remark is not text");
-            None
-        }
     }
 }
 
@@ -634,81 +628,77 @@ fn address_text(a: &Address) -> String {
 
 fn entry_item(n: usize, e: &CcEntry, losses: &mut Vec<Loss>) -> Option<Item> {
     let at = format!("/cc_params/entries/{n}");
-    let name = text_remark(&e.remarks, "_name", &at, losses)
+    let name = e.title.clone()
         .or_else(|| Some(readable(&e.role.as_ref()?.setting)).filter(|s| !s.is_empty()))
         .unwrap_or_else(|| last_segment(&e.osc));
-    let (look, expects_read) = look_of(e);
+    // The ways in the order the descriptor wrote them: the first the preset can carry is written,
+    // with its own range; the export never reorders them, and every other way is a loss at its place.
+    let ways = &e.ways;
+    let place = |k: usize| format!("{at}/ways/{k}");
+    let mut bindings: Vec<Option<(Message, &'static str)>> = ways.iter().map(way_binding).collect();
+    let Some(chosen) = bindings.iter().position(Option::is_some) else {
+        for (k, w) in ways.iter().enumerate() {
+            loss(losses, place(k), format!("the preset has no message for a {} way", w.ctrl_type));
+        }
+        loss(losses, at, "the control has no complete MIDI binding to write");
+        return None;
+    };
+    let (look, expects_read) = look_of(e, &ways[chosen]);
     for (field, present, reason) in [
-        ("orientation", e.orientation.is_some(), "the preset has no field for an orientation"),
+        ("description", e.description.is_some(), "the preset has no field for it"),
+        ("value_description", e.value_description.is_some(), "the preset has no field for it"),
+        ("notes", e.notes.is_some(), "the preset has no field for it"),
+        ("polarity", e.polarity.is_some(), "the preset has no field for a polarity"),
         ("channel", e.channel.is_some(), "the channel of a preset belongs to its devices, which the export does not describe"),
         ("expects", e.expects.is_some() && !expects_read, "the preset has no field for it: only switch, momentary, trigger and discrete choose a pad or a list"),
         ("transform", e.transform.is_some(), "the preset has no field for it"),
         ("transform_reverse", e.transform_reverse.is_some(), "the preset has no field for it"),
         ("role", e.role.is_some(), "the preset has no field for it"),
-        ("nrpn_lsb_range", e.nrpn_lsb_range.is_some(), "the preset has no field for it"),
     ] {
         if present {
             loss(losses, format!("{at}/{field}"), reason);
         }
     }
-    for key in e.remarks.keys().filter(|k| *k != "_name") {
+    for key in e.remarks.keys() {
         loss(losses, format!("{at}/{}", segment(key)), "the preset has no field for it");
     }
-    // The ways in the order the descriptor wrote them: the first with a complete binding is
-    // written, with its own range; the export never reorders them.
-    let ways = e.ways();
-    let place = |k: usize| if k == 0 { at.clone() } else { format!("{at}/also/{}", k - 1) };
-    let bindings: Vec<Vec<(Message, &'static str, &'static str)>> = ways.iter().enumerate().map(|(k, w)| way_bindings(w, &place(k), losses)).collect();
-    let Some(chosen) = bindings.iter().position(|b| !b.is_empty()) else {
-        loss(losses, at, "the control has no complete MIDI binding to write");
-        return None;
-    };
-    let mut bindings = bindings;
-    let mut written = std::mem::take(&mut bindings[chosen]);
-    let (message, written_kind, _) = written.remove(0);
-    for (_, kind, field) in written {
-        loss(losses, format!("{}/{field}", place(chosen)), format!("a control of the preset sends one message: the {written_kind} way is written, the {kind} binding is not"));
+    let (message, written_kind) = bindings[chosen].take().expect("the chosen way has a binding");
+    if ways[chosen].nrpn_lsb_range.is_some() {
+        loss(losses, format!("{}/nrpn_lsb_range", place(chosen)), "the preset has no field for it");
     }
-    for (k, b) in bindings.iter().enumerate().skip(chosen + 1) {
-        if !b.is_empty() {
-            let kinds: Vec<&str> = b.iter().map(|(_, kind, _)| *kind).collect();
-            loss(
-                losses,
-                place(k),
-                format!("a control of the preset sends one message: the {written_kind} way is written, the {} way is not", kinds.join(" and ")),
-            );
-        }
+    if let Some(note) = way_note(&ways[chosen]) {
+        loss(losses, format!("{}/ctrlIndex", place(chosen)), note);
+    }
+    for (k, b) in bindings.iter().enumerate().filter(|(k, _)| *k != chosen) {
+        let reason = match b {
+            Some((_, kind)) => format!("a control of the preset sends one message: the {written_kind} way is written, the {kind} way is not"),
+            None => format!("the preset has no message for a {} way: the {written_kind} way is written", ways[k].ctrl_type),
+        };
+        loss(losses, place(k), reason);
     }
     Some(Item { pointer: at, name, section: e.section.clone(), range: ways[chosen].range, message, look })
 }
 
-/// The complete bindings of one way, each with the kind the preset names it and its field; what
-/// is incomplete is a loss at the way's place.
-fn way_bindings(w: &osd::Way, at: &str, losses: &mut Vec<Loss>) -> Vec<(Message, &'static str, &'static str)> {
-    let mut bindings = Vec::new();
-    match (w.cc, w.cc_lsb) {
-        (Some(cc), Some(lsb)) if cc <= 31 && lsb == cc + 32 => bindings.push((Message::Cc14(cc), "cc14", "cc")),
-        (Some(cc), lsb) => {
-            if lsb.is_some() {
-                loss(losses, format!("{at}/cc_lsb"), "a 14-bit CC of the preset pairs a CC from 0 to 31 with the CC 32 above it");
-            }
-            bindings.push((Message::Cc7(cc), "cc7", "cc"));
-        }
-        (None, Some(_)) => loss(losses, format!("{at}/cc_lsb"), "an LSB without its CC"),
-        (None, None) => {}
+/// The message of a preset a way is, with the kind the preset names it; `None` for a way of a kind
+/// the preset has no message for. A 14-bit CC the preset cannot pair (a CC above 31, or an LSB not 32
+/// above) is written as its MSB alone, with a loss.
+fn way_binding(w: &Way) -> Option<(Message, &'static str)> {
+    match (w.ctrl_type.as_str(), w.ctrl_index.as_deref().unwrap_or_default()) {
+        ("cc", [cc, lsb]) if *cc <= 31 && *lsb == cc + 32 => Some((Message::Cc14(*cc as u8), "cc14")),
+        ("cc", [cc]) if w.transmit == Some(osd::Direction::Relative) => Some((Message::Relcc(*cc as u8), "relcc")),
+        ("cc", [cc, _] | [cc]) => Some((Message::Cc7(*cc as u8), "cc7")),
+        ("nrpn", [m, l]) => Some((Message::Nrpn((*m as u16) << 7 | *l as u16), "nrpn")),
+        ("rpn", [m, l]) => Some((Message::Rpn((*m as u16) << 7 | *l as u16), "rpn")),
+        _ => None,
     }
-    for (msb, lsb, field, make) in [
-        (w.nrpn_msb, w.nrpn_lsb, "nrpn", Message::Nrpn as fn(u16) -> Message),
-        (w.rpn_msb, w.rpn_lsb, "rpn", Message::Rpn as fn(u16) -> Message),
-    ] {
-        match (msb, lsb) {
-            (Some(m), Some(l)) => bindings.push((make(u16::from(m) << 7 | u16::from(l)), field, field)),
-            (None, None) => {}
-            (Some(_), None) => loss(losses, format!("{at}/{field}_msb"), format!("an {field} needs its MSB and its LSB")),
-            (None, Some(_)) => loss(losses, format!("{at}/{field}_lsb"), format!("an {field} needs its MSB and its LSB")),
-        }
+}
+
+/// Why the way written does not say all its numbers.
+fn way_note(w: &Way) -> Option<&'static str> {
+    match (w.ctrl_type.as_str(), w.ctrl_index.as_deref().unwrap_or_default()) {
+        ("cc", [cc, lsb]) if !(*cc <= 31 && *lsb == cc + 32) => Some("a 14-bit CC of the preset pairs a CC from 0 to 31 with the CC 32 above it"),
+        _ => None,
     }
-    bindings
 }
 
 fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
@@ -717,7 +707,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
         loss(losses, at, "the command has no frame: it is no MIDI message to write");
         return None;
     };
-    let name = text_remark(&c.remarks, "_name", &at, losses).unwrap_or_else(|| last_segment(&address_text(&c.osc)));
+    let name = c.title.clone().unwrap_or_else(|| last_segment(&address_text(&c.osc)));
     let mut bytes = Vec::new();
     for t in frame {
         match t {
@@ -729,6 +719,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
         }
     }
     for (field, present) in [
+        ("description", c.description.is_some()),
         ("notes", c.notes.is_some()),
         ("args", c.args.is_some()),
         ("pre", c.pre.is_some()),
@@ -739,7 +730,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
             loss(losses, format!("{at}/{field}"), "the preset has no field for it");
         }
     }
-    for key in c.remarks.keys().filter(|k| *k != "_name") {
+    for key in c.remarks.keys() {
         loss(losses, format!("{at}/{}", segment(key)), "the preset has no field for it");
     }
     Some(Item { pointer: at, name, section: c.section.clone(), range: None, message: Message::Sysex(bytes), look: Look::Pad })
@@ -748,6 +739,7 @@ fn command_item(n: usize, c: &Command, losses: &mut Vec<Loss>) -> Option<Item> {
 fn message_json(m: &Message) -> Value {
     match m {
         Message::Cc7(n) => json!({"type": "cc7", "deviceId": 1, "parameterNumber": n}),
+        Message::Relcc(n) => json!({"type": "relcc", "deviceId": 1, "parameterNumber": n, "relative": "twosComplement"}),
         Message::Cc14(n) => json!({"type": "cc14", "deviceId": 1, "parameterNumber": n}),
         Message::Nrpn(n) => json!({"type": "nrpn", "deviceId": 1, "parameterNumber": n}),
         Message::Rpn(n) => json!({"type": "rpn", "deviceId": 1, "parameterNumber": n}),
@@ -755,19 +747,19 @@ fn message_json(m: &Message) -> Value {
     }
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     if d.sources.as_ref().is_none_or(|s| s.is_empty()) {
-        return Err(fault(FaultKind::NoSources, "/_sources", "a device without sources is not written: its credit and licence cannot be"));
+        return Err(fault(FaultKind::NoSources, "/sources", "a device without sources is not written: its credit and licence cannot be"));
     }
     let mut losses = Vec::new();
-    loss(&mut losses, "/_sources", "the preset has no field for the credit and the licence of its sources");
+    loss(&mut losses, "/sources", "the preset has no field for the credit and the licence of its sources");
 
     let info = &d.device;
     for (pointer, present) in [
         ("/device/vendor", info.vendor.is_some()),
         ("/device/revision", info.revision.is_some()),
-        ("/device/manufacturer_id", info.manufacturer_id.is_some()),
+        ("/identity/manufacturerId", d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some())),
         ("/device/device_id", info.device_id.is_some()),
         ("/device/rate_limit_hz", info.rate_limit_hz.is_some()),
         ("/device/kind", info.kind.is_some()),

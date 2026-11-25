@@ -519,8 +519,8 @@ pub fn control_document(kind: &str, number: &str, min: &str, max: &str, name: &s
 /// with its credit, 0.6; the blocks given replace those.
 pub fn device_with(extra: Value) -> osd::Resolved {
     let mut doc = json!({
-        "$schema": "https://w3id.org/osd/0.6/device.schema.json",
-        "_sources": [{"type": "community-re", "url": "https://example.org/d", "author": "Dee", "license": "CC-BY-4.0"}],
+        "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+        "sources": [{"type": "community-re", "url": "https://example.org/d", "author": "Dee", "license": "CC-BY-4.0"}],
         "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"},
     });
     for (k, v) in extra.as_object().expect("an object of blocks") {
@@ -530,7 +530,7 @@ pub fn device_with(extra: Value) -> osd::Resolved {
             doc[k] = v.clone();
         }
     }
-    super::resolved(super::device_from(&doc.to_string()))
+    super::resolved(super::device_from_fixture(doc))
 }
 
 pub fn exported(device: &osd::Resolved) -> (String, Vec<osd_formats::Loss>) {

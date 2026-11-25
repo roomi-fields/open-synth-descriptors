@@ -1,0 +1,12 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "T", "osc_prefix": "/t" },
+  "params": {
+    "get_frame": [240, 66, { "arg": "pr" }, { "arg": "p" }, { "arg": "c" }, { "arg": "r" }, 247],
+    "set_frame": [240, 67, { "arg": "pr" }, { "arg": "p" }, { "arg": "c" }, { "arg": "r" }, { "arg": "value" }, 247],
+    "value_type": "u7",
+    "entries": [
+      { "osc": "/osc1/shape", "pr": 16, "p": 2, "c": 0, "r": 0, "range": [0, 100], "transmit": "absolute", "recognize": "absolute", "default": 5 }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "_about": "A fingerprint may say the platform and the stack that belongs to it.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+    "observed": "2026-11-25",
+    "device": {
+      "vendor": "Acme",
+      "model": "Synth",
+      "firmware": "1.0"
+    },
+    "via": "native",
+    "platform": "windows",
+    "stack": "windows-midi-services",
+    "ports": {
+      "outputs": [
+        "synth out"
+      ]
+    }
+  }
+}

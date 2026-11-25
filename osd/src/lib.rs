@@ -10,12 +10,16 @@
 //! ```
 
 mod address;
+mod convert;
 mod device;
+mod flat;
 mod file_write;
 mod fingerprint;
 mod firmware;
 mod frame;
 mod json;
+mod matching;
+mod providers;
 mod resolve;
 mod resource;
 mod assembly;
@@ -24,13 +28,14 @@ mod role_vocabulary;
 mod sound;
 mod sound_transfer;
 mod vocabulary;
+mod warnings;
 
 pub use address::{Address, Segment};
 pub use device::{
     Arg, ArgType, Bank, CcEntry, CcParams, ChannelMode, Command, CustomCommand, Device, DeviceIdRange, DeviceInfo,
-    DeviceKind, Dump, DumpKind, Fidelity, FirmwareRule, Forward, Identity, IdentityTo, MatchArg, MidiIn, MidiOut, MidiTemplates, MidiType,
-    NoteOff,
-    Orientation, ParamEntry, Params, Pre, Profile, Programs, Reply, Scalar, ScriptProfile, Sends, Source,
+    DeviceKind, Dump, DumpKind, EndpointRule, Fidelity, FirmwareRule, Forward, Identity, IdentityTo, MatchArg, MidiIn, MidiOut,
+    MidiTemplates, MidiType, NamedValue, NamedValues, NoteOff, Direction,
+    ParamEntry, Params, Platform, Polarity, PortDirection, PortOperator, PortRule, Pre, Stack, Profile, Programs, Reading, ReadingState, ControlReading, Reply, Scalar, ScriptProfile, Sends, Source,
     Subscription, SubscriptionOn, Sysex, Transport, TransportKind, Trigger, Triggers, Unpack, UsbId, ValueType, Way,
 };
 pub use frame::{Algorithm, BinOp, Encoding, Expr, FramePart, FrameToken, IdentityPart};
@@ -41,6 +46,9 @@ pub use firmware::{
 };
 pub use assembly::{judge_needs, resolve_assembly, Assembly, NeedJudgement, PinnedFirmware, PinnedModule, Verdict};
 pub use json::Remarks;
+pub use matching::{match_identity, same_product_instance_id, MatchVerdict, RuleMatch};
+pub use providers::PROVIDERS_VERSION;
+pub use warnings::{warnings, Warning, WarningKind};
 pub use resolve::{complete_descriptor, resolve, Files, Resolved};
 pub use file_write::{encode as encode_chunk, Coding,FileItem, NumberAs, ReplyToken, SendToken, Step, StepKind};
 pub use resource::{resource_path, CanSet, CarriedBy, FileWrite, PathSegment, PathVariable, Resource, ResourceVia};
@@ -76,6 +84,8 @@ pub enum Version {
     V0_4,
     V0_5,
     V0_6,
+    /// A candidate build, not published.
+    V0_7,
 }
 
 impl Version {
@@ -85,12 +95,13 @@ impl Version {
             Version::V0_4 => "0.4",
             Version::V0_5 => "0.5",
             Version::V0_6 => "0.6",
+            Version::V0_7 => "0.7",
         }
     }
 }
 
 /// The versions this crate reads.
-pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5, Version::V0_6];
+pub const VERSIONS: &[Version] = &[Version::V0_4, Version::V0_5, Version::V0_6, Version::V0_7];
 
 /// The latest published version: what [`convert`] writes and what the
 /// `osd init` templates declare.
@@ -215,7 +226,7 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     Ok(match kind {
         Kind::Device => {
             sound_transfer::check_controls(v, false)?;
-            let mut d = Device::read(v, &at)?;
+            let mut d = device::read_device(v, &at)?;
             if is_05_form(d.schema) {
                 device::check_capabilities(&d)?;
             }
@@ -237,9 +248,9 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
             }
             Descriptor::Device(Box::new(d))
         }
-        Kind::Profile => Descriptor::Profile(Box::new(Profile::read(v, &at)?)),
+        Kind::Profile => Descriptor::Profile(Box::new(device::read_profile(v, &at)?)),
         Kind::Sound => Descriptor::Sound(Box::new(Sound::read(v, &at)?)),
-        Kind::Fingerprint => Descriptor::Fingerprint(Box::new(Fingerprint::read(v, &at)?)),
+        Kind::Fingerprint => Descriptor::Fingerprint(Box::new(fingerprint::read_fingerprint(v, &at)?)),
         Kind::Firmware => Descriptor::Firmware(Box::new(Firmware::read(v, &at)?)),
         Kind::Assembly => Descriptor::Assembly(Box::new(Assembly::read(v, &at)?)),
     })
@@ -249,8 +260,8 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
 /// key for key.
 pub fn write(d: &Descriptor) -> String {
     let v = match d {
-        Descriptor::Device(x) => x.write(),
-        Descriptor::Profile(x) => x.write(),
+        Descriptor::Device(x) => device::write_device(x),
+        Descriptor::Profile(x) => device::write_profile(x),
         Descriptor::Sound(x) => x.write(),
         Descriptor::Fingerprint(x) => x.write(),
         Descriptor::Firmware(x) => x.write(),
@@ -276,7 +287,7 @@ impl Version {
     fn host(self) -> &'static str {
         match self {
             Version::V0_4 => HOST_0_4,
-            Version::V0_5 | Version::V0_6 => HOST_W3ID,
+            Version::V0_5 | Version::V0_6 | Version::V0_7 => HOST_W3ID,
         }
     }
 
@@ -402,7 +413,7 @@ pub fn convert(text: &str, kind: Kind) -> Result<String, Fault> {
 /// entry is written once; a target older than the text, or 0.4, is refused
 /// at `/$schema`.
 pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fault> {
-    let d = read(text, kind)?;
+    let d = read(text, kind).map_err(|f| if target >= Version::V0_7 { convert::orientation_not_convertible(f) } else { f })?;
     let from = d.schema().unwrap_or(Version::V0_4);
     if let (Descriptor::Fingerprint(f), true) = (&d, target >= Version::V0_6 && from < Version::V0_6) {
         fingerprint::check_subject(f, &At::Root)?;
@@ -414,36 +425,18 @@ pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fau
             format!("a descriptor of {} is not converted to {}: conversion goes forward only", from.name(), target.name()),
         ));
     }
-    if from == target || from == Version::V0_5 {
-        let kept = convert_same(text, &d)?;
-        if from == target {
-            return Ok(kept);
-        }
-        // 0.5 to 0.6: the address changes, the values stay.
-        let Ok(Value::Object(mut v)) = serde_json::from_str::<Value>(&kept) else { unreachable!("a descriptor is a JSON object") };
-        v.insert("$schema".into(), SchemaUrl(kind_name(kind)).write(&target).unwrap_or_default());
-        if kind == Kind::Firmware && target >= Version::V0_6 {
-            firmware_targets_of(&mut v);
-        }
-        if target >= Version::V0_6 {
-            tighten_writings(&mut v)?;
-            full_value_width(&mut v);
-        }
-        let mut out = serde_json::to_string_pretty(&Value::Object(v)).unwrap_or_default();
-        out.push('\n');
-        // The converter writes nothing its own reader refuses (a message claimed twice, across
-        // controls or ways, `spec/0.6.md` "A reader MUST refuse the later claim of a message"): the
-        // refusal is the reader's, at the same place, and no text is returned.
-        if target >= Version::V0_6 {
-            read(&out, kind).map_err(|f| Fault { kind: FaultKind::NotConvertible, ..f })?;
-        }
-        return Ok(out);
+    if from == target {
+        return convert_same(text, &d);
     }
-    let via_05 = convert_from_04(d, kind)?;
-    if target == Version::V0_5 {
-        return Ok(via_05);
-    }
-    convert_to(&via_05, kind, target)
+    convert::carry(text, kind, from, target)
+}
+
+/// The flat fields that give each kind of message of a control: a CC, an NRPN, an RPN.
+const MESSAGE_FIELDS: [[&str; 2]; 3] = [["cc", "cc_lsb"], ["nrpn_msb", "nrpn_lsb"], ["rpn_msb", "rpn_lsb"]];
+
+/// Whether the flat fields of a control name more than one kind of message.
+fn mixes(control: &serde_json::Map<String, Value>) -> bool {
+    MESSAGE_FIELDS.iter().filter(|keys| keys.iter().any(|k| control.contains_key(*k))).count() > 1
 }
 
 /// The three writings 0.6 tightens, from a 0.5 text: a SysEx text in lower case is written in upper
@@ -452,13 +445,6 @@ pub fn convert_to(text: &str, kind: Kind, target: Version) -> Result<String, Fau
 /// and at the content: the converter does not choose which to keep and invents no content.
 fn tighten_writings(v: &mut serde_json::Map<String, Value>) -> Result<(), Fault> {
     let refuse = |pointer: String, rule: &str| Fault { kind: FaultKind::NotConvertible, file: None, pointer, rule: rule.into() };
-    let mixes = |entry: &serde_json::Map<String, Value>| {
-        [&["cc", "cc_lsb"][..], &["nrpn_msb", "nrpn_lsb"], &["rpn_msb", "rpn_lsb"]]
-            .iter()
-            .filter(|keys| keys.iter().any(|k| entry.contains_key(*k)))
-            .count()
-            > 1
-    };
     const RULE: &str = "the flat fields of a control mix a CC, an NRPN or an RPN";
     for table in ["cc_params", "params"] {
         let Some(Value::Array(entries)) = v.get(table).and_then(|c| c.get("entries")) else { continue };

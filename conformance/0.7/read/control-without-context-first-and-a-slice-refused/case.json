@@ -1,0 +1,9 @@
+{
+  "_about": "A slice after a way with no context: no coordinate in common, refused.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

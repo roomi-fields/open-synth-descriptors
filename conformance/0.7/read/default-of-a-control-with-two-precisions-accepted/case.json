@@ -1,0 +1,20 @@
+{
+  "_about": "A control with `default` 8192, a 14-bit NRPN way and a 7-bit CC way is valid: the reference scale is the NRPN's (the most precise), so the default is 8192 on the NRPN and 64 on the CC.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "default": 8192,
+          "ways": [
+            { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14 },
+            { "ctrlType": "cc", "ctrlIndex": [74] }
+          ]
+        }
+      ]
+    }
+  }
+}

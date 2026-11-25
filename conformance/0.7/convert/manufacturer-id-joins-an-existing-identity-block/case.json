@@ -1,0 +1,23 @@
+{
+  "_about": "With an `identity` block already there, `device.manufacturer_id` joins it as `manufacturerId`; the block's other keys stay.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "identity": {
+      "reply": [
+        240,
+        126,
+        "any",
+        6,
+        2
+      ],
+      "manufacturerId": [
+        66
+      ]
+    }
+  }
+}

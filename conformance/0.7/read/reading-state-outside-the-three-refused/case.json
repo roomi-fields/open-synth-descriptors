@@ -1,0 +1,8 @@
+{
+  "_about": "A `state` outside `valid`, `to-confirm` and `refuted` is refused as BadValue at the state.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/commands/0/readings/0/state"
+  }
+}

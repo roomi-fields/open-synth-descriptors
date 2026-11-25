@@ -1,0 +1,15 @@
+{
+  "_about": "A `transform` on another entry still requires Lua after `transform_reverse` is removed: `capabilities` [lua] stays.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "capabilities": ["lua"],
+    "cc_params": {
+      "entries": [
+        { "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] },
+        { "osc": "/b", "ways": [{ "ctrlType": "cc", "ctrlIndex": [2] }], "transform": "x * 2" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "_about": "`readings` of a control is a non-empty list: an empty one is refused as BadValue.",
+  "read": "device",
+  "schema_pointer": "/cc_params/entries/0/readings",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/readings"
+  }
+}

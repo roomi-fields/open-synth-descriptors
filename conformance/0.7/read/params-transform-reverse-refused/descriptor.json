@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "capabilities": ["lua"],
+  "device": { "name": "S", "osc_prefix": "/s" },
+  "params": {
+    "get_frame": [240, 247],
+    "set_frame": [240, 247],
+    "value_type": "u7",
+    "entries": [{ "osc": "/b", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [3] }], "transform": "x * 2", "transform_reverse": "x // 2" }]
+  }
+}

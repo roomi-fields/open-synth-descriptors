@@ -1,0 +1,21 @@
+{
+  "_about": "`device.manufacturer_id` becomes `identity.manufacturerId`, the same bytes; `device.device_id` stays where it is.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t",
+      "device_id": [
+        0
+      ]
+    },
+    "identity": {
+      "manufacturerId": [
+        0,
+        32,
+        41
+      ]
+    }
+  }
+}

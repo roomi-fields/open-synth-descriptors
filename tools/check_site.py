@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Checks the public site against the publication list (tools/site.list).
 
-    python tools/check_site.py --site <built folder>
-    python tools/check_site.py <base address>     (a local server, the Pages address, the w3id address)
+    python tools/check_site.py --site <built folder> [--candidates FILE]
+    python tools/check_site.py <base address> [--candidates FILE]
+                                  (a local server, the Pages address, the w3id address)
 
-Every `$id` of a published schema must answer at its path (the w3id rule maps
+A published schema is one of tools/site.list that no candidate of the list of candidates
+(tools/candidates.list, or the file given) withholds. Every `$id` of a published schema must answer at its path (the w3id rule maps
 https://w3id.org/osd/<version>/<name> to <Pages root>/schemas/<version>/<name>), the home page
 must answer, and the workshop's files must answer 404. Exit 1, naming each failure.
 """
+import argparse
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+import candidates
 import site_list
 
 LIST = "site.list"
@@ -29,13 +33,20 @@ def status(url):
 
 
 def main():
-    args = sys.argv[1:]
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("base", nargs="?")
+    parser.add_argument("--site")
+    parser.add_argument("--candidates")
+    args = parser.parse_args()
+    if (args.base is None) == (args.site is None):
+        raise SystemExit(__doc__)
     folders, home = site_list.read(LIST)
     home_name = Path(home).name
-    ids = site_list.ids(folders)
+    listed = candidates.read(args.candidates)
+    ids = [(id_, path) for id_, path in site_list.ids(folders) if not candidates.withholds(listed, path)]
     failures = []
-    if len(args) == 2 and args[0] == "--site":
-        site = Path(args[1])
+    if args.site is not None:
+        site = Path(args.site)
         if not (site / home_name).is_file():
             failures.append(f"home page {home_name} is missing")
         for id_, path in ids:
@@ -44,8 +55,8 @@ def main():
         for path in MUST_BE_ABSENT:
             if (site / path).exists():
                 failures.append(f"{path} is in the site folder")
-    elif len(args) == 1:
-        base = args[0] if args[0].endswith("/") else args[0] + "/"
+    else:
+        base = args.base if args.base.endswith("/") else args.base + "/"
         # Behind the w3id rule the schemas answer at <host>/osd/<version>/<name>.
         w3id = "w3id.org" in base
         urls = [base if w3id else base + home_name]
@@ -59,8 +70,6 @@ def main():
             code = status(base + path)
             if code != 404:
                 failures.append(f"{base + path}: expected 404, got {code}")
-    else:
-        raise SystemExit(__doc__)
     for failure in failures:
         print(failure)
     if failures:

@@ -1,0 +1,6 @@
+{
+  "_about": "Two controls with a `cc` 7 way and no `in`: the later way claims the message again, on both sides, and is refused as BadValue naming the earlier.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/1/ways/0" }
+}

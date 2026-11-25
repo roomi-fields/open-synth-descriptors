@@ -1,0 +1,10 @@
+{
+  "_about": "A rule on the endpoint name says nothing of a fingerprint with none.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/endpoint_name",
+      "verdict": "not_applied"
+    }
+  ]
+}

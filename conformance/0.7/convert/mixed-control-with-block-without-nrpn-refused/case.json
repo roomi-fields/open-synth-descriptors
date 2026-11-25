@@ -1,0 +1,8 @@
+{
+  "_about": "A control that mixes a CC and an RPN and gives an `nrpn_lsb_range` has no NRPN way to carry the block: the converter refuses at the control and returns no text.",
+  "convert": "device",
+  "fault": {
+    "kind": "NotConvertible",
+    "pointer": "/cc_params/entries/1"
+  }
+}

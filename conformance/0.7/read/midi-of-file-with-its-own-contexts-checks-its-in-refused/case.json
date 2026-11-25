@@ -1,0 +1,9 @@
+{
+  "_about": "A `midi_of` file that declares `contexts` is checked against them.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/in/part"
+  }
+}

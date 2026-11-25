@@ -1,0 +1,5 @@
+{
+  "_about": "`_sources` beside `sources` is refused too, as BadValue at `/_sources`.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/_sources" }
+}

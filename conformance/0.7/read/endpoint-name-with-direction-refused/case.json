@@ -1,0 +1,8 @@
+{
+  "_about": "An endpoint is one for both directions: its rule has no direction.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/identity/endpoint_name/direction"
+  }
+}

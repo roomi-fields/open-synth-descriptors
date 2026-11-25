@@ -1,0 +1,20 @@
+{
+  "_about": "A note control (a pad) with `values` as a list of `{value, title}`: valid.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/pad/1",
+          "values": [
+            { "value": 0, "title": "off" },
+            { "value": 127, "title": "on" }
+          ],
+          "ways": [{ "ctrlType": "note", "ctrlIndex": [36] }]
+        }
+      ]
+    }
+  }
+}

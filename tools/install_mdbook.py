@@ -3,6 +3,10 @@
 
     python tools/install_mdbook.py [--pin FILE] [--cache FOLDER]
 
+The cache folder is the one --cache names; without it, the one the variable MDBOOK names; with
+MDBOOK unset or empty, the default folder under the home. A cache folder this run cannot write is
+only read: it serves when it holds the pinned archive and its binary, and is refused otherwise.
+
 An archive already in the cache folder under its release name is used without any download; one
 whose checksum differs from the pin is refused and left as found. A missing archive is downloaded
 from the pin's address, checked, then kept. The last line printed is the path of the binary; any
@@ -11,6 +15,7 @@ failure exits 1 and prints no path: the tool is installed or the build fails, ne
 import argparse
 import hashlib
 import os
+import shlex
 import shutil
 import sys
 import tarfile
@@ -22,6 +27,11 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_PIN = HERE / "mdbook.pin"
 # The workstation's shared cache folder, its name written in two parts (no workshop word in the public tree).
 DEFAULT_CACHE = Path.home() / ".cache" / ("grill" + "house") / "mdbook"
+
+
+def cache_folder():
+    """The cache folder of a run that gives no --cache."""
+    return os.environ.get("MDBOOK") or DEFAULT_CACHE
 
 
 def fail(message):
@@ -50,12 +60,36 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def install(pin_path=DEFAULT_PIN, cache=DEFAULT_CACHE):
+def refuse_unwritable(pin_path, cache, missing):
+    """Exits 1: the cache folder cannot be written and lacks what the pin asks for."""
+    command = shlex.join(
+        ["python", "tools/install_mdbook.py", "--pin", str(pin_path), "--cache", str(cache)]
+    )
+    fail(
+        f"{cache}: cannot be written and holds no {missing}: fill it outside the envelope, "
+        f"from the repository root, with: {command}"
+    )
+
+
+def writable(folder):
+    """True when a file can be created in the folder, made if absent."""
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryFile(dir=folder):
+            return True
+    except OSError:
+        return False
+
+
+def install(pin_path=DEFAULT_PIN, cache=None):
     """Returns the path of the pinned binary, or exits 1 naming why it cannot."""
     pin = read_pin(pin_path)
-    cache = Path(cache)
-    cache.mkdir(parents=True, exist_ok=True)
+    cache = Path(cache_folder() if cache is None else cache)
     archive = cache / pin["url"].rsplit("/", 1)[-1]
+    target = cache / f"mdbook-{pin['sha256'][:16]}"
+    binary = target / "mdbook"
+    if not (archive.is_file() and binary.is_file()) and not writable(cache):
+        refuse_unwritable(pin_path, cache, binary if archive.is_file() else archive.name)
     if not archive.is_file():
         fd, tmp = tempfile.mkstemp(dir=cache, suffix=".part")
         try:
@@ -73,8 +107,6 @@ def install(pin_path=DEFAULT_PIN, cache=DEFAULT_CACHE):
     got = sha256(archive)
     if got != pin["sha256"]:
         fail(f"checksum of {archive} is {got}, the pin says {pin['sha256']}: refused, left as found")
-    target = cache / f"mdbook-{pin['sha256'][:16]}"
-    binary = target / "mdbook"
     if not binary.is_file():
         target.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive) as tar:
@@ -90,7 +122,7 @@ def install(pin_path=DEFAULT_PIN, cache=DEFAULT_CACHE):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pin", default=DEFAULT_PIN)
-    parser.add_argument("--cache", default=DEFAULT_CACHE)
+    parser.add_argument("--cache")
     args = parser.parse_args()
     print(install(args.pin, args.cache))
 

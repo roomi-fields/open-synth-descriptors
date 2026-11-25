@@ -1,0 +1,14 @@
+{
+  "_about": "A `note` 60 and a `pPress` 60 are two messages: their kinds differ, so they are not claimed against each other.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        { "osc": "/pad/60", "ways": [{ "ctrlType": "note", "ctrlIndex": [60] }] },
+        { "osc": "/press/60", "ways": [{ "ctrlType": "pPress", "ctrlIndex": [60] }] }
+      ]
+    }
+  }
+}

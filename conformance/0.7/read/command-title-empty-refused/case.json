@@ -1,0 +1,8 @@
+{
+  "_about": "An empty `title` of a command is refused as BadValue.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/commands/0/title"
+  }
+}

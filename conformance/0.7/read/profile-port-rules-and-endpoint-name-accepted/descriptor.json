@@ -1,0 +1,18 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+  "identity": {
+    "ports": [
+      {
+        "operator": "ends_with",
+        "value": "MIDI 1",
+        "direction": "input",
+        "platform": "linux",
+        "stack": "alsa-seq"
+      }
+    ],
+    "endpoint_name": {
+      "operator": "equals",
+      "value": "Synth"
+    }
+  }
+}

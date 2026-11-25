@@ -1,0 +1,47 @@
+{
+  "_about": "A 0.7 profile makes the resolution 0.7: the 0.6 device is converted first, and its own keys, the nearest, win.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "request": [
+        240,
+        126,
+        127,
+        6,
+        1,
+        247
+      ],
+      "ports": [
+        {
+          "operator": "contains",
+          "value": "Mine"
+        }
+      ],
+      "endpoint_name": {
+        "operator": "contains",
+        "value": "Synth"
+      },
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

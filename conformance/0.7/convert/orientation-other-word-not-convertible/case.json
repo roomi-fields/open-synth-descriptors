@@ -1,0 +1,8 @@
+{
+  "_about": "An `orientation` word outside `centered` and `0-based`, in a 0.6 text a converter receives without having checked it against the schema, is refused as NotConvertible at the field.",
+  "convert": "device",
+  "fault": {
+    "kind": "NotConvertible",
+    "pointer": "/cc_params/entries/1/orientation"
+  }
+}

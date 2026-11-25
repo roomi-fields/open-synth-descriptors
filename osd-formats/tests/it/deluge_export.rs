@@ -75,8 +75,8 @@ fn a_cc_comes_out_with_its_name_and_the_fields_the_format_does_not_carry_are_nam
     let (text, lost) = exported(&d);
     assert_eq!(name_of(&text, 74).as_deref(), Some("/filter/cutoff"));
     let p = places(&lost);
-    for field in ["range", "default", "priority", "channel", "values"] {
-        let place = format!("/cc_params/entries/0/{field}");
+    for place in ["/cc_params/entries/0/ways/0/range", "/cc_params/entries/0/default", "/cc_params/entries/0/priority", "/cc_params/entries/0/channel", "/cc_params/entries/0/values"] {
+        let place = place.to_string();
         assert!(p.contains(&place.as_str()), "{place} is not named: {p:?}");
     }
     assert!(!p.contains(&"/cc_params/entries/0"), "the command is written: {p:?}");
@@ -152,14 +152,14 @@ fn the_document_holds_no_tag_nor_attribute_but_midi_device_cc_labels_and_its_num
 #[test]
 fn the_document_carries_the_credit_and_licence_of_each_source_in_a_comment_and_names_the_sources_lost() {
     let d = device(json!({
-        "_sources": [
+        "sources": [
             {"type": "community-re", "url": "https://example.org/one", "author": "First Maker", "license": "CC-BY-4.0"},
             {"type": "vendor-doc", "url": "https://example.org/two", "attribution": "Second Co", "license": "MIT"},
         ],
         "cc_params": {"entries": [{"osc": "/a", "cc": 1}]},
     }));
     let t = export(&d, Format::Deluge).unwrap();
-    assert!(places(&t.lost).contains(&"/_sources"), "{:?}", t.lost);
+    assert!(places(&t.lost).contains(&"/sources"), "{:?}", t.lost);
     let lines = credit_to_carry(&d, &t.lost);
     assert_eq!(lines.len(), 2);
     assert_well_formed(&t.value);
@@ -173,7 +173,7 @@ fn the_document_carries_the_credit_and_licence_of_each_source_in_a_comment_and_n
 #[test]
 fn a_credit_with_double_hyphens_is_broken_so_that_the_comment_stays_well_formed() {
     let d = device(json!({
-        "_sources": [{"type": "community-re", "url": "https://example.org/a--b", "author": "Foo--Bar", "license": "CC-BY-4.0"}],
+        "sources": [{"type": "community-re", "url": "https://example.org/a--b", "author": "Foo--Bar", "license": "CC-BY-4.0"}],
         "cc_params": {"entries": [{"osc": "/a", "cc": 1}]},
     }));
     let (text, _) = exported(&d);
@@ -186,7 +186,7 @@ fn a_credit_with_double_hyphens_is_broken_so_that_the_comment_stays_well_formed(
 
 #[test]
 fn a_device_without_sources_is_refused() {
-    let d = device(json!({"_sources": null, "cc_params": {"entries": [{"osc": "/a", "cc": 1}]}}));
+    let d = device(json!({"sources": null, "cc_params": {"entries": [{"osc": "/a", "cc": 1}]}}));
     let f = export(&d, Format::Deluge).unwrap_err();
     assert_eq!(f.kind, FaultKind::NoSources);
 }

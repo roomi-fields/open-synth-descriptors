@@ -20,7 +20,7 @@ fn with_sources(mut sources: Value) -> osd::Resolved {
             s["license"] = json!("CC-BY-4.0");
         }
     }
-    let mut d = device(json!({ "_sources": sources }));
+    let mut d = device(json!({ "sources": sources }));
     for (s, license) in d.device.sources.as_mut().unwrap().iter_mut().zip(raw) {
         s.license = license;
     }
@@ -79,7 +79,7 @@ fn a_source_under_a_compatible_licence_gets_its_source_line_alone_and_no_loss() 
         let h = header(&text);
         assert_eq!(h.len(), 5, "{license}: {h:?}");
         assert!(h[4].starts_with("# Source: ") && h[4].contains(license), "{license}: {h:?}");
-        assert!(!places(&lost).iter().any(|p| p.starts_with("/_sources")), "{license}: {lost:?}");
+        assert!(!places(&lost).iter().any(|p| p.starts_with("/sources")), "{license}: {lost:?}");
     }
 }
 
@@ -88,7 +88,7 @@ fn the_licence_is_read_by_its_identifier_without_spaces_or_case() {
     for license in [" cc-by-4.0 ", "mit", "  Apache-2.0", "gpl-3.0-or-later "] {
         let (text, lost) = exported(&with_license(license));
         assert_eq!(header(&text).len(), 5, "{license:?}: {text}");
-        assert!(!places(&lost).iter().any(|p| p.starts_with("/_sources")), "{license:?}: {lost:?}");
+        assert!(!places(&lost).iter().any(|p| p.starts_with("/sources")), "{license:?}: {lost:?}");
     }
 }
 
@@ -99,7 +99,7 @@ fn a_source_under_a_licence_not_allowed_under_the_agpl_is_named_under_its_source
     assert_eq!(h.len(), 6, "{h:?}");
     assert_eq!(h[4], "# Source: Dee, https://example.org/d, GPL-2.0-only (community-re)");
     assert_eq!(h[5], format!("{NOT_ALLOWED}GPL-2.0-only"));
-    let l = lost.iter().find(|l| l.place == "/_sources/0/license").unwrap_or_else(|| panic!("{lost:?}"));
+    let l = lost.iter().find(|l| l.place == "/sources/0/license").unwrap_or_else(|| panic!("{lost:?}"));
     assert_eq!(l.reason, h[5].trim_start_matches("# "));
 }
 
@@ -110,7 +110,7 @@ fn another_known_licence_outside_the_list_is_not_allowed_too() {
         let h = header(&text);
         assert_eq!(h.len(), 6, "{license}: {h:?}");
         assert!(h[5].starts_with(NOT_ALLOWED), "{license}: {h:?}");
-        assert!(places(&lost).contains(&"/_sources/0/license"), "{license}: {lost:?}");
+        assert!(places(&lost).contains(&"/sources/0/license"), "{license}: {lost:?}");
     }
 }
 
@@ -122,7 +122,7 @@ fn a_source_with_a_free_text_licence_an_expression_or_an_unknown_identifier_is_n
         assert_eq!(h.len(), 6, "{license}: {h:?}");
         assert!(h[4].starts_with("# Source: "), "{h:?}");
         assert_eq!(h[5], format!("{NOT_RECOGNISED}{license}"));
-        let l = lost.iter().find(|l| l.place == "/_sources/0/license").unwrap_or_else(|| panic!("{license}: {lost:?}"));
+        let l = lost.iter().find(|l| l.place == "/sources/0/license").unwrap_or_else(|| panic!("{license}: {lost:?}"));
         assert_eq!(l.reason, h[5].trim_start_matches("# "));
     }
 }
@@ -134,7 +134,7 @@ fn a_source_without_a_licence_is_not_recognised() {
         let h = header(&text);
         assert_eq!(h.len(), 6, "{h:?}");
         assert!(h[5].starts_with(NOT_RECOGNISED.trim_end()), "{h:?}");
-        assert!(places(&lost).contains(&"/_sources/0/license"), "{lost:?}");
+        assert!(places(&lost).contains(&"/sources/0/license"), "{lost:?}");
     }
 }
 
@@ -152,8 +152,8 @@ fn each_source_gets_its_own_warning_under_its_own_line_and_its_own_loss_place() 
     assert_eq!(h[at("Fay") + 1], format!("{NOT_RECOGNISED}MIT-like"));
     assert!(!h[at("Dee") + 1].starts_with("# Licence"), "{h:?}");
     let p = places(&lost);
-    assert!(p.contains(&"/_sources/1/license") && p.contains(&"/_sources/2/license"), "{p:?}");
-    assert!(!p.contains(&"/_sources/0/license"), "{p:?}");
+    assert!(p.contains(&"/sources/1/license") && p.contains(&"/sources/2/license"), "{p:?}");
+    assert!(!p.contains(&"/sources/0/license"), "{p:?}");
 }
 
 #[test]

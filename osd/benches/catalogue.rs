@@ -4,6 +4,12 @@
 //! machine nothing is measured: its times say nothing of the reader.
 //! The files are held in memory first, so only `osd` is measured.
 //!
+//! The catalogue is measured as stored, then converted to 0.7 in memory, the
+//! conversion out of the time measured, under the same bounds, per kB of the
+//! converted files read. A driver the conversion or the resolution refuses is
+//! left aside there and counted: the catalogue test carries the refusal
+//! (`cargo test -p osd`).
+//!
 //!     SYNTHHUB_DEVICES=<catalogue> cargo bench -p osd
 
 use std::collections::HashMap;
@@ -49,9 +55,44 @@ fn main() {
     }
     drivers.sort();
 
+    println!("the catalogue as stored:");
+    let mut over: Vec<String> = measure(&files, &drivers).into_iter().map(|why| format!("as stored: {why}")).collect();
+
+    let converted = converted_to_0_7(&files);
+    let kept: Vec<String> = drivers.iter().filter(|id| osd::resolve(id, &converted).is_ok()).cloned().collect();
+    println!("the catalogue converted to 0.7:");
+    println!("{} drivers left aside: the conversion or the resolution refuses them", drivers.len() - kept.len());
+    over.extend(measure(&converted, &kept).into_iter().map(|why| format!("converted to 0.7: {why}")));
+
+    assert!(over.is_empty(), "{}", over.join("\n"));
+}
+
+/// The drivers and maker profiles of `files` converted to 0.7, by the same
+/// catalogue ids; a file whose conversion is refused is absent.
+fn converted_to_0_7(files: &HashMap<String, String>) -> HashMap<String, String> {
+    files
+        .iter()
+        .filter_map(|(id, text)| {
+            let kind = match id.split_once('/')?.1 {
+                name if name.starts_with("_profile") => osd::Kind::Profile,
+                name if name.starts_with('_') => return None,
+                _ => osd::Kind::Device,
+            };
+            Some((id.clone(), osd::convert_to(text, kind, osd::Version::V0_7).ok()?))
+        })
+        .collect()
+}
+
+/// Reads and resolves each of `drivers` from `files`, prints the times, and
+/// returns each bound they exceed (osd/docs/CADRE.md R16).
+fn measure(files: &HashMap<String, String>, drivers: &[String]) -> Vec<String> {
+    if drivers.is_empty() {
+        println!("no driver: nothing measured");
+        return Vec::new();
+    }
     let start = Instant::now();
-    for id in &drivers {
-        osd::resolve(id, &files).unwrap_or_else(|f| panic!("{f}"));
+    for id in drivers {
+        osd::resolve(id, files).unwrap_or_else(|f| panic!("{f}"));
     }
     let whole = start.elapsed();
 
@@ -61,12 +102,12 @@ fn main() {
             let fastest = (0..RUNS)
                 .map(|_| {
                     let t = Instant::now();
-                    std::hint::black_box(osd::resolve(id, &files).unwrap());
+                    std::hint::black_box(osd::resolve(id, files).unwrap());
                     t.elapsed()
                 })
                 .min()
                 .unwrap();
-            let read: usize = osd::resolve(id, &files).unwrap().files.iter().map(|f| files[f].len()).sum();
+            let read: usize = osd::resolve(id, files).unwrap().files.iter().map(|f| files[f].len()).sum();
             (fastest, id.as_str(), read)
         })
         .collect();
@@ -82,6 +123,12 @@ fn main() {
         .collect();
     println!("{} drivers read and resolved in {whole:?}; one driver: median {median:?}", drivers.len());
     println!("{} drivers take {PER_KB:?} per kB or more:\n{}", over.len(), over.join("\n"));
-    assert!(whole < Duration::from_secs(2), "the catalogue takes {whole:?}");
-    assert!(over.is_empty(), "{} drivers take {PER_KB:?} per kB or more", over.len());
+    let mut exceeded = Vec::new();
+    if whole >= Duration::from_secs(2) {
+        exceeded.push(format!("the catalogue takes {whole:?}"));
+    }
+    if !over.is_empty() {
+        exceeded.push(format!("{} drivers take {PER_KB:?} per kB or more", over.len()));
+    }
+    exceeded
 }

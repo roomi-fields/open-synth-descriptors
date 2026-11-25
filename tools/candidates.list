@@ -1,0 +1,5 @@
+# The versions of the format still candidate: built in the open, not accepted, free to change before
+# their acceptance. The site, the book and tools/validate.py read this file.
+# One version per line, followed by the paths under schemas/ that it brings outside its folder;
+# `#` opens a comment line. The acceptance of a version removes its line.
+0.7 schemas/providers.json schemas/providers.schema.json

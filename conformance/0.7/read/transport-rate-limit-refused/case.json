@@ -1,0 +1,5 @@
+{
+  "_about": "`device.transport.rate_limit_hz` is not a field of 0.7: refused as UnknownField at its pointer (`device.rate_limit_hz` stays).",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/device/transport/rate_limit_hz" }
+}

@@ -1,0 +1,54 @@
+{
+  "_about": "`_electra` of type `sysex` with an integer `number` becomes `id` on the command, the number to the byte; two commands with the same number both keep it; a `virtual` one gets no `id` and keeps its `_electra` as a note.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "commands": [
+      {
+        "osc": "/level_s1",
+        "id": 1,
+        "frame": [
+          240,
+          125,
+          247
+        ]
+      },
+      {
+        "osc": "/level_s1_again",
+        "id": 1,
+        "frame": [
+          240,
+          125,
+          247
+        ]
+      },
+      {
+        "osc": "/level_s2",
+        "id": 405,
+        "frame": [
+          240,
+          125,
+          247
+        ]
+      },
+      {
+        "osc": "/dev_id",
+        "_electra": {
+          "parameter": {
+            "type": "virtual",
+            "number": 405
+          }
+        },
+        "frame": [
+          240,
+          125,
+          247
+        ]
+      }
+    ]
+  }
+}

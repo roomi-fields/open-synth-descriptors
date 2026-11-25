@@ -35,19 +35,21 @@ fn the_address_prefix_is_built_from_the_name_in_lower_case_words_joined_by_under
 #[test]
 fn each_kind_of_control_becomes_an_entry_with_its_binding_its_range_and_its_name() {
     let kinds = [
-        ("7bit", "74", json!({"cc": 74})),
-        ("14bit", "5", json!({"cc": 5, "cc_lsb": 37})),
-        ("NRPN", "300", json!({"nrpn_msb": 2, "nrpn_lsb": 44})),
-        ("RPN", "130", json!({"rpn_msb": 1, "rpn_lsb": 2})),
+        ("7bit", "74", json!({"ctrlType": "cc", "ctrlIndex": [74]})),
+        ("14bit", "5", json!({"ctrlType": "cc", "ctrlIndex": [5, 37]})),
+        ("NRPN", "300", json!({"ctrlType": "nrpn", "ctrlIndex": [2, 44]})),
+        ("RPN", "130", json!({"ctrlType": "rpn", "ctrlIndex": [1, 2]})),
     ];
     for (kind, number, binding) in kinds {
         let (d, _) = imported(&control_document(kind, number, "3", "99", "Some Control", None));
         let e = &entries(&d)[0];
+        assert_eq!(e["ways"].as_array().map(Vec::len), Some(1), "{kind}");
         for (k, v) in binding.as_object().unwrap() {
-            assert_eq!(&e[k], v, "{kind} {k}");
+            assert_eq!(&e["ways"][0][k], v, "{kind} {k}");
         }
-        assert_eq!(e["range"], json!([3, 99]), "{kind}");
-        assert_eq!(e["_name"], "Some Control", "{kind}");
+        assert_eq!(e["ways"][0]["range"], json!([3, 99]), "{kind}");
+        assert_eq!(e["title"], "Some Control", "{kind}");
+        assert!(e.get("_name").is_none(), "{kind}");
         assert!(e.get("default").is_none(), "{kind}: a default the file does not give");
         assert!(e["osc"].as_str().unwrap().starts_with('/'), "{kind}");
     }
@@ -58,7 +60,7 @@ fn a_control_without_a_type_is_a_7_bit_control_as_the_dtd_says() {
     let text = control_document("7bit", "7", "0", "127", "Volume", None).replace("Type=\"7bit\" ", "");
     assert!(!text.contains("Type="));
     let (d, _) = imported(&text);
-    assert_eq!(entries(&d)[0]["cc"], 7);
+    assert_eq!((entries(&d)[0]["ways"][0]["ctrlType"].clone(), entries(&d)[0]["ways"][0]["ctrlIndex"].clone()), (json!("cc"), json!([7])));
 }
 
 #[test]
@@ -81,7 +83,7 @@ fn the_controls_come_in_the_order_of_the_file_with_distinct_addresses_even_for_t
         .collect();
     let (d, _) = imported(&document_text(&doc));
     let es = entries(&d);
-    let numbers: Vec<i64> = es.iter().map(|e| e["cc"].as_i64().unwrap()).collect();
+    let numbers: Vec<i64> = es.iter().map(|e| e["ways"][0]["ctrlIndex"][0].as_i64().unwrap()).collect();
     assert_eq!(numbers, vec![0, 1, 2]);
     let mut oscs: Vec<&str> = es.iter().map(|e| e["osc"].as_str().unwrap()).collect();
     oscs.sort();
@@ -127,10 +129,11 @@ fn a_document_with_no_note_no_control_and_no_patch_gives_a_device_with_none_of_t
 fn the_source_given_is_the_only_source_and_what_the_file_says_of_its_author_is_not_written() {
     let (d, _) = imported(&rich_text());
     let src = source();
-    assert_eq!(d["_sources"].as_array().unwrap().len(), 1);
-    assert_eq!(d["_sources"][0]["license"], src.license.clone().unwrap());
-    assert_eq!(d["_sources"][0]["url"], src.url.clone().unwrap());
-    assert_eq!(d["_sources"][0]["author"], src.author.clone().unwrap());
+    assert_eq!(d["sources"].as_array().unwrap().len(), 1);
+    assert!(d.get("_sources").is_none(), "{d}");
+    assert_eq!(d["sources"][0]["license"], src.license.clone().unwrap());
+    assert_eq!(d["sources"][0]["url"], src.url.clone().unwrap());
+    assert_eq!(d["sources"][0]["author"], src.author.clone().unwrap());
     assert!(!d.to_string().contains("Someone"), "the author of the file is written: {d}");
     assert!(!d.to_string().contains("CC0-1.0"), "the licence of the file is written: {d}");
 }
@@ -278,7 +281,7 @@ fn what_the_file_does_not_say_is_not_invented() {
         assert!(d.get(key).is_none(), "{key} is invented");
     }
     let e = &entries(&d)[1];
-    assert!(e.get("section").is_none() && e.get("expects").is_none() && e.get("orientation").is_none() && e.get("channel").is_none(), "{e}");
+    assert!(e.get("section").is_none() && e.get("expects").is_none() && e.get("polarity").is_none() && e.get("orientation").is_none() && e.get("channel").is_none(), "{e}");
 }
 
 #[test]
@@ -286,7 +289,7 @@ fn the_import_is_read_strictly_in_the_latest_version() {
     let t = import(&rich_text(), Format::Midnam, &source()).unwrap();
     let text = osd::write(&osd::Descriptor::Device(Box::new(t.value.clone())));
     assert!(osd::read(&text, osd::Kind::Device).is_ok(), "{text}");
-    assert_eq!(json_of(&t.value)["$schema"], "https://w3id.org/osd/0.6/device.schema.json");
+    assert_eq!(json_of(&t.value)["$schema"], "https://w3id.org/osd/0.7/device.schema.json");
 }
 
 #[test]

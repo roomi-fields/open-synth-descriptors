@@ -14,6 +14,11 @@ complements the MIDI standards; it does not replace them.
 **Status: 0.6, published and frozen.** It is developed with the help of AI
 agents, and the maintainer reviews every change ([GOVERNANCE.md](GOVERNANCE.md)).
 
+**0.7 is a candidate**, not accepted: it is built here in the open
+([`spec/0.7.md`](spec/0.7.md), [`schemas/0.7`](schemas/0.7)) and may change
+before its acceptance. Until then, its schema addresses are not served, and the
+book of the specification stays that of 0.6.
+
 ## One descriptor
 
 A shared sound, with its author and its licence:

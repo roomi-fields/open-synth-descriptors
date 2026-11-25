@@ -1,0 +1,42 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/bank",
+        "title": "Bank",
+        "ways": [],
+        "range": [
+          0,
+          3
+        ],
+        "transmit": "absolute",
+        "recognize": "none",
+        "nrpn_lsb_range": [
+          0,
+          7
+        ]
+      },
+      {
+        "osc": "/filter/cutoff",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              74
+            ]
+          }
+        ]
+      },
+      {
+        "osc": "/bank/msb",
+        "polarity": "unipolar",
+        "ways": []
+      }
+    ]
+  }
+}

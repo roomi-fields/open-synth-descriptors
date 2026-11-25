@@ -1,0 +1,9 @@
+{
+  "_about": "A reading holds only its fields: an unknown key is refused as UnknownField at the key.",
+  "read": "device",
+  "schema_pointer": "/commands/0/readings/0",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/commands/0/readings/0/confidence"
+  }
+}

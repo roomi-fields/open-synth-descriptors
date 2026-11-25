@@ -1,0 +1,16 @@
+{
+  "_about": "A pitch bend control: one `pBend` way, 14 bits, with its range.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/bend",
+          "ways": [{ "ctrlType": "pBend", "value_bits": 14, "range": [0, 16383] }]
+        }
+      ]
+    }
+  }
+}

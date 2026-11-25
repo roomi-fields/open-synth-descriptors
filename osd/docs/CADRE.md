@@ -2,7 +2,7 @@
 
 ## Role
 
-- **R1** `osd` turns OSD descriptor files into typed Rust values, and only that: it reads, resolves, reports capabilities and converts between versions.
+- **R1** `osd` turns OSD descriptor files into typed Rust values, and only that: it fulfils the classes reader, resolving reader and converter of the specification (section 4), with every judgement the specification gives them, and reports capabilities.
 
 ## Receives
 
@@ -11,7 +11,7 @@
 
 ## Returns
 
-- **R4** A typed descriptor, every field of its schema present in the types, documentary fields included (`_notes`, `section`, `_sources`, `_coverage`, value labels).
+- **R4** A typed descriptor, every field of its schema present in the types, documentary fields included (`_notes`, `section`, `sources` (`_sources` before 0.7), `midi_of_sources`, `_coverage`, value labels); from 0.7 `_sources` is refused and any other `_` key is a note kept as it is.
 - **R5** A resolved device: the device with its maker profiles and shared MIDI applied, the files it was built from, and the capabilities it declares.
 - **R6** A descriptor converted to a newer version, or the fault that prevents it.
 - **R7** A typed fault for every refusal, naming the file, the JSON pointer and the rule.
@@ -22,7 +22,7 @@
 
 ## Does not know
 
-- **R9** Bytes on a wire, MIDI ports, networks, servers, catalogues as folders, and what an engine does with a descriptor; the caller supplies the files, and the engine executes the device.
+- **R9** Bytes on a wire, MIDI ports, networks, servers, catalogues as folders, and what an engine does with a descriptor or with a judgement of the specification; the caller supplies the files, and the engine executes the device.
 
 ## Refuses
 

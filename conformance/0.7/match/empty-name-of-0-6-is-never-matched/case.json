@@ -1,0 +1,14 @@
+{
+  "_about": "An empty port name of 0.6 matches nothing, an empty name included: applied, it is not matched.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "matched"
+    }
+  ]
+}

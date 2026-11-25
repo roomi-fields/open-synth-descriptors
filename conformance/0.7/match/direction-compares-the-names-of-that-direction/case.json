@@ -1,0 +1,22 @@
+{
+  "_about": "A rule with a direction compares the names of that direction alone.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/2",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/3",
+      "verdict": "not_matched"
+    }
+  ]
+}

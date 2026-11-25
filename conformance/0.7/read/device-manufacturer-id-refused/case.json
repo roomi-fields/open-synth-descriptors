@@ -1,0 +1,8 @@
+{
+  "_about": "`device.manufacturer_id` is not a field of 0.7 (`identity.manufacturerId` says it): refused as UnknownField at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/device/manufacturer_id"
+  }
+}

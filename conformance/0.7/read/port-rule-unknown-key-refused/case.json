@@ -1,0 +1,8 @@
+{
+  "_about": "A rule holds no other key.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/identity/ports/0/colour"
+  }
+}

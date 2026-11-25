@@ -491,7 +491,7 @@ fn unpack_msb_first_7in8(packed: &[u8]) -> Vec<u8> {
 /// pattern is judged. What is not shaped as a setting is left to the reader.
 pub(crate) fn check_controls(v: &serde_json::Value, merged: bool) -> Result<(), Fault> {
     // Before 0.6 the field is unknown, which the reader says itself.
-    if !v.get("$schema").and_then(|s| s.as_str()).is_some_and(|s| s.contains("/0.6/")) {
+    if !v.get("$schema").and_then(|s| s.as_str()).is_some_and(|s| s.contains("/0.6/") || s.contains("/0.7/")) {
         return Ok(());
     }
     let Some(transfers) = v.get("sound_transfers").and_then(|t| t.as_array()) else { return Ok(()) };

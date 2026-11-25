@@ -1,0 +1,8 @@
+{
+  "_about": "A direction other than `input` or `output` is refused at the direction.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/direction"
+  }
+}

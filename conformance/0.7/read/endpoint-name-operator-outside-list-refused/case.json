@@ -1,0 +1,8 @@
+{
+  "_about": "The endpoint rule takes the four operators alone.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/endpoint_name/operator"
+  }
+}

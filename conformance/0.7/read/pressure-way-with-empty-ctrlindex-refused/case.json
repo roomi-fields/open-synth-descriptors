@@ -1,0 +1,5 @@
+{
+  "_about": "`ctrlIndex` is absent for `chPress` and `pBend`, never an empty list: BadValue at `ctrlIndex`.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/ways/0/ctrlIndex" }
+}

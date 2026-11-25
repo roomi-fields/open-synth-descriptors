@@ -1,0 +1,10 @@
+{
+  "_about": "A rule with no platform applies to a fingerprint with none.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    }
+  ]
+}

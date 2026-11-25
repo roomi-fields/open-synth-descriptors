@@ -1,0 +1,8 @@
+{
+  "_about": "A stack outside the list is refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/stack"
+  }
+}

@@ -51,7 +51,7 @@ fn import_prints_the_descriptor_read_strictly_with_the_control_the_command_and_t
     assert_eq!(doc["cc_params"]["entries"].as_array().unwrap().len(), 1);
     assert_eq!(doc["cc_params"]["entries"][0]["section"], "Filter");
     assert_eq!(doc["commands"][0]["frame"], json!([240, 247]));
-    assert_eq!(doc["_sources"][0]["license"], "CC-BY-4.0");
+    assert_eq!(doc["sources"][0]["license"], "CC-BY-4.0");
 }
 
 #[test]

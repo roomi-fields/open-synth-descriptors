@@ -1,0 +1,10 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "_sources": [
+    { "type": "electra-preset", "preset_name": "Preset A", "name": "Acme A", "revision": "3", "content_sha256": "aa", "preset_id": "abc123", "url": "https://x.org/p/abc123", "notes": "kept" },
+    { "type": "knobkraft", "name": "Only name", "url": "https://x.org/p/zzz", "preset_id": "abc123", "adaptation": "Acme" },
+    { "type": "vendor-doc", "title": "T", "preset_name": "P", "version": "1", "revision": "2", "sha256": "bb", "content_sha256": "cc" },
+    { "type": "knobkraft", "url": "https://x.org/a/Acme/?v=1#top", "adaptation": "ACME", "preset_id": "Acme" }
+  ]
+}

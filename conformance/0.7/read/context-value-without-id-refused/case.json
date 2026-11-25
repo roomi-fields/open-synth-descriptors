@@ -1,0 +1,9 @@
+{
+  "_about": "A value of a dimension without `id` is refused.",
+  "read": "device",
+  "schema_pointer": "/contexts/part/values/0",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/contexts/part/values/0/id"
+  }
+}

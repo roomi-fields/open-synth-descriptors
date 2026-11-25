@@ -92,7 +92,7 @@ fn from_0_6(a: &Assembly, at: &At) -> Result<(), Fault> {
     }
     let key = At::Key(at, "$schema");
     match a.schema {
-        Some(Version::V0_6) => Ok(()),
+        Some(Version::V0_6 | Version::V0_7) => Ok(()),
         None => Err(key.fault(FaultKind::Missing, "an assembly carries `$schema`")),
         Some(v) => Err(key.fault(FaultKind::BadValue, format!("an assembly is not a descriptor of {}: it exists from 0.6", v.name()))),
     }

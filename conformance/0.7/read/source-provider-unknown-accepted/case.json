@@ -1,0 +1,21 @@
+{
+  "_about": "A well-formed `provider` that the reader's table does not hold is accepted and written back as it is, 64 characters included: the table grows by contribution.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "provider": "a-new-firmware"
+      },
+      {
+        "type": "contributed",
+        "provider": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  }
+}

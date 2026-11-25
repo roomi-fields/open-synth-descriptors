@@ -27,6 +27,13 @@ result}`: `a` and `b` each `{index, message}`, `result` one `{control,
 param_path, outcome}` per setting, `outcome` being `equal`, `differ` or
 `absent`).
 
+A reading case that expects a result may add `warnings` (from suite 1.5.0): the ordered list of
+`{kind, pointer}` the reader reports on the descriptor, none of which refuses it. `kind` is
+`PartialControl` (an entry of `cc_params` or `params` that reaches no message, at the entry: it is
+to be completed) or `UnknownProvider` (a `provider` that the table of providers does not hold, at
+the field). The controls come first, `cc_params` then `params`, then the sources, `sources` then
+`midi_of_sources`. A case that states no `warnings` says nothing of them.
+
 A result case of a firmware (0.6) may add `comparisons` (`{a, b, order}`: two base versions and
 their order, `less`, `equal` or `greater`) and `fits` (`{target, version, fits}`: whether the
 version fits the target of that index in `targets`).
@@ -52,6 +59,24 @@ descriptor validates against the schema and only the reader refuses it.
   - `fault`: the refusal, by its `kind` (`NotConvertible`) and the JSON
     `pointer` of the element of the previous version refused; no text is
     returned.
+
+## Matching of an identity (`<version>/match/<case>/`, from 0.7)
+
+- `device.json`: a device descriptor, whose `identity` holds the rules (a device before 0.7
+  holds plain port names, each read as a `contains` rule with no direction, platform or stack).
+- `fingerprint.json`: a fingerprint.
+- `case.json`: `match_identity: true`; `_about`, what the case shows; and `result`: one
+  `{pointer, verdict}` per rule, each entry of `identity.ports` in its order and then
+  `identity.endpoint_name`, by the JSON `pointer` of the rule in the device, the verdict being
+  `matched`, `not_matched` or `not_applied` (the rule says nothing of that fingerprint). Each
+  of the two files is valid against its version's schema.
+
+## Comparison of product instance ids (`<version>/same_product_instance_id/<case>/`, from 0.7)
+
+- `a.json` and `b.json`: two fingerprints, each valid against its version's schema.
+- `case.json`: `same_product_instance_id: true`; `_about`; and `result`: `same`, `different`,
+  or `unknown` when one of the two holds no `product_instance_id` or an empty one. The two ids
+  alone are compared, exactly; the result does not say the two fingerprints come from one unit.
 
 ## Coding of bytes (`0.6/coding/<case>/`)
 

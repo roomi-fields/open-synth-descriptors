@@ -1,0 +1,127 @@
+{
+  "_about": "On one message, a mode, a part and a slice never share a message here: the three admitted pairs of the worked example each hold on their own message (mode pair on CC 7, part pair on CC 8, slice pair on the NRPN 0:122).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "contexts": {
+      "channel_setting": {
+        "values": [
+          {
+            "id": "single"
+          },
+          {
+            "id": "multi"
+          }
+        ]
+      },
+      "part": {
+        "values": [
+          {
+            "id": "track1"
+          },
+          {
+            "id": "track2"
+          }
+        ]
+      }
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "channel_setting": "single"
+              }
+            }
+          ]
+        },
+        {
+          "osc": "/b",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "channel_setting": "multi"
+              }
+            }
+          ]
+        },
+        {
+          "osc": "/c",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                8
+              ],
+              "in": {
+                "part": "track1"
+              }
+            }
+          ]
+        },
+        {
+          "osc": "/d",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                8
+              ],
+              "in": {
+                "part": "track2"
+              }
+            }
+          ]
+        },
+        {
+          "osc": "/e",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                0,
+                122
+              ],
+              "value_bits": 7,
+              "slice": [
+                0,
+                63
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/f",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                0,
+                122
+              ],
+              "value_bits": 7,
+              "slice": [
+                64,
+                127
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

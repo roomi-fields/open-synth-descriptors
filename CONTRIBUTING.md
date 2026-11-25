@@ -33,6 +33,40 @@ A state only adds (`Vocabulary::check_successor`): a term of a state stays in th
 
 When a state later holds the term an extension stood for, the author rewrites the role with the term and names that state in `role_vocabulary`. `osd` migrates nothing: a role is read as written, against the state named.
 
+## Add a converter
+
+A converter is the module of `osd-formats` that reads or writes one format of
+others. To add one, or to change one, send one pull request, as
+[Send a pull request](#send-a-pull-request) says, that holds all of this:
+
+- **The module**, `osd-formats/src/<module>.rs` (and `osd-formats/src/<module>/`
+  when it needs more files), where `<module>` is the name of the format with `-`
+  written `_`. It declares `pub(crate) const CONTRACT: Contract`: the name of the
+  format, the media type and the extension of the file it writes, its `import`,
+  its `export`, and its `import_into` (`None` when a file of the format is not
+  added to a descriptor). A format that is exported only declares an `import`
+  that refuses every file with its reason. A helper that several formats share
+  goes in a module that is no format (`importer`, `credit`, `xml`, `csv`). No
+  other code names the format.
+- **Its line in the list** of `osd-formats/src/lib.rs`, in `formats!`:
+  `Variant => module: "documentation",`. The documentation is the public
+  rustdoc of the variant: the file it reads or writes, its version, and
+  "exported only" when it is.
+- **Its page**, `osd-formats/docs/<name>.md`: what the format carries, what it
+  loses, its source and its licence.
+- **Its tests**, `osd-formats/tests/it/<module>.rs` or files named
+  `<module>_*.rs` beside it, each declared in `osd-formats/tests/it/main.rs`.
+  They fix the name, the media type and the extension of the format, and what it
+  imports and exports.
+- **The texts that list the formats and their order**:
+  `osd-formats/docs/CADRE.md` (R1), `osd-formats/docs/INTERFACE.md` (the
+  `Format` row and the media type table) and `osd-cli/docs/INTERFACE.md` (the
+  `import` and `export` rows). The maintainer rereads the frame and the
+  interface.
+
+`cargo test -p osd-formats` and `cargo test -p osd-cli` run green; the tests of
+`osd-formats` refuse a format without its page or its tests.
+
 ## Report a defect of the reader
 
 Open an issue with the descriptor (or the smallest part of it) that shows the

@@ -11,6 +11,7 @@ fn sample() -> String {
         "ChCtrlList": [
             {"title": "Cutoff", "ctrlType": "cc", "ctrlIndex": [74], "numSigBits": 7, "minMax": [0u64, 4294967295u64], "paramPath": "/Filter/Cutoff"},
             {"title": "Shape", "ctrlType": "cc", "ctrlIndex": [75], "numSigBits": 7, "minMax": [0u64, 4294967295u64], "paramPath": "/Mystery/Shape"},
+            {"title": 7, "ctrlType": "cc", "ctrlIndex": [76], "numSigBits": 7, "minMax": [0u64, 4294967295u64], "paramPath": "/Filter/Resonance"},
         ],
         "CtrlMapList": [],
     })
@@ -38,9 +39,10 @@ fn import_prints_the_descriptor_read_strictly_with_the_credit_and_no_into_descri
     assert_eq!(run.code, 0, "{:?}", run.stderr);
     assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))), "{}", run.stdout);
     let doc: Value = serde_json::from_str(&run.stdout).unwrap();
-    assert_eq!(doc["cc_params"]["entries"].as_array().unwrap().len(), 2);
+    assert_eq!(doc["cc_params"]["entries"].as_array().unwrap().len(), 3);
+    assert_eq!(doc["cc_params"]["entries"][0]["title"], "Cutoff");
     assert_eq!(doc["cc_params"]["entries"][0]["role"]["setting"], "cutoff");
-    assert_eq!(doc["_sources"][0]["license"], "CC-BY-4.0");
+    assert_eq!(doc["sources"][0]["license"], "CC-BY-4.0");
 }
 
 #[test]
@@ -49,8 +51,9 @@ fn import_prints_each_loss_on_the_error_output_one_per_line_by_its_json_pointer(
     let run = osd(&import_args(&file, &[]));
     let lines: Vec<&str> = run.stderr.lines().collect();
     assert!(lines.iter().all(|l| l.starts_with('/') && l.contains(": ")), "{lines:?}");
-    assert!(lines.iter().any(|l| l.starts_with("/ChCtrlList/0/title: ")), "{lines:?}");
+    assert!(lines.iter().any(|l| l.starts_with("/ChCtrlList/2/title: ") && l.contains("not a string")), "{lines:?}");
     assert!(lines.iter().any(|l| l.starts_with("/ChCtrlList/1: ") && l.contains("no known role")), "{lines:?}");
+    assert!(!lines.iter().any(|l| l.starts_with("/ChCtrlList/0/title: ")), "{lines:?}");
     assert!(lines.iter().any(|l| l.starts_with("/vendor: ")), "{lines:?}");
 }
 
@@ -79,7 +82,7 @@ fn export_writes_the_object_of_the_descriptor_and_prints_its_losses_on_the_error
     let credit = lines.iter().position(|l| *l == "credit to carry with the file:");
     let (losses, block) = lines.split_at(credit.unwrap_or(lines.len()));
     assert!(losses.iter().all(|l| l.starts_with('/') && l.contains(": ")), "{:?}", run.stderr);
-    assert!(losses.iter().any(|l| l.starts_with("/_sources: ")), "{:?}", run.stderr);
+    assert!(losses.iter().any(|l| l.starts_with("/sources: ")), "{:?}", run.stderr);
     assert!(credit.is_some(), "{:?}", run.stderr);
     assert!(block.len() > 1 && block[1..].iter().all(|l| l.starts_with("  ")), "{:?}", run.stderr);
 }
@@ -135,7 +138,7 @@ fn import_refuses_a_param_ctrl_type_with_exit_1_at_its_pointer_and_prints_no_des
 
 #[test]
 fn import_of_a_standard_type_the_descriptor_cannot_carry_prints_the_descriptor_and_the_loss_at_its_pointer() {
-    let list = json!([{"ctrlType": "cc", "ctrlIndex": [7]}, {"ctrlType": "pBend"}]).to_string();
+    let list = json!([{"ctrlType": "cc", "ctrlIndex": [7]}, {"ctrlType": "pnrc", "ctrlIndex": [1]}]).to_string();
     let (_dir, file) = with_file("b.json", &list);
     let run = osd(&import_args(&file, &[]));
     assert_eq!(run.code, 0, "{:?}", run.stderr);

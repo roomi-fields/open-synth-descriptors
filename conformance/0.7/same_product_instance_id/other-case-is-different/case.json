@@ -1,0 +1,5 @@
+{
+  "_about": "A product instance id is compared exactly: the same text in another case differs.",
+  "same_product_instance_id": true,
+  "result": "different"
+}

@@ -24,6 +24,24 @@ fn names_of(root: &Node, control: &Node) -> Vec<(String, String)> {
     out
 }
 
+/// The `values` of an entry of 0.7, a list of `{value, title}`, as (value, title) sorted.
+fn listed(values: &Value) -> Vec<(i64, String)> {
+    let mut out: Vec<(i64, String)> = values
+        .as_array()
+        .unwrap_or_else(|| panic!("the values are a list of {{value, title}}: {values}"))
+        .iter()
+        .map(|v| (v["value"].as_i64().unwrap(), v["title"].as_str().unwrap().to_string()))
+        .collect();
+    out.sort();
+    out
+}
+
+fn named_values(items: &[(i64, &str)]) -> Vec<(i64, String)> {
+    let mut out: Vec<(i64, String)> = items.iter().map(|(n, t)| (*n, t.to_string())).collect();
+    out.sort();
+    out
+}
+
 fn pairs(items: &[(&str, &str)]) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = items.iter().map(|(n, l)| (n.to_string(), l.to_string())).collect();
     out.sort();
@@ -153,7 +171,7 @@ fn the_values_of_a_control_are_carried_and_not_in_the_losses() {
 fn a_list_of_value_names_inside_the_values_becomes_the_values_of_the_entry() {
     let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "2", vec![Node::new("ValueNameList", &[]).with(value("0", "Sine")).with(value("2", "Saw"))])], vec![]);
     let (d, lost) = imported(&text);
-    assert_eq!(entries(&d)[0]["values"], json!({"Sine": 0, "Saw": 2}));
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(0, "Sine"), (2, "Saw")]));
     assert!(lost_on_line(&lost, line_of(&text, "Name=\"Saw\"")).is_empty(), "{lost:?}");
 }
 
@@ -166,8 +184,8 @@ fn a_control_that_uses_a_list_by_name_reads_that_list_and_two_controls_may_share
         vec![list],
     );
     let (d, lost) = imported(&text);
-    let want = json!({"Sine": 0, "Square": 1, "Saw": 2});
-    assert_eq!((entries(&d)[0]["values"].clone(), entries(&d)[1]["values"].clone()), (want.clone(), want));
+    let want = named_values(&[(0, "Sine"), (1, "Square"), (2, "Saw")]);
+    assert_eq!((listed(&entries(&d)[0]["values"]), listed(&entries(&d)[1]["values"])), (want.clone(), want));
     assert!(lost_on_line(&lost, line_of(&text, "<ValueNameList")).is_empty(), "a list a control uses is not lost: {lost:?}");
 }
 
@@ -177,7 +195,7 @@ fn a_list_of_value_names_no_control_uses_is_named_in_the_losses_at_its_line() {
     let unused = Node::new("ValueNameList", &[("Name", "Orphan")]).with(value("0", "Nothing"));
     let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "1", vec![Node::new("UsesValueNameList", &[("Name", "Used")])])], vec![used, unused]);
     let (d, lost) = imported(&text);
-    assert_eq!(entries(&d)[0]["values"], json!({"Off": 0}));
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(0, "Off")]));
     let orphan = lost_on_line(&lost, line_of(&text, "Name=\"Orphan\""));
     assert_eq!(orphan.len(), 1, "{lost:?}");
     assert!(!orphan[0].reason.is_empty());
@@ -199,7 +217,7 @@ fn a_value_whose_number_is_not_a_whole_number_is_named_with_its_reason_and_the_o
     let list = Node::new("ValueNameList", &[]).with(value("0", "Zero")).with(value("1.5", "Half")).with(value("2", "Two"));
     let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "2", vec![list])], vec![]);
     let (d, lost) = imported(&text);
-    assert_eq!(entries(&d)[0]["values"], json!({"Zero": 0, "Two": 2}));
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(0, "Zero"), (2, "Two")]));
     let found = lost_on_line(&lost, line_of(&text, "Name=\"Half\""));
     assert_eq!(found.len(), 1, "{lost:?}");
     assert!(found[0].reason.contains("whole number"), "{:?}", found[0]);
@@ -212,7 +230,7 @@ fn a_list_with_no_value_it_can_carry_gives_an_entry_without_values() {
     let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "2", vec![list])], vec![]);
     let (d, _) = imported(&text);
     let values = entries(&d)[0].get("values").cloned();
-    assert!(values.is_none() || values == Some(json!({})), "{d}");
+    assert!(values.is_none() || values == Some(json!([])), "{d}");
 }
 
 #[test]
@@ -226,7 +244,7 @@ fn two_names_on_the_same_number_are_both_read() {
     let list = Node::new("ValueNameList", &[]).with(value("1", "Mid")).with(value("1", "Middle"));
     let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "3", vec![list])], vec![]);
     let (d, _) = imported(&text);
-    assert_eq!(entries(&d)[0]["values"], json!({"Mid": 1, "Middle": 1}));
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(1, "Mid"), (1, "Middle")]));
 }
 
 // ---- the span of a controller ----
@@ -237,7 +255,7 @@ fn a_range_equal_to_the_span_of_its_type_is_not_written_back_and_is_no_loss() {
         let text = control_document(kind, number, "0", max, "Some Control", Some("5"));
         let (d, lost) = imported(&text);
         let e = &entries(&d)[0];
-        assert!(e.get("range").is_none(), "{kind}: {e}");
+        assert!(e["ways"][0].get("range").is_none(), "{kind}: {e}");
         assert_eq!(e["default"], 5, "{kind}: the default stays");
         assert!(lost_on_line(&lost, line_of(&text, "<Values")).is_empty(), "{kind}: {lost:?}");
     }
@@ -253,7 +271,7 @@ fn a_range_that_is_not_the_span_of_its_type_is_kept() {
         ("RPN", "130", "0", "16382", json!([0, 16382])),
     ] {
         let (d, _) = imported(&control_document(kind, number, min, max, "Some Control", None));
-        assert_eq!(entries(&d)[0]["range"], want, "{kind} {min}-{max}");
+        assert_eq!(entries(&d)[0]["ways"][0]["range"], want, "{kind} {min}-{max}");
     }
 }
 
@@ -268,7 +286,7 @@ fn a_control_without_a_range_exports_and_comes_back_equal_to_what_was_exported()
     let out = export(&d, Format::Midnam).unwrap();
     let back = json_of(&import(&out.value, Format::Midnam, &source()).unwrap().value);
     for e in entries(&back) {
-        assert!(e.get("range").is_none(), "a range the descriptor did not give is not invented: {e}");
+        assert!(e["ways"][0].get("range").is_none(), "a range the descriptor did not give is not invented: {e}");
     }
 }
 
@@ -281,7 +299,7 @@ fn a_range_equal_to_the_span_of_its_type_comes_back_without_range_with_no_loss_n
     let out = export(&d, Format::Midnam).unwrap();
     let t = import(&out.value, Format::Midnam, &source()).unwrap();
     for e in entries(&json_of(&t.value)) {
-        assert!(e.get("range").is_none(), "{e}");
+        assert!(e["ways"][0].get("range").is_none(), "{e}");
     }
     let values_lines: Vec<usize> = out.value.lines().enumerate().filter(|(_, l)| l.contains("<Values")).map(|(n, _)| n + 1).collect();
     assert_eq!(values_lines.len(), 2);
@@ -303,8 +321,15 @@ fn the_values_come_back_the_same_after_an_export_and_an_import() {
     ]}}));
     let out = export(&d, Format::Midnam).unwrap();
     let back = json_of(&import(&out.value, Format::Midnam, &source()).unwrap().value);
-    let got: Vec<Option<Value>> = entries(&back).iter().map(|e| e.get("values").cloned()).collect();
-    let want: Vec<Option<Value>> = entries(&json_of(&d.device)).iter().map(|e| e.get("values").cloned()).collect();
+    // MIDNAM lists a value name by its number: the lists are compared in the order of the numbers.
+    let by_number = |e: &Value| {
+        e.get("values").cloned().map(|mut v| {
+            v.as_array_mut().unwrap().sort_by_key(|n| n["value"].as_i64());
+            v
+        })
+    };
+    let got: Vec<Option<Value>> = entries(&back).iter().map(by_number).collect();
+    let want: Vec<Option<Value>> = entries(&json_of(&d.device)).iter().map(by_number).collect();
     assert_eq!(got, want);
 }
 

@@ -55,6 +55,7 @@ fn the_table_names_where_the_channel_the_range_and_the_default_go() {
     assert!(fate("note_number_min_value").contains("note_range"));
     assert!(fate("note_number_max_value").contains("note_range"));
     assert!(fate("note_number_default_value").contains("note"));
-    assert!(fate("sound_description").contains("_description"));
+    assert!(fate("sound_description").contains("description"));
+    assert!(!fate("sound_description").contains("_description"));
     assert!(fate("velocity_usage").contains("velocity_usage"));
 }

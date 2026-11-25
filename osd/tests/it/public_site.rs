@@ -12,6 +12,7 @@ use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
 
 const LIST: &str = "tools/site.list";
+const CANDIDATES: &str = "tools/candidates.list";
 const BUILD: &str = "tools/build_site.py";
 const CHECK: &str = "tools/check_site.py";
 const PAGES: &str = ".github/workflows/pages.yml";
@@ -123,6 +124,155 @@ impl Drop for Server {
     }
 }
 
+// ---- The candidates ----
+
+/// What the lines of a list of candidates withhold, as paths of the repository: for each line that
+/// is no comment, the folder of its version under `schemas/` and each path it names.
+fn withheld(list: &str) -> Vec<String> {
+    list.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .flat_map(|line| {
+            let mut words = line.split_whitespace();
+            let folder = format!("schemas/{}/", words.next().unwrap());
+            std::iter::once(folder).chain(words.map(String::from))
+        })
+        .collect()
+}
+
+fn withheld_by_the_repository() -> Vec<String> {
+    withheld(&read(CANDIDATES))
+}
+
+fn is_withheld(withheld: &[String], path: &str) -> bool {
+    withheld.iter().any(|w| if w.ends_with('/') { path.starts_with(w.as_str()) } else { path == w })
+}
+
+/// The list of the candidates while 0.7 is one: its folder, and the table of providers with its
+/// schema, which it brings outside it.
+const SEVEN: &str = "# the candidates\n0.7 schemas/providers.json schemas/providers.schema.json\n";
+/// A list that holds no candidate.
+const NONE: &str = "# no candidate\n";
+
+const PROVIDERS_ID: &str = "https://w3id.org/osd/providers.schema.json";
+const DEVICE_0_7_ID: &str = "https://w3id.org/osd/0.7/device.schema.json";
+
+/// A site folder built with the list of candidates `list`, and the file that holds this list.
+fn built_for(list: &str) -> (TempDir, PathBuf, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let candidates = dir.path().join("candidates.list");
+    std::fs::write(&candidates, list).unwrap();
+    let candidates = candidates.to_str().unwrap().to_string();
+    let site = dir.path().join("site");
+    let run = python(BUILD, &[site.to_str().unwrap(), "--candidates", &candidates]);
+    assert_eq!(run.code, Some(0), "{BUILD} failed:\n{}", run.out);
+    (dir, site, candidates)
+}
+
+/// The site folder holds, with its bytes and linked by the home page, every file under `schemas/`
+/// the list does not withhold, and neither holds nor links the others.
+fn assert_site_follows(site: &Path, list: &str) {
+    let withheld = withheld(list);
+    let published = files_under(site);
+    let page = std::fs::read_to_string(site.join("index.html")).unwrap();
+    for rel in files_under(&common::repo().join("schemas")) {
+        let path = format!("schemas/{rel}");
+        let linked = page.contains(&format!("href=\"{path}\""));
+        if is_withheld(&withheld, &path) {
+            assert!(!published.contains(&path), "{path} is in the site folder");
+            assert!(!linked, "the home page links {path}");
+        } else {
+            assert!(published.contains(&path), "{path} is missing from the site folder");
+            assert!(linked, "the home page does not link {path}");
+            assert_eq!(std::fs::read(site.join(&path)).unwrap(), std::fs::read(common::repo().join(&path)).unwrap(), "{path}");
+        }
+    }
+}
+
+#[test]
+fn the_site_withholds_the_schemas_of_a_candidate_and_the_files_its_line_names() {
+    let (_dir, site, _) = built_for(SEVEN);
+    assert_site_follows(&site, SEVEN);
+    for gone in ["schemas/0.7", "schemas/providers.json", "schemas/providers.schema.json"] {
+        assert!(!site.join(gone).exists(), "{gone} is in the site folder");
+    }
+    for kept in ["schemas/0.6/device.schema.json", "schemas/extensions.md", "schemas/SHA256SUMS", "schemas/vocabulary/1/terms.json"] {
+        assert!(site.join(kept).is_file(), "{kept} is missing from the site folder");
+    }
+}
+
+#[test]
+fn the_site_withholds_whichever_versions_and_paths_the_list_given_names() {
+    let list = "0.5 schemas/extensions.md\n0.4\n";
+    let (_dir, site, _) = built_for(list);
+    assert_site_follows(&site, list);
+    assert!(site.join("schemas/0.7/device.schema.json").is_file());
+    assert!(site.join("schemas/providers.schema.json").is_file());
+}
+
+#[test]
+fn with_no_candidate_the_site_holds_and_links_every_schema_file() {
+    let (_dir, site, _) = built_for(NONE);
+    assert_site_follows(&site, NONE);
+    for kept in ["schemas/0.7/device.schema.json", "schemas/providers.json", "schemas/providers.schema.json"] {
+        assert!(site.join(kept).is_file(), "{kept} is missing from the site folder");
+    }
+}
+
+#[test]
+fn without_the_option_the_build_reads_the_list_of_candidates_of_the_repository() {
+    let list = read(CANDIDATES);
+    let (_dir, site) = built();
+    assert_site_follows(&site, &list);
+}
+
+#[test]
+fn the_check_asks_for_no_id_of_a_withheld_file_on_a_site_folder_and_on_a_base_address() {
+    let (_dir, site, candidates) = built_for(SEVEN);
+    let run = python(CHECK, &["--site", site.to_str().unwrap(), "--candidates", &candidates]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    let server = Server::serve(&site);
+    let run = python(CHECK, &[&server.base, "--candidates", &candidates]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+}
+
+#[test]
+fn with_no_candidate_the_check_is_green_on_the_whole_site() {
+    let (_dir, site, candidates) = built_for(NONE);
+    let run = python(CHECK, &["--site", site.to_str().unwrap(), "--candidates", &candidates]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    let server = Server::serve(&site);
+    let run = python(CHECK, &[&server.base, "--candidates", &candidates]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+}
+
+#[test]
+fn with_no_candidate_the_check_fails_naming_the_id_of_each_missing_file() {
+    let (_dir, site, candidates) = built_for(NONE);
+    for (path, id) in [("schemas/0.7/device.schema.json", DEVICE_0_7_ID), ("schemas/providers.schema.json", PROVIDERS_ID)] {
+        let bytes = std::fs::read(site.join(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
+        std::fs::remove_file(site.join(path)).unwrap();
+        let run = python(CHECK, &["--site", site.to_str().unwrap(), "--candidates", &candidates]);
+        assert_eq!(run.code, Some(1), "{}", run.out);
+        assert!(run.out.contains(id), "{}", run.out);
+        let server = Server::serve(&site);
+        let run = python(CHECK, &[&server.base, "--candidates", &candidates]);
+        assert_eq!(run.code, Some(1), "{}", run.out);
+        assert!(run.out.contains(path), "{}", run.out);
+        std::fs::write(site.join(path), bytes).unwrap();
+    }
+}
+
+#[test]
+fn a_check_given_the_empty_list_asks_for_what_a_candidate_withheld_from_the_site() {
+    let (dir, site, _) = built_for(SEVEN);
+    let none = dir.path().join("none.list");
+    std::fs::write(&none, NONE).unwrap();
+    let run = python(CHECK, &["--site", site.to_str().unwrap(), "--candidates", none.to_str().unwrap()]);
+    assert_eq!(run.code, Some(1), "{}", run.out);
+    assert!(run.out.contains(DEVICE_0_7_ID) && run.out.contains(PROVIDERS_ID), "{}", run.out);
+}
+
 // ---- The publication list and the build script ----
 
 #[test]
@@ -135,12 +285,14 @@ fn publication_list_is_one_file_that_names_the_schemas_and_the_home_page_source(
 }
 
 #[test]
-fn site_folder_holds_every_schema_file_under_its_version_and_nothing_outside_the_list() {
+fn site_folder_holds_every_schema_file_no_candidate_withholds_and_nothing_outside_the_list() {
     let (_dir, site) = built();
     let published = files_under(&site);
+    let withheld = withheld_by_the_repository();
     let schemas = files_under(&common::repo().join("schemas"));
     for rel in &schemas {
-        assert!(published.contains(&format!("schemas/{rel}")), "schemas/{rel} missing from the site folder");
+        let path = format!("schemas/{rel}");
+        assert_eq!(published.contains(&path), !is_withheld(&withheld, &path), "{path} in the site folder");
     }
     for rel in &published {
         assert!(rel == "index.html" || rel.starts_with("schemas/"), "{rel} is outside the list");
@@ -155,11 +307,12 @@ fn site_folder_holds_every_schema_file_under_its_version_and_nothing_outside_the
 }
 
 #[test]
-fn home_page_links_the_schemas_of_every_version() {
+fn home_page_links_exactly_the_schemas_no_candidate_withholds() {
     let (_dir, site) = built();
     let page = std::fs::read_to_string(site.join("index.html")).unwrap();
+    let withheld = withheld_by_the_repository();
     for (id, path) in ids() {
-        assert!(page.contains(&path), "index.html does not link {path} ({id})");
+        assert_eq!(page.contains(&path), !is_withheld(&withheld, &path), "the link of {path} ({id}) in index.html");
     }
 }
 

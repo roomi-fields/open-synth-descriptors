@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/osd/0.7/firmware.schema.json",
+  "title": "OSD firmware descriptor 0.7",
+  "description": "A firmware, mod, module, application, script or extension a device can run (the `kind`): who makes it, where it lives, its licence, what it changes to the device's MIDI, and how it is installed. It points to the author's own release; it never carries the firmware itself.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "name",
+    "version",
+    "targets"
+  ],
+  "patternProperties": {
+    "^_": {
+      "description": "A note for people; never read by a program."
+    }
+  },
+  "additionalProperties": false,
+  "if": {
+    "required": [
+      "install"
+    ],
+    "properties": {
+      "install": {
+        "required": [
+          "method"
+        ],
+        "properties": {
+          "method": {
+            "const": "builder"
+          }
+        }
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "builder"
+    ]
+  },
+  "properties": {
+    "$schema": {
+      "const": "https://w3id.org/osd/0.7/firmware.schema.json"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "firmware",
+        "mod",
+        "module",
+        "application",
+        "script",
+        "extension"
+      ],
+      "default": "firmware",
+      "description": "What the descriptor is. `firmware`: a stock firmware, the one a device ships with or a vendor releases. `mod`: a whole modified firmware, installed in place of a stock one. `module`: a plug-in applied to a stock firmware, one among several an assembly stacks. `application`: a program installed on the host system of a device. `script`: a script a device runs. `extension`: any other thing a device can run."
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "object",
+            "properties": {
+              "descriptor": {
+                "type": "string",
+                "description": "The OSD device descriptor it is for (maker/file, e.g. korg/minilogue)."
+              },
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "vendor",
+              "model"
+            ],
+            "description": "The device it is made for."
+          },
+          "midi": {
+            "type": "object",
+            "properties": {
+              "descriptor": {
+                "type": "string",
+                "description": "The OSD device descriptor of its MIDI."
+              },
+              "same_as": {
+                "type": "string",
+                "description": "When it answers to another firmware's MIDI unchanged, that descriptor."
+              },
+              "changes": {
+                "type": "string",
+                "description": "What it adds or changes, in words."
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "description": "What the firmware understands over MIDI on this device."
+          },
+          "based_on": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "description": "The lineage: the firmware the target is forked or built from, one version. It says nothing of what the target runs on."
+          },
+          "runs_on": {
+            "$ref": "#/$defs/runs_on"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "device"
+        ]
+      },
+      "description": "The devices it is made for. Each target carries its own MIDI, its lineage (based_on) and what it runs on (runs_on)."
+    },
+    "official": {
+      "type": "boolean",
+      "default": false,
+      "description": "Released by the device's maker."
+    },
+    "author": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "description": "A person or group, as they sign."
+      },
+      "minItems": 1
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Where this version is downloaded, from its author."
+    },
+    "license": {
+      "type": "string",
+      "pattern": "^(public-domain|NOASSERTION|NONE|(?![Nn][Oo][Nn][Ee]$|[Nn][Oo][Aa][Ss][Ss][Ee][Rr][Tt][Ii][Oo][Nn]$|[Pp][Uu][Bb][Ll][Ii][Cc]-[Dd][Oo][Mm][Aa][Ii][Nn]$)[A-Z][A-Za-z0-9.+-]*)$",
+      "description": "An SPDX licence id (CC-BY-4.0, CC0-1.0, MIT…), public-domain, NOASSERTION (SPDX: the source states no licence; nothing is asserted) or NONE (SPDX: the source declares that it grants no licence). SPDX's two special values are written in capitals; other spellings are refused.",
+      "examples": [
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "public-domain",
+        "NOASSERTION",
+        "NONE"
+      ]
+    },
+    "identify": {
+      "type": "string",
+      "description": "How the device shows which firmware it runs (its identity reply, a screen)."
+    },
+    "install": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string",
+          "examples": [
+            "usb-drive",
+            "dfu",
+            "sysex",
+            "maker-app",
+            "sd-card",
+            "builder"
+          ]
+        },
+        "steps": {
+          "type": "string"
+        },
+        "revert": {
+          "type": "string",
+          "description": "How to go back to the maker's firmware."
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false
+    },
+    "builder": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "url"
+      ],
+      "description": "The tool that makes the assembly from the stock OS and modules, which the person flashes (Elekloader, Modwerk). It stays the reference for building, installing and updating the module; OSD never rehosts."
+    },
+    "description": {
+      "type": "string"
+    },
+    "communities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "kind": {
+            "enum": [
+              "forum",
+              "discord",
+              "chat",
+              "subreddit",
+              "wiki",
+              "site"
+            ]
+          }
+        },
+        "patternProperties": {
+          "^_": {
+            "description": "A note for people; never read by a program."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "kind"
+        ]
+      },
+      "description": "Where its users meet."
+    }
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+[A-Za-z]*(\\.[0-9]+[A-Za-z]*)*$",
+      "description": "A version that is compared: components separated by one dot, each a number then optional letters. A version outside this grammar is only displayed, and compared it answers unknown. Versions compare component by component (split on `.`): a number, then optional letters without case; 1.40 < 1.40B < 1.40C < 1.41, 1.9 < 1.10, 1.40 = 1.40.0."
+    },
+    "runs_on": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "versions": {
+          "description": "The base versions the target runs on: an explicit list, or a range whose bounds are included (a min alone is open upward, a max alone downward). Absent, a version fits the target unknown: neither yes nor no.",
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/version"
+            },
+            "minItems": 1
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "$ref": "#/$defs/version"
+              },
+              "max": {
+                "$ref": "#/$defs/version"
+              }
+            },
+            "patternProperties": {
+              "^_": {
+                "description": "A note for people; never read by a program."
+              }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+              {
+                "required": [
+                  "min"
+                ]
+              },
+              {
+                "required": [
+                  "max"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "patternProperties": {
+        "^_": {
+          "description": "A note for people; never read by a program."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "description": "The base firmware a target runs on, and its versions; no versions leaves \"does this version fit\" unknown."
+    }
+  }
+}

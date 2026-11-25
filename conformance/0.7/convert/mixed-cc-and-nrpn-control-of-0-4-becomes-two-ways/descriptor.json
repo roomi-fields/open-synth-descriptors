@@ -1,0 +1,21 @@
+{
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/x",
+        "cc": 93,
+        "nrpn_msb": 0,
+        "nrpn_lsb": 102,
+        "range": [
+          0,
+          127
+        ]
+      }
+    ]
+  }
+}

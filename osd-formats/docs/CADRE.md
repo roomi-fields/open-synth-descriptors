@@ -40,3 +40,11 @@
 ## Cost
 
 - **R17** Translating one device takes under 10 ms on a desktop machine at rest.
+
+## Structure
+
+The model is pandoc's: one reader and one writer per format, each a module of its own behind one common contract.
+
+- **R18** Each format is one module of its own, which fulfils one common contract: its name, its media type, its extension, and the import and the export it offers. The list of formats holds one line per module, and no other place of the crate names a format.
+- **R19** Each format has its page (`docs/<format>.md`: what it carries, what it loses, its source and its licence) and its tests; a guard refuses a format without its page or without its tests.
+- **R20** A format is changed or added by a pull request that holds its module, its page, its tests and its line in the list; the guide of contributors (`CONTRIBUTING.md`, « Add a converter ») says how.

@@ -39,16 +39,23 @@ fn a_name_with_a_quote_or_a_backslash_is_escaped_in_the_text() {
     assert!(text.contains("    return \"A \\\"B\\\" \\\\ C\"\n"), "{text}");
 }
 
+/// The loss of a function of the adaptation: its reason opens with the function's name and a colon,
+/// its place is a JSON pointer of the descriptor.
+fn lost_function<'a>(lost: &'a [osd_formats::Loss], function: &str) -> Option<&'a osd_formats::Loss> {
+    lost.iter().find(|l| l.reason.starts_with(&format!("{function}: ")))
+}
+
 #[test]
 fn the_functions_written_are_not_named_lost_and_each_other_function_is_named_lost_with_its_reason() {
     let (_, lost) = exported(&device(json!({})));
     let p = places(&lost);
     for f in WRITTEN {
-        assert!(!p.contains(&f), "{f} is written: {p:?}");
+        assert!(lost_function(&lost, f).is_none(), "{f} is written: {p:?}");
     }
     for f in LEFT_TO_HAND {
-        let l = lost.iter().find(|l| l.place == f).unwrap_or_else(|| panic!("{f} is not named lost: {p:?}"));
-        assert!(!l.reason.is_empty(), "{f} has no reason");
+        let l = lost_function(&lost, f).unwrap_or_else(|| panic!("{f} is not named lost: {lost:?}"));
+        assert!(l.place.starts_with('/'), "{f}: the place of a loss is a pointer of the descriptor: {l:?}");
+        assert!(l.reason.len() > f.len() + 2, "{f} has no reason: {l:?}");
     }
 }
 
@@ -66,7 +73,8 @@ fn banks_of_different_sizes_give_no_number_of_patches_per_bank() {
     let (text, lost) = exported(&d);
     assert!(text.contains("def numberOfBanks():\n    return 2\n"), "{text}");
     assert!(!text.contains("def numberOfPatchesPerBank("), "{text}");
-    assert!(places(&lost).contains(&"numberOfPatchesPerBank"), "{lost:?}");
+    let l = lost_function(&lost, "numberOfPatchesPerBank").unwrap_or_else(|| panic!("{lost:?}"));
+    assert_eq!(l.place, "/programs/banks", "{lost:?}");
 }
 
 #[test]
@@ -75,9 +83,9 @@ fn a_device_with_no_banks_writes_neither_count_and_names_both_lost() {
     let (text, lost) = exported(&d);
     assert!(!text.contains("def numberOfBanks(") && !text.contains("def numberOfPatchesPerBank("), "{text}");
     assert!(!text.contains("def createEditBufferRequest("), "{text}");
-    let p = places(&lost);
     for f in ["numberOfBanks", "numberOfPatchesPerBank", "createEditBufferRequest"] {
-        assert!(p.contains(&f), "{f} is not named lost: {p:?}");
+        let l = lost_function(&lost, f).unwrap_or_else(|| panic!("{f} is not named lost: {lost:?}"));
+        assert_eq!(l.place, "/sound_transfers", "{f}: the descriptor has no programs, the loss is at a field it has: {l:?}");
     }
     assert!(text.contains("def name():"), "{text}");
 }
@@ -88,7 +96,7 @@ fn a_request_with_a_byte_built_at_send_time_or_none_is_not_written_and_is_named_
     for programs in [built, json!({"banks": [{"name": "A", "size": 8}], "dump": {"kind": "manual"}}), json!({"banks": [{"name": "A", "size": 8}]})] {
         let (text, lost) = exported(&device(json!({"programs": programs})));
         assert!(!text.contains("def createEditBufferRequest("), "{text}");
-        assert!(places(&lost).contains(&"createEditBufferRequest"), "{lost:?}");
+        assert!(lost_function(&lost, "createEditBufferRequest").is_some_and(|l| l.place.starts_with('/')), "{lost:?}");
         assert!(text.contains("def numberOfBanks():\n    return 1\n"), "{text}");
     }
 }
@@ -114,7 +122,7 @@ fn the_credit_comes_before_the_first_function() {
 
 #[test]
 fn a_device_without_sources_is_refused() {
-    let d = device(json!({"_sources": null}));
+    let d = device(json!({"sources": null}));
     assert_eq!(export(&d, Format::Knobkraft).unwrap_err().kind, FaultKind::NoSources);
 }
 
@@ -128,7 +136,7 @@ fn a_device_without_sound_transfers_is_refused_with_its_own_fault() {
 
 #[test]
 fn a_device_without_sources_nor_sound_transfers_is_refused_for_its_sources_first() {
-    let d = device(json!({"_sources": null, "sound_transfers": null}));
+    let d = device(json!({"sources": null, "sound_transfers": null}));
     assert_eq!(export(&d, Format::Knobkraft).unwrap_err().kind, FaultKind::NoSources);
 }
 

@@ -1,0 +1,9 @@
+{
+  "_about": "A control with no context holds in every context: it conflicts with each other control of the message (pair g-c).",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

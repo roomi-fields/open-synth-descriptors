@@ -1,0 +1,56 @@
+{
+  "_about": "A control with an empty `ways` is kept, with the `range`, `transmit`, `recognize` and `nrpn_lsb_range` it carries on the entry, and warned as `PartialControl` at its entry: it is to be completed. A control with a way is not warned.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/bank",
+          "title": "Bank",
+          "ways": [],
+          "range": [
+            0,
+            3
+          ],
+          "transmit": "absolute",
+          "recognize": "none",
+          "nrpn_lsb_range": [
+            0,
+            7
+          ]
+        },
+        {
+          "osc": "/filter/cutoff",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/bank/msb",
+          "polarity": "unipolar",
+          "ways": []
+        }
+      ]
+    }
+  },
+  "warnings": [
+    {
+      "kind": "PartialControl",
+      "pointer": "/cc_params/entries/0"
+    },
+    {
+      "kind": "PartialControl",
+      "pointer": "/cc_params/entries/2"
+    }
+  ]
+}

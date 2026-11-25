@@ -1,0 +1,18 @@
+{
+  "_about": "A rule with no direction is matched by one name of either list.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/2",
+      "verdict": "not_matched"
+    }
+  ]
+}

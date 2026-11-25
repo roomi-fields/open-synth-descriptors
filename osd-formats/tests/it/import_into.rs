@@ -104,9 +104,9 @@ fn the_identity_of_the_base_wins_and_a_different_vendor_or_name_is_a_loss_at_its
 }
 
 #[test]
-fn the_other_blocks_of_the_base_are_left_alone() {
-    let text = r#"{"$schema": "https://w3id.org/osd/0.6/device.schema.json", "_sources": [{"type": "community-re", "url": "u", "license": "CC0-1.0"}],
-        "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}, "sysex": {"header": [240], "footer": [247]}}"#;
+fn the_other_blocks_of_a_base_of_0_7_are_left_alone() {
+    let text = r#"{"$schema": "https://w3id.org/osd/0.7/device.schema.json", "sources": [{"type": "community-re", "url": "u", "license": "CC0-1.0"}],
+        "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}, "sysex": {"header": [240]}}"#;
     let base = crate::common::device_from(text);
     let t = import_into(base.clone(), &drums(), Format::MidiTriggersCsv, &source()).unwrap();
     assert_eq!(t.value.sysex, base.sysex);

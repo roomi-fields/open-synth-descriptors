@@ -1,0 +1,22 @@
+{
+  "_about": "A command of 0.7 may carry `readings`: here one reading with a state and a firmware; it reads and is written back as it is.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "commands": [
+      {
+        "osc": "/dump",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -44,7 +44,8 @@ fn import_prints_the_descriptor_read_strictly_with_the_source_given_in_the_optio
     assert_eq!(run.code, 0, "{:?}", run.stderr);
     assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))), "{}", run.stdout);
     let doc: Value = serde_json::from_str(&run.stdout).unwrap();
-    let source = &doc["_sources"][0];
+    let source = &doc["sources"][0];
+    assert!(doc.get("_sources").is_none(), "{doc}");
     assert_eq!(source["url"], "https://github.com/pencilresearch/midi");
     assert_eq!(source["author"], "Pencilresearch");
     assert_eq!(source["license"], "CC-BY-SA-4.0");
@@ -148,7 +149,7 @@ fn export_prints_on_the_error_output_the_credit_of_each_source_with_its_licence_
            {"type": "vendor-doc", "url": "https://example.org/y", "license": "CC0-1.0"}"#,
     );
     assert_eq!(run.code, 0, "{:?}", run.stderr);
-    assert!(run.stderr.lines().any(|l| l.starts_with("/_sources: ")), "{:?}", run.stderr);
+    assert!(run.stderr.lines().any(|l| l.starts_with("/sources: ")), "{:?}", run.stderr);
     for word in ["https://example.org/x", "Ada", "CC-BY-4.0", "Thanks to Ada", "https://example.org/y", "CC0-1.0"] {
         assert!(run.stderr.contains(word), "{word} not in {:?}", run.stderr);
     }
@@ -198,7 +199,7 @@ fn export_of_a_descriptor_without_sources_is_exit_1() {
     std::fs::write(&file, r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "device": {"name": "T", "osc_prefix": "/t"}}"#).unwrap();
     let run = osd_in(dir.path(), &["export", "midi-csv", &file]);
     assert_eq!(run.code, 1, "{:?}", run.stderr);
-    assert!(run.stderr.contains("_sources"), "{:?}", run.stderr);
+    assert!(run.stderr.contains("/sources") && !run.stderr.contains("_sources"), "{:?}", run.stderr);
     assert_eq!(run.stdout, "");
 }
 

@@ -1,0 +1,6 @@
+{
+  "_about": "A way with neither `transmit` nor `recognize` claims both sides: two such ways of the CC 7 are refused as BadValue at the later.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/ways/1" }
+}

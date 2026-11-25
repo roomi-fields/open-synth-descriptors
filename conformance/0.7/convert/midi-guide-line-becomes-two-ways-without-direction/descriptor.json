@@ -1,0 +1,9 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "T", "osc_prefix": "/t" },
+  "cc_params": {
+    "entries": [
+      { "osc": "/filter/cutoff", "cc": 74, "also": [{ "nrpn_msb": 1, "nrpn_lsb": 8, "value_bits": 14 }] }
+    ]
+  }
+}

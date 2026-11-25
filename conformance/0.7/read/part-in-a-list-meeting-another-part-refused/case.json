@@ -1,0 +1,9 @@
+{
+  "_about": "`part: [track1, track2]` and `part: track2` have track2 in common: refused.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

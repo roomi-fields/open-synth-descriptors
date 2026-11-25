@@ -1,0 +1,10 @@
+{
+  "_about": "A rule with a platform is not applied to a fingerprint of another platform.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_applied"
+    }
+  ]
+}

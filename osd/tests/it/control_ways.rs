@@ -60,8 +60,13 @@ fn a_control_with_a_cc_first_and_an_nrpn_in_also_reads_as_one_control_with_two_w
     assert_eq!(list.len(), 1);
     let ways = list[0].ways();
     assert_eq!(ways.len(), 2);
-    assert_eq!((ways[0].cc, ways[0].nrpn_msb, ways[0].range), (Some(74), None, Some([0, 127])));
-    assert_eq!((ways[1].cc, ways[1].nrpn_msb, ways[1].nrpn_lsb, ways[1].range), (None, Some(1), Some(2), Some([0, 16383])));
+    assert_eq!(shape(&ways[0]), ("cc".into(), vec![74], None, Some([0, 127])));
+    assert_eq!(shape(&ways[1]), ("nrpn".into(), vec![1, 2], Some(14), Some([0, 16383])));
+}
+
+/// A way as `(kind, numbers, value_bits, range)`.
+fn shape(w: &osd::Way) -> (String, Vec<i64>, Option<i64>, Option<[i64; 2]>) {
+    (w.ctrl_type.clone(), w.ctrl_index.clone().unwrap_or_default(), w.value_bits, w.range)
 }
 
 #[test]
@@ -77,10 +82,10 @@ fn every_message_kind_is_a_way_in_also_with_its_own_range() {
     }));
     let ways = entries(&d)[0].ways();
     assert_eq!(ways.len(), 5);
-    assert_eq!((ways[1].cc, ways[1].cc_lsb, ways[1].range), (Some(1), Some(33), Some([0, 16383])));
-    assert_eq!((ways[2].nrpn_msb, ways[2].nrpn_lsb, ways[2].range), (Some(3), Some(4), Some([0, 1000])));
-    assert_eq!((ways[3].rpn_msb, ways[3].rpn_lsb, ways[3].range), (Some(0), Some(2), Some([0, 24])));
-    assert_eq!((ways[4].cc, ways[4].range), (Some(8), None));
+    assert_eq!(shape(&ways[1]), ("cc".into(), vec![1, 33], Some(14), Some([0, 16383])));
+    assert_eq!(shape(&ways[2]), ("nrpn".into(), vec![3, 4], Some(14), Some([0, 1000])));
+    assert_eq!(shape(&ways[3]), ("rpn".into(), vec![0, 2], Some(7), Some([0, 24])));
+    assert_eq!(shape(&ways[4]), ("cc".into(), vec![8], None, None));
 }
 
 #[test]
@@ -90,21 +95,22 @@ fn the_ways_come_in_the_order_written_the_flat_way_first_then_also_in_order() {
         "also": [{"cc": 40}, {"cc": 1, "cc_lsb": 33}, {"cc": 3}]
     }));
     let ways = entries(&d)[0].ways();
-    let seen: Vec<(Option<u8>, Option<u8>, Option<u8>)> = ways.iter().map(|w| (w.nrpn_msb, w.cc, w.cc_lsb)).collect();
-    assert_eq!(seen, vec![(Some(9), None, None), (None, Some(40), None), (None, Some(1), Some(33)), (None, Some(3), None)]);
+    let seen: Vec<(String, Vec<i64>)> = ways.iter().map(|w| (w.ctrl_type.clone(), w.ctrl_index.clone().unwrap())).collect();
+    let want: Vec<(String, Vec<i64>)> =
+        vec![("nrpn".into(), vec![9, 9]), ("cc".into(), vec![40]), ("cc".into(), vec![1, 33]), ("cc".into(), vec![3])];
+    assert_eq!(seen, want);
 }
 
 #[test]
 fn a_control_with_one_way_reads_as_in_0_5_with_that_one_way() {
     let d = one(json!({"osc": "/a", "cc": 74, "range": [0, 127], "section": "Filter"}));
-    let e = &entries(&d)[0];
-    assert!(e.also.is_none());
-    let ways = e.ways();
+    let ways = entries(&d)[0].ways();
     assert_eq!(ways.len(), 1);
-    assert_eq!((ways[0].cc, ways[0].range), (Some(74), Some([0, 127])));
+    assert_eq!(shape(&ways[0]), ("cc".into(), vec![74], None, Some([0, 127])));
     let n = one(json!({"osc": "/n", "nrpn_msb": 1, "nrpn_lsb": 2, "value_bits": 7, "range": [0, 9]}));
     let ways = entries(&n)[0].ways();
-    assert_eq!((ways.len(), ways[0].nrpn_msb, ways[0].nrpn_lsb, ways[0].range), (1, Some(1), Some(2), Some([0, 9])));
+    assert_eq!(ways.len(), 1);
+    assert_eq!(shape(&ways[0]), ("nrpn".into(), vec![1, 2], Some(7), Some([0, 9])));
 }
 
 #[test]

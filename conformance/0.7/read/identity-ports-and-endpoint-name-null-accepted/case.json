@@ -1,0 +1,15 @@
+{
+  "_about": "`null` on `identity.ports` or `identity.endpoint_name` is accepted and written back (the rule of a null key).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "ports": null,
+      "endpoint_name": null
+    }
+  }
+}

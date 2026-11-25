@@ -1,0 +1,14 @@
+{
+  "_about": "The endpoint rule compares the endpoint name, case ignored, whatever the system; its verdict comes after the port rules.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_applied"
+    },
+    {
+      "pointer": "/identity/endpoint_name",
+      "verdict": "matched"
+    }
+  ]
+}

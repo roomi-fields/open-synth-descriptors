@@ -1,0 +1,67 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "params": {
+    "get_frame": [
+      240,
+      66,
+      {
+        "arg": "pr"
+      },
+      {
+        "arg": "p"
+      },
+      {
+        "arg": "c"
+      },
+      {
+        "arg": "r"
+      },
+      247
+    ],
+    "set_frame": [
+      240,
+      67,
+      {
+        "arg": "pr"
+      },
+      {
+        "arg": "p"
+      },
+      {
+        "arg": "c"
+      },
+      {
+        "arg": "r"
+      },
+      {
+        "arg": "value"
+      },
+      247
+    ],
+    "value_type": "u7",
+    "entries": [
+      {
+        "osc": "/a",
+        "ways": [
+          {
+            "ctrlType": "sysex",
+            "ctrlIndex": [
+              16,
+              2,
+              0,
+              0
+            ],
+            "slice": [
+              0,
+              63
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

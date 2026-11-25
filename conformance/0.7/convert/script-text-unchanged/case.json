@@ -1,0 +1,19 @@
+{
+  "_about": "The text of every script is left as it is, byte for byte, one that reads another value by a number included (`ctx.values[3]`); `capabilities` still declares `lua`; the converter writes no `_sources`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "capabilities": ["lua"],
+    "sources": [{ "type": "vendor-doc", "notes": "A test device." }],
+    "identity": {
+      "reply": [240, 126, "any", 6, 2],
+      "script": "return reply[5] == 2",
+      "firmware": { "decode": "lua", "at": [5], "script": "return string.format('%d.%02d', reply[1] >> 4, reply[1] & 15)" }
+    },
+    "programs": {
+      "recall_script": "return {{0xC0, ctx.program}, {0xB0, 7, ctx.values[3]}}",
+      "dump": { "kind": "request", "script": "return {240, 1, ctx.program, 247}" }
+    }
+  }
+}

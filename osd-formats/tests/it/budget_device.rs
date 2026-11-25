@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 /// The message of a control: its kind and its numbers, as the fields give them.
 fn message(e: &osd::CcEntry) -> String {
-    format!("{:?}", (e.cc, e.nrpn_msb, e.nrpn_lsb, e.channel))
+    format!("{:?}", (crate::common::messages_of(e), e.channel))
 }
 
 fn messages(d: &osd::Device) -> BTreeSet<String> {

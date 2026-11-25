@@ -18,13 +18,11 @@ fn tag_of(ty: &str) -> &'static str {
 
 /// The highest value MIDI fixes for the kind of a controller entry: 127 for a 7-bit controller,
 /// 16383 for a 14-bit one, an NRPN or an RPN.
-fn kind_span(e: &Value) -> Option<i64> {
-    if e.get("cc").is_some() && e.get("cc_lsb").is_none() {
-        Some(127)
-    } else if ["cc_lsb", "nrpn_msb", "rpn_msb"].iter().any(|k| e.get(*k).is_some()) {
-        Some(16383)
-    } else {
-        None
+fn kind_span(way: &Value) -> Option<i64> {
+    match (way["ctrlType"].as_str(), way["ctrlIndex"].as_array().map(Vec::len)) {
+        (Some("cc"), Some(1)) => Some(127),
+        (Some("cc" | "nrpn" | "rpn"), _) => Some(16383),
+        _ => None,
     }
 }
 
@@ -35,8 +33,10 @@ fn carried(d: &Value) -> Vec<(String, String, Vec<Value>)> {
     let mut out = Vec::new();
     for key in ["cc_params", "params"] {
         for e in d[key]["entries"].as_array().into_iter().flatten() {
-            let span = if key == "cc_params" { kind_span(e) } else { None };
-            let range = match (e.get("range"), span) {
+            // A namespace carries one message per control: the first way.
+            let first = &e["ways"][0];
+            let span = if key == "cc_params" { kind_span(first) } else { None };
+            let range = match (first.get("range"), span) {
                 (Some(r), _) => json!({"MIN": r[0], "MAX": r[1]}),
                 (None, Some(max)) => json!({"MIN": 0, "MAX": max}),
                 (None, None) => Value::Null,
@@ -100,7 +100,7 @@ fn the_prefix_comes_back_for_a_device_of_one_segment() {
 fn the_devices_of_the_cases_and_the_examples_come_back_as_the_namespace_carries_them() {
     let mut with_methods = 0;
     for (name, d) in credited_devices() {
-        let original = json_of(&d.device);
+        let original = crate::common::electra::json_of_0_7(&d.device);
         // A command whose address has a capture is not a plain address; the cases hold none.
         let (b, _) = back(&d);
         let want = carried(&original);

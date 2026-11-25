@@ -1,0 +1,16 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+  "observed": "2026-11-25",
+  "device": {
+    "vendor": "Acme",
+    "model": "Synth",
+    "firmware": "1.0"
+  },
+  "via": "web-midi",
+  "platform": "macos",
+  "ports": {
+    "inputs": [
+      "synth in"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "_about": "A control and a `params` entry of 0.6 that give no message convert to an empty `ways`: `range`, `transmit`, `recognize` and `nrpn_lsb_range` stay on the entry, unchanged, with no `scale` and no note; the other fields convert as those of any control.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/bank",
+          "ways": [],
+          "range": [
+            0,
+            3
+          ],
+          "transmit": "absolute",
+          "recognize": "none",
+          "nrpn_lsb_range": [
+            0,
+            7
+          ],
+          "default": 1,
+          "values": [
+            {
+              "value": 0,
+              "title": "A"
+            },
+            {
+              "value": 1,
+              "title": "B"
+            }
+          ],
+          "title": "Bank"
+        },
+        {
+          "osc": "/filter/cutoff",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/bank/msb",
+          "polarity": "unipolar",
+          "ways": []
+        }
+      ]
+    },
+    "params": {
+      "get_frame": [
+        240,
+        66,
+        {
+          "arg": "pr"
+        },
+        247
+      ],
+      "set_frame": [
+        240,
+        67,
+        {
+          "arg": "pr"
+        },
+        {
+          "arg": "value"
+        },
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/osc1/pitch",
+          "ways": [],
+          "range": [
+            -64,
+            63
+          ],
+          "transmit": "absolute",
+          "recognize": "both"
+        },
+        {
+          "osc": "/osc1/shape",
+          "ways": []
+        }
+      ]
+    }
+  }
+}

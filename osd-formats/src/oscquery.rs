@@ -3,13 +3,22 @@
 //! docs/oscquery.md.
 
 use crate::credit::{credit_text, uncarried_source_fields};
-use crate::midi_csv::check_source;
-use crate::{Fault, FaultKind, Loss, Translated};
+use crate::importer::check_source;
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Address, ArgType, Command, Device, Resolved, Segment, Source};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
-const SCHEMA_URL: &str = "https://w3id.org/osd/0.6/device.schema.json";
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "oscquery",
+    media_type: "application/json",
+    extension: "json",
+    import,
+    export,
+    import_into: None,
+};
+
+const SCHEMA_URL: &str = "https://w3id.org/osd/0.7/device.schema.json";
 
 /// The type tags of the proposal ("Type tags": the OSC 1.0 and 1.1 tags).
 const TAGS: &str = "ifsbhtdScrmTFNI";
@@ -277,7 +286,7 @@ fn visit(node: &Value, ptr: &str, prefix: &str, commands: &mut Vec<Value>, losse
     }
 }
 
-pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let root: Value = serde_json::from_str(text).map_err(|e| invalid("", format!("the file is not valid JSON: {e}")))?;
     check_node(&root, "/", "")?;
@@ -366,13 +375,47 @@ fn bounds_of(range: Option<[i64; 2]>, fixed: Option<i64>, at: &str, losses: &mut
 
 /// The highest value MIDI fixes for the kind of a controller: 127 for a 7-bit controller, 16383
 /// for a 14-bit one, an NRPN or an RPN; none for an entry of no such kind.
-fn span_of(e: &osd::CcEntry) -> Option<i64> {
-    if e.cc.is_some() {
-        Some(if e.cc_lsb.is_some() { 16383 } else { 127 })
-    } else if e.cc_lsb.is_some() || e.nrpn_msb.is_some() || e.rpn_msb.is_some() {
-        Some(16383)
-    } else {
-        None
+fn span_of(way: &osd::Way) -> Option<i64> {
+    match (way.ctrl_type.as_str(), way.ctrl_index.as_ref().map(Vec::len)) {
+        ("cc", Some(1)) => Some(127),
+        ("cc" | "nrpn" | "rpn", _) => Some(16383),
+        _ => None,
+    }
+}
+
+/// The way a namespace carries of a control, the first in the order written (its range is the
+/// control's), and the named values of the control as that way carries them; every other way is a
+/// loss at its place.
+fn carried_way<'a>(ways: &'a [osd::Way], values: Option<&osd::NamedValues>, entry: &impl Scaled, at: &str, losses: &mut Vec<Loss>) -> (Option<&'a osd::Way>, Option<BTreeMap<String, i64>>) {
+    for m in 1..ways.len() {
+        loss(losses, format!("{at}/ways/{m}"), "a namespace says one range per address: the first way gives it, the other ways name messages it does not say");
+    }
+    let first = ways.first();
+    let named = values.map(|v| v.iter().map(|n| (n.title.clone(), first.map_or(n.value, |w| entry.in_way(n.value, w)))).collect());
+    (first, named)
+}
+
+/// The fields of an entry with no way that the node does not carry: its `range` alone is the node's.
+fn lost_without_a_way(fields: &[(&str, bool)], at: &str, losses: &mut Vec<Loss>) {
+    for (field, _) in fields.iter().filter(|(_, present)| *present) {
+        loss(losses, format!("{at}/{field}"), "the entry gives no message: the namespace says its range alone");
+    }
+}
+
+/// A control that converts a value of its reference scale to the scale of one of its ways.
+trait Scaled {
+    fn in_way(&self, value: i64, way: &osd::Way) -> i64;
+}
+
+impl Scaled for osd::CcEntry {
+    fn in_way(&self, value: i64, way: &osd::Way) -> i64 {
+        osd::CcEntry::in_way(self, value, way)
+    }
+}
+
+impl Scaled for osd::ParamEntry {
+    fn in_way(&self, value: i64, way: &osd::Way) -> i64 {
+        osd::ParamEntry::in_way(self, value, way)
     }
 }
 
@@ -461,6 +504,8 @@ fn command_node(n: usize, c: &Command, prefix: &str, losses: &mut Vec<Loss>) -> 
     let at = format!("/commands/{n}");
     let address = address_text(&c.osc);
     for (field, present) in [
+        ("title", c.title.is_some()),
+        ("description", c.description.is_some()),
         ("frame", c.frame.is_some()),
         ("forward", c.forward.is_some()),
         ("pre", c.pre.is_some()),
@@ -501,16 +546,16 @@ fn command_node(n: usize, c: &Command, prefix: &str, losses: &mut Vec<Loss>) -> 
     Some((address, method(&full, &types, &ranges, names)))
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     let Some(sources) = d.sources.as_ref().filter(|s| !s.is_empty()) else {
-        return Err(fault(FaultKind::NoSources, "/_sources", "a device without sources is not written: its credit and licence cannot be"));
+        return Err(fault(FaultKind::NoSources, "/sources", "a device without sources is not written: its credit and licence cannot be"));
     };
     let mut losses = Vec::new();
     let info = &d.device;
     for (pointer, present) in [
         ("/device/revision", info.revision.is_some()),
-        ("/device/manufacturer_id", info.manufacturer_id.is_some()),
+        ("/identity/manufacturerId", d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some())),
         ("/device/device_id", info.device_id.is_some()),
         ("/device/rate_limit_hz", info.rate_limit_hz.is_some()),
         ("/device/kind", info.kind.is_some()),
@@ -548,7 +593,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     for (n, s) in sources.iter().enumerate() {
         for field in uncarried_source_fields(s) {
-            loss(&mut losses, format!("/_sources/{n}/{}", segment(&field)), "the DESCRIPTION of the device node carries the credit and the licence of a source, nothing more");
+            loss(&mut losses, format!("/sources/{n}/{}", segment(&field)), "the DESCRIPTION of the device node carries the credit and the licence of a source, nothing more");
         }
     }
 
@@ -604,15 +649,18 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
         for (n, e) in cc.entries.iter().enumerate() {
             let at = format!("/cc_params/entries/{n}");
             for (field, present) in [
+                ("title", e.title.is_some()),
+                ("description", e.description.is_some()),
+                ("value_description", e.value_description.is_some()),
+                ("notes", e.notes.is_some()),
                 ("default", e.default.is_some()),
                 ("section", e.section.is_some()),
                 ("expects", e.expects.is_some()),
-                ("orientation", e.orientation.is_some()),
+                ("polarity", e.polarity.is_some()),
                 ("channel", e.channel.is_some()),
                 ("transform", e.transform.is_some()),
                 ("transform_reverse", e.transform_reverse.is_some()),
                 ("role", e.role.is_some()),
-                ("nrpn_lsb_range", e.nrpn_lsb_range.is_some()),
             ] {
                 if present {
                     loss(&mut losses, format!("{at}/{field}"), "the namespace has no attribute for it");
@@ -621,8 +669,16 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
             for key in e.remarks.keys() {
                 loss(&mut losses, format!("{at}/{}", segment(key)), "the namespace has no attribute for it");
             }
-            let range = bounds_of(e.range, span_of(e), &at, &mut losses);
-            let vals = e.values.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
+            let (first, named) = carried_way(&e.ways, e.values.as_ref(), e, &at, &mut losses);
+            let range = match first {
+                Some(w) => bounds_of(w.range, span_of(w), &format!("{at}/ways/0"), &mut losses),
+                None => {
+                    let fields = [("scale", e.scale.is_some()), ("transmit", e.transmit.is_some()), ("recognize", e.recognize.is_some()), ("nrpn_lsb_range", e.nrpn_lsb_range.is_some())];
+                    lost_without_a_way(&fields, &at, &mut losses);
+                    bounds_of(e.range, None, &at, &mut losses)
+                }
+            };
+            let vals = named.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
             let full = format!("{}{}", prefix.trim_end_matches('/'), e.osc);
             put(device, &at, &e.osc, method(&full, "i", &[Bounds { range, vals }], None), &mut losses);
         }
@@ -637,6 +693,8 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
         for (n, e) in p.entries.iter().enumerate() {
             let at = format!("/params/entries/{n}");
             for (field, present) in [
+                ("title", e.title.is_some()),
+                ("description", e.description.is_some()),
                 ("default", e.default.is_some()),
                 ("section", e.section.is_some()),
                 ("expects", e.expects.is_some()),
@@ -651,8 +709,16 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
             for key in e.remarks.keys() {
                 loss(&mut losses, format!("{at}/{}", segment(key)), "the namespace has no attribute for it");
             }
-            let range = bounds_of(e.range, None, &at, &mut losses);
-            let vals = e.values.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
+            let (first, named) = carried_way(&e.ways, e.values.as_ref(), e, &at, &mut losses);
+            let range = match first {
+                Some(w) => bounds_of(w.range, None, &format!("{at}/ways/0"), &mut losses),
+                None => {
+                    let fields = [("scale", e.scale.is_some()), ("transmit", e.transmit.is_some()), ("recognize", e.recognize.is_some())];
+                    lost_without_a_way(&fields, &at, &mut losses);
+                    bounds_of(e.range, None, &at, &mut losses)
+                }
+            };
+            let vals = named.as_ref().map(|v| vals_of(v, false, &format!("{at}/values"), &mut losses));
             let full = format!("{}{}", prefix.trim_end_matches('/'), e.osc);
             put(device, &at, &e.osc, method(&full, "i", &[Bounds { range, vals }], None), &mut losses);
         }

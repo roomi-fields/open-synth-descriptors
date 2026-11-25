@@ -3,9 +3,13 @@
 //! the device's.
 
 use crate::json::{
-    at_least, closed, int, list, obj, object, words, Any, At, Bool, Codec, Dict, Nullable, Object, Opt, Pair,
+    at_least, closed, int, list, list_of, obj, object, words, Any, At, Bool, Codec, Dict, Nullable, Object, Opt, Pair,
     Word, ADDRESS, INTEGER, STRING,
 };
+use crate::json::{matching, Text};
+
+/// A title: a string that is not empty (0.7).
+const TITLE: Text = matching(|s| !s.is_empty(), "that is not empty");
 use crate::address::{
     check_address, convert_address, name_ok, named, split_template, Address, AddressCodec, AddressPlace,
 };
@@ -13,6 +17,7 @@ use crate::frame::{
     check_expr, check_frame, convert_expr, convert_token, Expr, FrameToken, Place, EXPR, FRAME_TOKEN, MATCH_TOKEN,
     REPLY_TOKEN,
 };
+use crate::providers::is_provider;
 use crate::role::{check_roles, Role};
 use crate::resource::Resource;
 use crate::sound_transfer::SoundTransfer;
@@ -44,6 +49,9 @@ object! {
         /// The driver whose MIDI this firmware answers to unchanged
         /// (`maker/file`): this file then only says what differs.
         "midi_of" midi_of: Option<String> = Opt(STRING),
+        /// The dimensions the device holds its controls in, each with its values: a mode, a part (0.7,
+        /// proposal 0003).
+        "contexts" contexts: Option<BTreeMap<String, ContextDimension>> = Opt(Dict(obj())),
         /// Devices (their address prefix without `/`) whose sounds this one
         /// loads as they are.
         "loads_sounds_of" loads_sounds_of: Option<Vec<String>> = Opt(list(STRING)),
@@ -65,8 +73,10 @@ object! {
         /// osc-bridge extension: addresses handled by a script only.
         "custom_commands" custom_commands: Option<Vec<CustomCommand>> = Opt(list(obj())),
         /// Where the data comes from, with its credit, licence and the
-        /// firmware it documents.
-        "_sources" sources: Option<Vec<Source>> = Opt(list(obj())),
+        /// firmware it documents. Written `_sources` before 0.7.
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
+        /// The credit of the MIDI a resolution took from the targets of `midi_of` (0.7).
+        "midi_of_sources" midi_of_sources: Option<Vec<Source>> = Opt(list(obj())),
         /// What the source covers, counted.
         "_coverage" coverage: Option<BTreeMap<String, Value>> = Opt(Dict(Any)),
     }
@@ -415,27 +425,25 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
             }
         }
     }
-    for (n, s) in d.sources.iter().flatten().enumerate() {
-        vocabulary::check_source(&s.kind, s.license.as_deref(), &format!("/_sources/{n}"))?;
+    for (key, list) in [("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)] {
+        for (n, s) in list.iter().flatten().enumerate() {
+            let at = format!("/{key}/{n}");
+            let from_0_7 = d.schema >= Some(Version::V0_7);
+            vocabulary::check_source(&s.kind, s.license.as_deref(), from_0_7, &at)?;
+            if from_0_7 {
+                check_provider(s, &at)?;
+            }
+        }
     }
     Ok(())
 }
 
-/// The default of each control: not a field before 0.6; from 0.6, inside the control's `range`
-/// (bounds included) when it has one, compared to nothing otherwise.
-fn check_defaults(d: &Device) -> Result<(), Fault> {
-    let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/cc_params/entries/{n}/default"), e.default, e.range));
-    let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/params/entries/{n}/default"), e.default, e.range));
-    for (pointer, default, range) in cc.chain(params) {
-        let Some(default) = default else { continue };
-        if d.schema < Some(Version::V0_6) {
-            return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: "default is not a field before 0.6".into() });
-        }
-        if let Some([lo, hi]) = range {
-            if default < lo || default > hi {
-                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: format!("the default {default} is outside the range {lo}..{hi}") });
-            }
-        }
+/// The `provider` of a source of 0.7 is a text of the form of an identifier of the table of
+/// providers; whether the table holds it is no fault ([`crate::warnings`]).
+fn check_provider(s: &Source, at: &str) -> Result<(), Fault> {
+    if s.extra.contains_key("provider") || s.provider.as_deref().is_some_and(|p| !is_provider(p)) {
+        let rule = "a provider is lowercase letters and digits in groups joined by single hyphens, at most 64 characters";
+        return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/provider"), rule: rule.into() });
     }
     Ok(())
 }
@@ -471,108 +479,160 @@ fn check_banks_and_reply_time(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
-/// The precision of a control (0.6): `priority`, `step_count`, `transmit`, `recognize` and the `values`
-/// of a CC entry are not fields before 0.6; from 0.6 each named value lies inside the control's
-/// `range` (bounds included) when it has one, and is compared to nothing otherwise.
-fn check_precision(d: &Device) -> Result<(), Fault> {
-    let v06 = d.schema >= Some(Version::V0_6);
-    let unknown = |pointer: String, name: &str| Fault { kind: FaultKind::UnknownField, file: None, pointer, rule: format!("{name} is not a field before 0.6") };
+/// `range`, `transmit`, `recognize` and `nrpn_lsb_range` are fields of an entry without a way only
+/// (`spec/0.7.md`): beside a way they are unknown fields.
+fn check_fields_of_a_partial_control(d: &Device) -> Result<(), Fault> {
     let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| {
-        (format!("/cc_params/entries/{n}"), [e.priority.is_some(), e.step_count.is_some(), e.transmit.is_some(), e.recognize.is_some()], e.values.as_ref(), e.range, true)
+        let given = [("range", e.range.is_some()), ("transmit", e.transmit.is_some()), ("recognize", e.recognize.is_some()), ("nrpn_lsb_range", e.nrpn_lsb_range.is_some())];
+        ("cc_params", n, e.ways.is_empty(), given)
     });
     let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| {
-        (format!("/params/entries/{n}"), [e.priority.is_some(), e.step_count.is_some(), e.transmit.is_some(), e.recognize.is_some()], e.values.as_ref(), e.range, false)
+        let given = [("range", e.range.is_some()), ("transmit", e.transmit.is_some()), ("recognize", e.recognize.is_some()), ("nrpn_lsb_range", false)];
+        ("params", n, e.ways.is_empty(), given)
     });
-    for (at, given, values, range, cc) in cc.chain(params) {
-        if !v06 {
-            for (name, here) in ["priority", "step_count", "transmit", "recognize"].iter().zip(given) {
-                if here {
-                    return Err(unknown(format!("{at}/{name}"), name));
-                }
-            }
-            if cc && values.is_some() {
-                return Err(unknown(format!("{at}/values"), "values"));
-            }
-            continue;
+    for (table, n, partial, given) in cc.chain(params) {
+        if let Some((key, _)) = given.iter().find(|(_, here)| !partial && *here) {
+            let rule = format!("{key} is a field of an entry without a way: with ways, each way says it");
+            return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: format!("/{table}/entries/{n}/{key}"), rule });
         }
-        if let (Some(values), Some([lo, hi])) = (values, range) {
-            for (label, value) in values {
-                if *value < lo || *value > hi {
-                    let pointer = format!("{at}/values/{}", label.replace('~', "~0").replace('/', "~1"));
-                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: format!("the value {value} is outside the range {lo}..{hi}") });
-                }
+    }
+    Ok(())
+}
+
+/// The controls of a device of 0.7: a way of a `cc_params` entry is a message of MIDI
+/// and one of a `params` entry a SysEx parameter, the `default` and the named values lie in the
+/// reference scale, and a message is claimed once by side (`spec/0.7.md`).
+fn check_controls_0_7(d: &Device) -> Result<(), Fault> {
+    check_fields_of_a_partial_control(d)?;
+    let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/cc_params/entries/{n}"), &e.ways, e.known_scale(), e.default, e.values.as_ref(), e.readings.as_deref(), false));
+    let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/params/entries/{n}"), &e.ways, e.known_scale(), e.default, e.values.as_ref(), e.readings.as_deref(), true));
+    for (at, ways, scale, default, values, readings, sysex) in cc.chain(params) {
+        for (m, w) in ways.iter().enumerate() {
+            check_contexts_of_way(d, w, &format!("{at}/ways/{m}"), sysex)?;
+            if (w.ctrl_type == "sysex") != sysex {
+                let rule = if sysex { "a params entry is reached by sysex ways" } else { "a cc_params entry is reached by the kinds of MIDI: sysex is for a params entry" };
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/ways/{m}/ctrlType"), rule: rule.into() });
+            }
+        }
+        let Some([lo, hi]) = scale else { continue };
+        if let Some(v) = default.filter(|v| *v < lo || *v > hi) {
+            return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/default"), rule: format!("the default {v} is outside the scale {lo}..{hi}") });
+        }
+        for (i, r) in readings.iter().flat_map(|l| l.iter()).enumerate() {
+            let Some([a, b]) = r.range else { continue };
+            if a > b || a < lo || b > hi {
+                let rule = format!("the range {a}..{b} is not inside the scale {lo}..{hi} (low above high or outside)");
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/readings/{i}/range"), rule });
+            }
+        }
+        for (i, item) in values.iter().flat_map(|v| v.iter()).enumerate() {
+            if item.value < lo || item.value > hi {
+                let rule = format!("the value {} is outside the scale {lo}..{hi}", item.value);
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/values/{i}/value"), rule });
+            }
+        }
+    }
+    check_claims(d)
+}
+
+/// `in` and `slice` are for a way of `cc_params` (0003 does not cover `params`); each dimension and
+/// value of `in` is one the device declares. A file with `midi_of` and no `contexts` read alone does
+/// not hold the dimensions of its target: the names are left to the reading that joins them.
+fn check_contexts_of_way(d: &Device, w: &Way, at: &str, sysex: bool) -> Result<(), Fault> {
+    let unknown = |key: &str| Fault { kind: FaultKind::UnknownField, file: None, pointer: format!("{at}/{key}"), rule: format!("{key} is a field of a way of cc_params only") };
+    if sysex {
+        return match (&w.held_in, &w.slice) {
+            (Some(_), _) => Err(unknown("in")),
+            (None, Some(_)) => Err(unknown("slice")),
+            _ => Ok(()),
+        };
+    }
+    if d.midi_of.is_some() && d.contexts.is_none() {
+        return Ok(());
+    }
+    for (dimension, ids) in w.held_in.iter().flatten() {
+        let bad = |pointer: String, rule: String| Fault { kind: FaultKind::BadValue, file: None, pointer, rule };
+        let Some(dim) = d.contexts.as_ref().and_then(|c| c.get(dimension)) else {
+            return Err(bad(format!("{at}/in/{dimension}"), format!("{dimension} is not a dimension of the contexts of the device")));
+        };
+        for (i, id) in ids.ids().iter().enumerate() {
+            if !dim.values.iter().any(|v| v.id.as_deref() == Some(id.as_str())) {
+                let pointer = if matches!(ids, ContextIds::One(_)) { format!("{at}/in/{dimension}") } else { format!("{at}/in/{dimension}/{i}") };
+                return Err(bad(pointer, format!("{id} is not a value of the dimension {dimension}")));
             }
         }
     }
     Ok(())
 }
 
-/// A message a control claims: its kind (0 CC, 1 NRPN, 2 RPN), its channel and its numbers. A 14-bit
-/// CC claims its CC number and its LSB number, one message each.
-type Claim = (u8, Option<u8>, Option<u8>, Option<u8>);
-
-fn claims(w: &Way, channel: Option<u8>) -> Vec<Claim> {
-    let mut out: Vec<Claim> = [w.cc, w.cc_lsb].into_iter().flatten().map(|n| (0, channel, Some(n), None)).collect();
-    if w.has_nrpn() {
-        out.push((1, channel, w.nrpn_msb, w.nrpn_lsb));
-    }
-    if w.has_rpn() {
-        out.push((2, channel, w.rpn_msb, w.rpn_lsb));
-    }
-    out.sort();
-    out.dedup();
-    out
+/// What a claim holds in: per dimension the device knows, the ids of the way, and the interval of its
+/// `slice`, the coordinate `value`.
+struct Coordinates {
+    dimensions: Vec<(String, Vec<String>)>,
+    value: Option<[i64; 2]>,
 }
 
-/// The width of the value of an NRPN or an RPN way (0.6), in the words of the norm: 7 bits in the
-/// data MSB or 14 bits over MSB and LSB. A way that gives an NRPN or an RPN says it (`Missing`), a
-/// width outside the two words is refused at the field, and a way of another kind has none.
-fn check_value_bits(w: &Way, pointer: &str) -> Result<(), Fault> {
-    let at = format!("{pointer}/value_bits");
-    let fault = |kind, rule: &str| Fault { kind, file: None, pointer: at.clone(), rule: rule.into() };
-    match (w.has_nrpn() || w.has_rpn(), w.value_bits) {
-        (true, None) => Err(fault(FaultKind::Missing, "value_bits is required with an nrpn or an rpn: 7 or 14")),
-        (true, Some(7 | 14)) | (false, None) => Ok(()),
-        (true, Some(_)) => Err(fault(FaultKind::BadValue, "7 (the data MSB alone) or 14 (the data MSB and LSB)")),
-        (false, Some(_)) => Err(fault(FaultKind::BadValue, "value_bits is the width of an nrpn or an rpn value: this way gives neither")),
+impl Coordinates {
+    fn of(d: &Device, w: &Way) -> Coordinates {
+        let known = |dimension: &str| d.contexts.as_ref().is_some_and(|c| c.contains_key(dimension));
+        let dimensions = w.held_in.iter().flatten().filter(|(k, _)| known(k)).map(|(k, ids)| (k.clone(), ids.ids().to_vec())).collect();
+        Coordinates { dimensions, value: w.slice }
+    }
+
+    /// Two claims hold together unless a coordinate both name has two sets with nothing in common.
+    fn hold_together(&self, other: &Coordinates) -> bool {
+        let apart = self.dimensions.iter().any(|(k, ids)| other.dimensions.iter().any(|(o, theirs)| o == k && !ids.iter().any(|i| theirs.contains(i))));
+        let apart_by_value = matches!((self.value, other.value), (Some(a), Some(b)) if a[1] < b[0] || b[1] < a[0]);
+        !(apart || apart_by_value)
     }
 }
 
-/// The ways of a control (0.6): `also` is not a field before 0.6; from 0.6 each way of `also` gives
-/// one message kind, and a message (kind, channel, numbers) is claimed once, across the ways of a
-/// control as across controls; the fault is at the later place and names the earlier.
-fn check_ways(d: &Device) -> Result<(), Fault> {
+/// A way that took a claim: the place of its control and of itself, and its coordinates.
+type Taken = (usize, usize, Coordinates);
+
+/// What a way claims on one side: its kind, its channel and one number it occupies.
+type Claim = (u8, Option<u8>, u16);
+
+/// The claims of a way (`spec/0.7.md`): a `cc` claims each of its numbers, an NRPN or an RPN its
+/// two as one, a note or a polyphonic pressure its note, a channel pressure and a pitch bend their
+/// channel; a way that works neither side claims nothing.
+fn claims(w: &Way, channel: Option<u8>) -> ([bool; 2], Vec<Claim>) {
+    let sides = [w.transmit != Some(Direction::None), w.recognize != Some(Direction::None)];
+    let index = w.ctrl_index.as_deref().unwrap_or_default();
+    let (kind, numbers): (u8, Vec<u16>) = match w.ctrl_type.as_str() {
+        "cc" => (0, index.iter().map(|n| *n as u16).collect()),
+        "nrpn" => (1, vec![((index[0] as u16) << 7) | index[1] as u16]),
+        "rpn" => (2, vec![((index[0] as u16) << 7) | index[1] as u16]),
+        "chPress" => (3, vec![0]),
+        "pPress" => (4, vec![index[0] as u16]),
+        "pBend" => (5, vec![0]),
+        "note" => (6, vec![index[0] as u16]),
+        _ => return ([false, false], Vec::new()),
+    };
+    (sides, numbers.into_iter().map(|n| (kind, channel, n)).collect())
+}
+
+/// A message is claimed once on each side by claims that can hold together, across the ways of a
+/// control as across the controls: the fault is at the later way and its rule names the earlier. The
+/// reader keeps, by side and by claimed number, the places and coordinates of the ways that took it.
+fn check_claims(d: &Device) -> Result<(), Fault> {
     let Some(c) = &d.cc_params else { return Ok(()) };
-    let v06 = d.schema >= Some(Version::V0_6);
-    let mut claimed: BTreeMap<Claim, String> = BTreeMap::new();
+    let mut claimed: [std::collections::HashMap<Claim, Vec<Taken>>; 2] = Default::default();
     for (n, e) in c.entries.iter().enumerate() {
-        let at = format!("/cc_params/entries/{n}");
-        if !v06 {
-            if e.also.is_some() {
-                return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: format!("{at}/also"), rule: "also is not a field before 0.6".into() });
-            }
-            if e.value_bits.is_some() {
-                return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: format!("{at}/value_bits"), rule: "value_bits is not a field before 0.6".into() });
-            }
-            continue;
-        }
         let channel = e.channel.or(c.channel);
-        for (m, w) in e.ways().iter().enumerate() {
-            let pointer = if m == 0 { at.clone() } else { format!("{at}/also/{}", m - 1) };
-            {
-                let kinds = [w.has_cc(), w.has_nrpn(), w.has_rpn()].iter().filter(|k| **k).count();
-                if kinds > 1 || (m > 0 && kinds != 1) {
-                    let rule = if kinds == 0 { "a way names a message kind: a cc, an nrpn or an rpn" } else { "a way carries one message kind only: a cc, an nrpn or an rpn" };
-                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: rule.into() });
+        for (m, w) in e.ways.iter().enumerate() {
+            let (sides, numbers) = claims(w, channel);
+            let coordinates = Coordinates::of(d, w);
+            for (side, taken) in claimed.iter_mut().enumerate().filter(|(s, _)| sides[*s]) {
+                for claim in &numbers {
+                    let earlier = taken.get(claim).and_then(|l| l.iter().find(|(_, _, c)| c.hold_together(&coordinates)));
+                    if let Some((en, wm, _)) = earlier {
+                        let side = if side == 0 { "sends" } else { "receives" };
+                        let rule = format!("the message is already claimed, as the one the control {side}, at /cc_params/entries/{en}/ways/{wm}: one control is reached by it");
+                        return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("/cc_params/entries/{n}/ways/{m}"), rule });
+                    }
+                    taken.entry(*claim).or_default().push((n, m, Coordinates::of(d, w)));
                 }
-            }
-            check_value_bits(w, &pointer)?;
-            for claim in claims(w, channel) {
-                if let Some(first) = claimed.get(&claim) {
-                    let rule = format!("the message is already claimed at {first}: one control is reached by it");
-                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule });
-                }
-                claimed.insert(claim, pointer.clone());
             }
         }
     }
@@ -604,9 +664,13 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     crate::resource::check_version(d)?;
     check_roles(d)?;
     check_stands_for(d)?;
-    check_defaults(d)?;
-    check_precision(d)?;
-    check_ways(d)?;
+    if d.schema >= Some(Version::V0_7) {
+        check_controls_0_7(d)?;
+        check_source_ids(d)?;
+        if d.midi_of.is_none() {
+            check_reading_sources(d)?;
+        }
+    }
     check_banks_and_reply_time(d)?;
     if !v05 && d.capabilities.is_some() {
         return Err(Fault { kind: FaultKind::UnknownField, file: None, pointer: "/capabilities".into(), rule: "capabilities is not a field of 0.4".into() });
@@ -947,8 +1011,6 @@ object! {
         "revision" revision: Option<String> = Opt(STRING),
         /// The device's own address prefix (`/minilogue`).
         "osc_prefix" osc_prefix: String = ADDRESS,
-        /// The maker's SysEx id: one byte, or three starting with 0.
-        "manufacturer_id" manufacturer_id: Option<Vec<u8>> = Opt(list(U7)),
         "device_id" device_id: Option<Vec<u8>> = Opt(list(U7)),
         /// Most messages a second the device takes; 0: no limit known.
         "rate_limit_hz" rate_limit_hz: Option<i64> = Opt(at_least(0)),
@@ -1024,6 +1086,8 @@ object! {
     /// identify request, its port names, its USB identity, what it sends by
     /// itself.
     Identity {
+        /// The maker's SysEx id: one byte, or three starting with 0 (0.7); `null` drops the profile's.
+        "manufacturerId" manufacturer_id: Option<Option<Vec<u8>>> = Opt(Nullable(list(U7))),
         /// A maker profile this extends (`maker` or `maker/family`).
         "profile" profile: Option<String> = Opt(STRING),
         /// The identify request, when not the Universal Identity Request.
@@ -1043,11 +1107,96 @@ object! {
         /// but `profile` takes `null` (`Some(None)`), which removes the
         /// maker profile's key (23.25).
         "firmware" firmware: Option<Option<FirmwareRule>> = Opt(Nullable(obj())),
-        /// Its port names, for a device that does not answer.
-        "ports" ports: Option<Option<Vec<String>>> = Opt(Nullable(list(STRING))),
+        /// The rules on its port names, for a device that does not answer. Before 0.7 each is a
+        /// plain name, read as a `contains` rule with no direction, platform or stack.
+        "ports" ports: Option<Option<Vec<PortRule>>> = Opt(Nullable(list(obj()))),
+        /// The rule on the name the device gives its own MIDI 2.0 endpoint (0.7).
+        "endpoint_name" endpoint_name: Option<Option<EndpointRule>> = Opt(Nullable(obj())),
         /// Its USB identities, one per model version or mode.
         "usb" usb: Option<Option<Vec<UsbId>>> = Opt(Nullable(list(obj()))),
         "sends" sends: Option<Option<Sends>> = Opt(Nullable(obj())),
+    }
+}
+
+words! {
+    /// How a rule compares its value with a name, case ignored.
+    PortOperator { Equals = "equals", Contains = "contains", StartsWith = "starts_with", EndsWith = "ends_with", }
+}
+
+words! {
+    /// The direction of the port a rule names.
+    PortDirection { Input = "input", Output = "output", }
+}
+
+words! {
+    /// The system a port name was taken on.
+    Platform { Windows = "windows", Linux = "linux", Macos = "macos", }
+}
+
+words! {
+    /// The naming stack of a platform ([`Stack::platform`]).
+    Stack {
+        Winmm = "winmm",
+        WindowsMidiServices = "windows-midi-services",
+        Winrt = "winrt",
+        AlsaSeq = "alsa-seq",
+        AlsaRawmidi = "alsa-rawmidi",
+        Jack = "jack",
+        Coremidi = "coremidi",
+    }
+}
+
+impl Stack {
+    /// The platform the stack belongs to.
+    pub fn platform(self) -> Platform {
+        match self {
+            Stack::Winmm | Stack::WindowsMidiServices | Stack::Winrt => Platform::Windows,
+            Stack::AlsaSeq | Stack::AlsaRawmidi | Stack::Jack => Platform::Linux,
+            Stack::Coremidi => Platform::Macos,
+        }
+    }
+}
+
+/// A `stack` requires a `platform` and belongs to it, on a rule as on a fingerprint; the refusal is
+/// at `stack`.
+pub(crate) fn check_stack(platform: Option<Platform>, stack: Option<Stack>, at: &At) -> Result<(), Fault> {
+    match stack {
+        Some(s) if platform != Some(s.platform()) => Err(At::Key(at, "stack").fault(
+            FaultKind::BadValue,
+            format!("the stack {} needs the platform {}", s.word(), s.platform().word()),
+        )),
+        _ => Ok(()),
+    }
+}
+
+object! {
+    /// A rule on a port name (0.7). A rule read from a text before 0.7 may hold an empty value,
+    /// which matches nothing.
+    PortRule {
+        "operator" operator: PortOperator = closed(),
+        /// The text compared, not empty.
+        "value" value: String = TITLE,
+        /// The ports it names; both directions when absent.
+        "direction" direction: Option<PortDirection> = Opt(closed()),
+        /// The platform it holds on; every one when absent.
+        "platform" platform: Option<Platform> = Opt(closed()),
+        /// The naming stack it holds on; every stack of its platform when absent.
+        "stack" stack: Option<Stack> = Opt(closed()),
+    }
+    check check_port_rule
+}
+
+fn check_port_rule(r: &PortRule, at: &At) -> Result<(), Fault> {
+    check_stack(r.platform, r.stack, at)
+}
+
+object! {
+    /// A rule on the endpoint name (0.7): one endpoint serves both directions, and the device
+    /// gives its name itself, so it names no direction and no system.
+    EndpointRule {
+        "operator" operator: PortOperator = closed(),
+        /// The text compared, not empty.
+        "value" value: String = TITLE,
     }
 }
 
@@ -1136,8 +1285,8 @@ object! {
 }
 
 words! {
-    /// Where a control's values start.
-    Orientation { ZeroBased = "0-based", Centered = "centered", }
+    /// Where a control's values start: `unipolar` at its lowest, `bipolar` around a centre (0.7).
+    Polarity { Unipolar = "unipolar", Bipolar = "bipolar", }
 }
 
 words! {
@@ -1147,36 +1296,46 @@ words! {
 
 object! {
     /// A control set by Control Change, a 14-bit CC pair, NRPN or RPN.
+    ///
+    /// Its `Default` is the base of a struct update (`..Default::default()`), not a valid
+    /// descriptor: `osc` is empty, and the reader does not validate a descriptor on its default alone.
+    #[derive(Default)]
     CcEntry {
         /// The control's address, after the device's prefix (`/filter/cutoff`).
         "osc" osc: String = ADDRESS,
-        "cc" cc: Option<u8> = Opt(U7),
-        "cc_lsb" cc_lsb: Option<u8> = Opt(U7),
-        "nrpn_msb" nrpn_msb: Option<u8> = Opt(U7),
-        "nrpn_lsb" nrpn_lsb: Option<u8> = Opt(U7),
-        "nrpn_lsb_range" nrpn_lsb_range: Option<[i64; 2]> = Opt(Pair),
-        "rpn_msb" rpn_msb: Option<u8> = Opt(U7),
-        "rpn_lsb" rpn_lsb: Option<u8> = Opt(U7),
-        /// The width of the value of an NRPN or an RPN, in the words of the norm: 7 (the data MSB
-        /// alone) or 14 (the data MSB and LSB); required with an NRPN or an RPN (0.6).
-        "value_bits" value_bits: Option<i64> = Opt(INTEGER),
-        /// Lowest and highest value.
+        /// The name a person reads (0.7); never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        /// A description for a person, in CommonMark (0.7).
+        "description" description: Option<String> = Opt(STRING),
+        /// What the values of the control mean, in CommonMark (0.7).
+        "value_description" value_description: Option<String> = Opt(STRING),
+        /// A note of reserve or history (0.7).
+        "notes" notes: Option<String> = Opt(STRING),
+        /// The range the `default`, the `values`, the `step_count` and the readings are written in
+        /// (0.7); without it, the range of the most precise way.
+        "scale" scale: Option<[i64; 2]> = Opt(Pair),
+        /// Lowest and highest value, on a control without a way only: with ways, each way says its own.
         "range" range: Option<[i64; 2]> = Opt(Pair),
-        /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
+        /// Whether the control is sent, and how, on a control without a way only.
+        "transmit" transmit: Option<Direction> = Opt(closed()),
+        /// Whether the control is recognised, and how, on a control without a way only.
+        "recognize" recognize: Option<Direction> = Opt(closed()),
+        /// The parameter LSB numbers of the block the control stands for, on a control without a way only.
+        "nrpn_lsb_range" nrpn_lsb_range: Option<[i64; 2]> = Opt(Pair),
+        /// The value of the control on an initialised sound, in the reference scale (0.6).
         "default" default: Option<i64> = Opt(INTEGER),
         /// How important the control is, 1 (essential) to 5 (hidden), as in MIDI-CI Property Exchange (0.6).
         "priority" priority: Option<u8> = Opt(int(1, 5)),
         /// The number of distinct steps of the control, 2 or more (0.6).
         "step_count" step_count: Option<i64> = Opt(at_least(2)),
-        /// Whether the control is sent as absolute, relative or both values (0.6).
-        "transmit" transmit: Option<Direction> = Opt(closed()),
-        /// Whether the control is recognised as absolute, relative or both values (0.6).
-        "recognize" recognize: Option<Direction> = Opt(closed()),
-        /// Named values: each label with its value, inside `range` (0.6).
-        "values" values: Option<BTreeMap<String, i64>> = Opt(Dict(INTEGER)),
-        "orientation" orientation: Option<Orientation> = Opt(closed()),
+        /// Named values: each with its value in the reference scale and its title (0.7).
+        "values" values: Option<NamedValues> = Opt(NamedValuesCodec),
+        "polarity" polarity: Option<Polarity> = Opt(closed()),
         "channel" channel: Option<u8> = Opt(CHANNEL),
         "section" section: Option<String> = Opt(STRING),
+        /// The accounts of this control, each with its state and the firmware it holds for (0.7);
+        /// never empty.
+        "readings" readings: Option<Vec<ControlReading>> = Opt(list_of(obj(), 1, usize::MAX)),
         /// What the control expects: continuous (default), switch,
         /// momentary, trigger, clock or discrete; other words are allowed.
         "expects" expects: Option<String> = Opt(STRING),
@@ -1186,87 +1345,348 @@ object! {
         "transform_reverse" transform_reverse: Option<String> = Opt(STRING),
         /// What the control does, in the words every device shares (0.6).
         "role" role: Option<Role> = Opt(obj()),
-        /// The ways of reaching the control after the one the flat fields give, in the order of
-        /// preference, each with one message kind and its own range (0.6).
-        "also" also: Option<Vec<Way>> = Opt(list(obj())),
+        /// The messages that reach the control, in the order of preference (0.7); empty when the
+        /// message is not known yet: the control is partial, to be completed.
+        "ways" ways: Vec<Way> = list(obj()),
+    }
+    kept {
+        /// The flat message fields a text before 0.7 gave on the control, held where its ways alone
+        /// would not write them back as given. No key of any version: only the writing of an older
+        /// version reads it.
+        #[doc(hidden)]
+        flat: Option<Box<crate::flat::FlatFields>>
     }
 }
 
 object! {
-    /// One way of reaching a control: a CC (with its LSB for 14 bits), an NRPN or an RPN, with its
-    /// range (0.6).
-    Way {
-        "cc" cc: Option<u8> = Opt(U7),
-        "cc_lsb" cc_lsb: Option<u8> = Opt(U7),
-        "nrpn_msb" nrpn_msb: Option<u8> = Opt(U7),
-        "nrpn_lsb" nrpn_lsb: Option<u8> = Opt(U7),
-        "rpn_msb" rpn_msb: Option<u8> = Opt(U7),
-        "rpn_lsb" rpn_lsb: Option<u8> = Opt(U7),
-        /// The width of the value of an NRPN or an RPN: 7 or 14 bits.
-        "value_bits" value_bits: Option<i64> = Opt(INTEGER),
-        /// Lowest and highest value.
-        "range" range: Option<[i64; 2]> = Opt(Pair),
+    /// A value of a dimension of `contexts`: its `id`, and the channel its messages arrive on when
+    /// the descriptor knows it; without `channel` the channel is the user's setting (0.7).
+    ContextValue {
+        "id" id: Option<String> = Opt(STRING),
+        "channel" channel: Option<u8> = Opt(CHANNEL),
     }
+    check check_context_value
+}
+
+fn check_context_value(v: &ContextValue, at: &At) -> Result<(), Fault> {
+    match v.id.as_deref() {
+        None | Some("") => Err(At::Key(at, "id").bad("an id is a text that is not empty")),
+        Some(_) => Ok(()),
+    }
+}
+
+object! {
+    /// A dimension of `contexts`: the values the device takes in it (0.7).
+    ContextDimension {
+        "values" values: Vec<ContextValue> = list(obj()),
+    }
+    check check_context_dimension
+}
+
+/// Two values of one dimension never pin the same channel: the fault is at the second. A value with
+/// no `channel` is the user's setting and is never compared.
+fn check_context_dimension(d: &ContextDimension, at: &At) -> Result<(), Fault> {
+    let mut seen: Vec<u8> = Vec::new();
+    for (n, v) in d.values.iter().enumerate() {
+        let Some(c) = v.channel else { continue };
+        if seen.contains(&c) {
+            let values = At::Key(at, "values");
+            let value = At::Index(&values, n);
+            return Err(At::Key(&value, "channel").bad(format!("the channel {c} is already the channel of an earlier value of this dimension")));
+        }
+        seen.push(c);
+    }
+    Ok(())
+}
+
+/// What `in` says of one dimension: one id or a list of ids, kept as written.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ContextIds {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl ContextIds {
+    pub fn ids(&self) -> &[String] {
+        match self {
+            ContextIds::One(s) => std::slice::from_ref(s),
+            ContextIds::Many(l) => l,
+        }
+    }
+}
+
+pub(crate) struct ContextIdsCodec;
+
+impl Codec for ContextIdsCodec {
+    type T = ContextIds;
+    fn read(&self, v: &Value, at: &At) -> Result<ContextIds, Fault> {
+        match v {
+            Value::String(s) => Ok(ContextIds::One(s.clone())),
+            Value::Array(_) => list_of(STRING, 1, usize::MAX).read(v, at).map(ContextIds::Many),
+            _ => Err(at.bad("an id or a list of ids")),
+        }
+    }
+    fn write(&self, t: &ContextIds) -> Option<Value> {
+        match t {
+            ContextIds::One(s) => Some(Value::String(s.clone())),
+            ContextIds::Many(l) => list_of(STRING, 1, usize::MAX).write(l),
+        }
+    }
+}
+
+/// A slice: a closed interval `[lowest, highest]` of two integers, lowest at most highest.
+pub(crate) struct SliceCodec;
+
+impl Codec for SliceCodec {
+    type T = [i64; 2];
+    fn read(&self, v: &Value, at: &At) -> Result<[i64; 2], Fault> {
+        let bounds = v.as_array().filter(|a| a.len() == 2).and_then(|a| Some([a[0].as_i64()?, a[1].as_i64()?]));
+        bounds.filter(|b| b[0] <= b[1]).ok_or_else(|| at.bad("a closed interval [lowest, highest] of two integers, lowest at most highest"))
+    }
+    fn write(&self, t: &[i64; 2]) -> Option<Value> {
+        Some(Value::from(t.to_vec()))
+    }
+}
+
+/// The message kinds of a way, the words of `ctrlType` (0.7).
+const KINDS: [&str; 8] = ["cc", "nrpn", "rpn", "chPress", "pPress", "pBend", "note", "sysex"];
+
+object! {
+    /// One message that reaches a control, with its numbers, its width, its range and its direction
+    /// (0.7). `in` names the contexts the message holds in and `slice` the closed interval of its
+    /// values it holds for (proposal 0003); both are read on a way of `cc_params`, and each is a
+    /// coordinate of the claim the way makes (`check_claims`).
+    #[derive(Default)]
+    Way {
+        /// The kind of the message: `cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`, or
+        /// `sysex` for a `params` entry.
+        "ctrlType" ctrl_type: String = matching(|s| KINDS.contains(&s), "one of cc, nrpn, rpn, chPress, pPress, pBend, note, sysex"),
+        /// The numbers of the message, by kind: absent for `chPress` and `pBend`.
+        "ctrlIndex" ctrl_index: Option<Vec<i64>> = Opt(list(INTEGER)),
+        /// The width of the value: 7 or 14.
+        "value_bits" value_bits: Option<i64> = Opt(INTEGER),
+        /// Lowest and highest value of the message.
+        "range" range: Option<[i64; 2]> = Opt(Pair),
+        /// Whether the way is sent as absolute, relative or both values, or not sent.
+        "transmit" transmit: Option<Direction> = Opt(closed()),
+        /// Whether the way is recognised as absolute, relative or both values, or not recognised.
+        "recognize" recognize: Option<Direction> = Opt(closed()),
+        /// For an `nrpn` way: the parameter LSB numbers of the block the way stands for.
+        "nrpn_lsb_range" nrpn_lsb_range: Option<[i64; 2]> = Opt(Pair),
+        /// The contexts the way holds in: per dimension of the device, one id or a list of ids (0.7).
+        "in" held_in: Option<BTreeMap<String, ContextIds>> = Opt(Dict(ContextIdsCodec)),
+        /// The closed interval `[lowest, highest]` of the values of the message the way holds for (0.7).
+        "slice" slice: Option<[i64; 2]> = Opt(SliceCodec),
+    }
+    check check_way
+}
+
+/// The numbers of a way follow its kind, and its width follows its kind and its numbers
+/// (`spec/0.7.md`, `ctrlIndex` and `value_bits`).
+fn check_way(w: &Way, at: &At) -> Result<(), Fault> {
+    let index_at = At::Key(at, "ctrlIndex");
+    let (count, top): (&[usize], i64) = match w.ctrl_type.as_str() {
+        "cc" => (&[1, 2], 127),
+        "nrpn" | "rpn" => (&[2], 127),
+        "pPress" | "note" => (&[1], 127),
+        "sysex" => (&[1, 2, 3, 4], 255),
+        _ => (&[], 0),
+    };
+    match (&w.ctrl_index, count.is_empty()) {
+        (Some(_), true) => return Err(index_at.bad("absent: this kind has no numbers")),
+        (None, false) => return Err(index_at.fault(FaultKind::Missing, "ctrlIndex is required: the numbers of the message")),
+        (Some(i), false) if !count.contains(&i.len()) || i.iter().any(|n| *n < 0 || *n > top) => {
+            return Err(index_at.bad(format!("{} integers from 0 to {top}", count.iter().map(usize::to_string).collect::<Vec<_>>().join(" or "))));
+        }
+        _ => {}
+    }
+    let bits_at = At::Key(at, "value_bits");
+    let long = w.ctrl_index.as_ref().is_some_and(|i| i.len() == 2);
+    match (w.ctrl_type.as_str(), w.value_bits) {
+        ("nrpn" | "rpn", None) => return Err(bits_at.fault(FaultKind::Missing, "value_bits is required with an nrpn or an rpn: 7 or 14")),
+        ("nrpn" | "rpn", Some(7 | 14)) => {}
+        ("nrpn" | "rpn", Some(_)) => return Err(bits_at.bad("7 (the data MSB alone) or 14 (the data MSB and LSB)")),
+        ("cc", None) if long => return Err(bits_at.fault(FaultKind::Missing, "value_bits: 14 is required with a cc of two numbers")),
+        ("cc", Some(14)) if long => {}
+        ("cc", Some(_)) if long => return Err(bits_at.bad("14: a cc of two numbers is 14 bits")),
+        ("cc", None | Some(7)) => {}
+        ("cc", Some(_)) => return Err(bits_at.bad("7: a cc of one number is 7 bits")),
+        ("chPress" | "pPress" | "note", Some(_)) => return Err(bits_at.bad("none: the width of this kind is implied")),
+        ("pBend", Some(n)) if n != 14 => return Err(bits_at.bad("14: a pitch bend is 14 bits")),
+        ("sysex", Some(n)) if n != 7 && n != 14 => return Err(bits_at.bad("7 or 14")),
+        _ => {}
+    }
+    if w.nrpn_lsb_range.is_some() && w.ctrl_type != "nrpn" {
+        return Err(At::Key(at, "nrpn_lsb_range").bad("nrpn_lsb_range is for an nrpn way"));
+    }
+    Ok(())
 }
 
 impl Way {
-    fn has_cc(&self) -> bool {
-        self.cc.is_some() || self.cc_lsb.is_some()
-    }
-    fn has_nrpn(&self) -> bool {
-        self.nrpn_msb.is_some() || self.nrpn_lsb.is_some()
-    }
-    fn has_rpn(&self) -> bool {
-        self.rpn_msb.is_some() || self.rpn_lsb.is_some()
-    }
-}
-
-impl CcEntry {
-    /// The ways of reaching the control in the order written: the flat fields first, then `also`.
-    pub fn ways(&self) -> Vec<Way> {
-        let first = Way {
-            cc: self.cc,
-            cc_lsb: self.cc_lsb,
-            nrpn_msb: self.nrpn_msb,
-            nrpn_lsb: self.nrpn_lsb,
-            rpn_msb: self.rpn_msb,
-            rpn_lsb: self.rpn_lsb,
-            value_bits: self.value_bits,
-            range: self.range,
-            remarks: Default::default(),
-        };
-        std::iter::once(first).chain(self.also.iter().flatten().cloned()).collect()
+    /// The range the way's values lie in: its `range`, else the one its kind and width imply (0 to
+    /// 127 for 7 bits, 0 to 16383 for 14).
+    pub fn scale(&self) -> [i64; 2] {
+        self.range.unwrap_or_else(|| {
+            let wide = match self.ctrl_type.as_str() {
+                "pBend" => true,
+                "chPress" | "pPress" | "note" => false,
+                "cc" => self.ctrl_index.as_ref().is_some_and(|i| i.len() == 2),
+                _ => self.value_bits == Some(14),
+            };
+            if wide { [0, 16383] } else { [0, 127] }
+        })
     }
 }
 
 object! {
+    /// A named value of a control: a value of the reference scale and its title (0.7).
+    NamedValue {
+        "value" value: i64 = INTEGER,
+        "title" title: String = STRING,
+    }
+}
+
+/// The named values of a control, in the order written.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct NamedValues(pub Vec<NamedValue>);
+
+impl NamedValues {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn iter(&self) -> std::slice::Iter<'_, NamedValue> {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a NamedValues {
+    type Item = &'a NamedValue;
+    type IntoIter = std::slice::Iter<'a, NamedValue>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+/// The value of the first named value with this title.
+impl std::ops::Index<&str> for NamedValues {
+    type Output = i64;
+    fn index(&self, title: &str) -> &i64 {
+        &self.0.iter().find(|v| v.title == title).unwrap_or_else(|| panic!("no value titled {title:?}")).value
+    }
+}
+
+pub(crate) struct NamedValuesCodec;
+
+impl Codec for NamedValuesCodec {
+    type T = NamedValues;
+    fn read(&self, v: &Value, at: &At) -> Result<NamedValues, Fault> {
+        list(obj::<NamedValue>()).read(v, at).map(NamedValues)
+    }
+    fn write(&self, t: &NamedValues) -> Option<Value> {
+        list(obj::<NamedValue>()).write(&t.0)
+    }
+}
+
+/// The scale a way of a control is read in, and the conversion of a value between the scales of the
+/// control and of a way: the affine scaling of one range on the other, rounded to the nearest, the
+/// half upward (`spec/0.7.md`, the scale of a control).
+fn convert_between(v: i64, from: [i64; 2], to: [i64; 2]) -> i64 {
+    let (num, den) = (i128::from(v - from[0]) * i128::from(to[1] - to[0]), i128::from(from[1] - from[0]));
+    if den == 0 {
+        return to[0];
+    }
+    let (num, den) = if den < 0 { (-num, -den) } else { (num, den) };
+    to[0] + (2 * num + den).div_euclid(2 * den) as i64
+}
+
+/// The reference scale of the ways of a control: the scale it gives, else the one of its most precise
+/// way (the highest maximum, the first on a tie); `None` when neither says it.
+fn known_scale(scale: Option<[i64; 2]>, ways: &[Way]) -> Option<[i64; 2]> {
+    scale.or_else(|| {
+        let mut best: Option<(&Way, [i64; 2])> = None;
+        for w in ways {
+            let s = w.scale();
+            if best.is_none_or(|(_, b)| s[1] > b[1]) {
+                best = Some((w, s));
+            }
+        }
+        best.filter(|(w, _)| w.ctrl_type != "sysex" || w.range.is_some() || w.value_bits.is_some()).map(|(_, s)| s)
+    })
+}
+
+macro_rules! control_scale {
+    ($entry:ident) => {
+        impl $entry {
+            /// The ways of reaching the control in the order written.
+            pub fn ways(&self) -> Vec<Way> {
+                self.ways.clone()
+            }
+            /// The reference scale: the range `default`, `values` and `step_count` are written in.
+            pub fn reference_scale(&self) -> [i64; 2] {
+                self.known_scale().unwrap_or([0, 127])
+            }
+            fn known_scale(&self) -> Option<[i64; 2]> {
+                // A `range` is on the entry only when it has no way (`check_fields_of_a_partial_control`).
+                known_scale(self.scale.or(self.range), &self.ways)
+            }
+            /// A value of the reference scale as the way carries it.
+            pub fn in_way(&self, value: i64, way: &Way) -> i64 {
+                convert_between(value, self.reference_scale(), way.scale())
+            }
+            /// A value received on a way, in the reference scale.
+            pub fn from_way(&self, value: i64, way: &Way) -> i64 {
+                convert_between(value, way.scale(), self.reference_scale())
+            }
+        }
+    };
+}
+control_scale!(CcEntry);
+control_scale!(ParamEntry);
+
+object! {
     /// A parameter read and written by SysEx.
+    ///
+    /// Its `Default` is the base of a struct update (`..Default::default()`), not a valid
+    /// descriptor: `osc` is empty, and the reader does not validate a descriptor on its default alone.
+    #[derive(Default)]
     ParamEntry {
         "osc" osc: String = ADDRESS,
-        "pr" pr: Option<u8> = Opt(BYTE),
-        "p" p: Option<u8> = Opt(BYTE),
-        "c" c: Option<u8> = Opt(BYTE),
-        "r" r: Option<u8> = Opt(BYTE),
-        "id" id: Option<i64> = Opt(INTEGER),
+        /// The name a person reads (0.7); never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        /// A description for a person, in CommonMark (0.7).
+        "description" description: Option<String> = Opt(STRING),
+        /// The range the `default`, the `values`, the `step_count` and the readings are written in
+        /// (0.7); without it, the range of the most precise way.
+        "scale" scale: Option<[i64; 2]> = Opt(Pair),
+        /// Lowest and highest value, on an entry without a way only: with ways, each way says its own.
         "range" range: Option<[i64; 2]> = Opt(Pair),
-        /// The raw value of the control on an initialised sound, in the space of `range` (0.6).
+        /// Whether the parameter is sent, and how, on an entry without a way only.
+        "transmit" transmit: Option<Direction> = Opt(closed()),
+        /// Whether the parameter is recognised, and how, on an entry without a way only.
+        "recognize" recognize: Option<Direction> = Opt(closed()),
+        /// The value of the control on an initialised sound, in the reference scale (0.6).
         "default" default: Option<i64> = Opt(INTEGER),
         /// How important the control is, 1 (essential) to 5 (hidden), as in MIDI-CI Property Exchange (0.6).
         "priority" priority: Option<u8> = Opt(int(1, 5)),
         /// The number of distinct steps of the control, 2 or more (0.6).
         "step_count" step_count: Option<i64> = Opt(at_least(2)),
-        /// Whether the control is sent as absolute, relative or both values (0.6).
-        "transmit" transmit: Option<Direction> = Opt(closed()),
-        /// Whether the control is recognised as absolute, relative or both values (0.6).
-        "recognize" recognize: Option<Direction> = Opt(closed()),
         "section" section: Option<String> = Opt(STRING),
+        /// The accounts of this control, each with its state and the firmware it holds for (0.7);
+        /// never empty.
+        "readings" readings: Option<Vec<ControlReading>> = Opt(list_of(obj(), 1, usize::MAX)),
         "expects" expects: Option<String> = Opt(STRING),
-        /// Named values: each label with its value.
-        "values" values: Option<BTreeMap<String, i64>> = Opt(Dict(INTEGER)),
+        /// Named values: each with its value in the reference scale and its title (0.7).
+        "values" values: Option<NamedValues> = Opt(NamedValuesCodec),
         "transform" transform: Option<String> = Opt(STRING),
         "transform_reverse" transform_reverse: Option<String> = Opt(STRING),
         /// What the control does, in the words every device shares (0.6).
         "role" role: Option<Role> = Opt(obj()),
+        /// The messages that address the parameter, `sysex` ways (0.7); empty when the message is
+        /// not known yet: the entry is partial, to be completed.
+        "ways" ways: Vec<Way> = list(obj()),
     }
 }
 
@@ -1399,8 +1819,18 @@ object! {
 
 object! {
     /// A named message: a SysEx utility, or an OSC message of a software.
+    ///
+    /// Its `Default` is the base of a struct update (`..Default::default()`), not a valid
+    /// descriptor: `osc` is empty, and the reader does not validate a descriptor on its default alone.
+    #[derive(Default)]
     Command {
         "osc" osc: Address = AddressCodec(AddressPlace::Command),
+        /// The number a controller's preset gives the command (0.7); not unique.
+        "id" id: Option<i64> = Opt(INTEGER),
+        /// The name a person reads (0.7); never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        /// A description for a person, in CommonMark (0.7).
+        "description" description: Option<String> = Opt(STRING),
         "section" section: Option<String> = Opt(STRING),
         "notes" notes: Option<String> = Opt(STRING),
         "args" args: Option<Vec<Arg>> = Opt(list(obj())),
@@ -1410,6 +1840,86 @@ object! {
         /// osc-bridge extension: a Lua script that changes the message
         /// before it is sent.
         "script" script: Option<String> = Opt(STRING),
+        /// The accounts of this command, each with its state and the firmware it holds for (0.7);
+        /// never empty. The command itself is its own reading when this is absent.
+        "readings" readings: Option<Vec<Reading>> = Opt(list_of(obj(), 1, usize::MAX)),
+    }
+}
+
+words! {
+    /// How far a reading is held (0.7), the ranks of Wikidata: `valid` is preferred, `to-confirm`
+    /// normal, `refuted` deprecated.
+    ReadingState { Valid = "valid", ToConfirm = "to-confirm", Refuted = "refuted", }
+}
+
+object! {
+    /// One account of a command for a firmware (0.7), kept raw: `title` and `args` replace those of
+    /// the command for whoever shows the reading, and are never merged with them.
+    Reading {
+        "state" state: ReadingState = closed(),
+        "firmware" firmware: String = STRING,
+        /// The `id` of a source of the descriptor that holds this account.
+        "source" source: Option<String> = Opt(STRING),
+        /// The name a person reads; never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        "args" args: Option<Vec<Arg>> = Opt(list(obj())),
+    }
+}
+
+object! {
+    /// One account of a control for a firmware (0.7), kept raw: `title` and `range` are those
+    /// written, never merged with the control's. The `range` is on the reference scale of the control.
+    ControlReading {
+        "state" state: ReadingState = closed(),
+        "firmware" firmware: String = STRING,
+        /// The `id` of a source of the descriptor that holds this account.
+        "source" source: Option<String> = Opt(STRING),
+        /// The name a person reads; never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        /// The range of the control in this reading, `[lowest, highest]`, inside the reference scale.
+        "range" range: Option<[i64; 2]> = Opt(Pair),
+    }
+}
+
+/// The readings that hold for `firmware`: those written for that very text, `valid` then
+/// `to-confirm` then (if `with_refuted`) `refuted`, each state in the order written; when there
+/// are none, every reading that is not `refuted` (all if `with_refuted`) in the order written.
+fn pick_readings<'a, R>(all: &'a [R], firmware: &str, with_refuted: bool, state: impl Fn(&R) -> ReadingState, fw: impl Fn(&R) -> &str) -> Vec<&'a R> {
+    let wanted = |r: &&R| with_refuted || state(r) != ReadingState::Refuted;
+    let mut held: Vec<&R> = all.iter().filter(|r| fw(r) == firmware).filter(wanted).collect();
+    if held.is_empty() {
+        return all.iter().filter(wanted).collect();
+    }
+    held.sort_by_key(|r| match state(r) {
+        ReadingState::Valid => 0,
+        ReadingState::ToConfirm => 1,
+        ReadingState::Refuted => 2,
+    });
+    held
+}
+
+macro_rules! control_readings {
+    ($entry:ident) => {
+        impl $entry {
+            /// The readings that hold for `firmware`, by the rule of a command's
+            /// (`Command::readings_for`). A control without `readings` gives none.
+            pub fn readings_for(&self, firmware: &str, with_refuted: bool) -> Vec<&ControlReading> {
+                pick_readings(self.readings.as_deref().unwrap_or_default(), firmware, with_refuted, |r| r.state, |r| r.firmware.as_str())
+            }
+        }
+    };
+}
+control_readings!(CcEntry);
+control_readings!(ParamEntry);
+
+impl Command {
+    /// The readings that hold for `firmware`, best first: those written for that very text,
+    /// `valid` then `to-confirm` then (if `with_refuted`) `refuted`, each state in the order
+    /// written; when there are none, every reading of the command that is not `refuted` (all of them
+    /// if `with_refuted`) in the order written, none chosen. A command without `readings` gives
+    /// none: its own reading is the command itself.
+    pub fn readings_for(&self, firmware: &str, with_refuted: bool) -> Vec<&Reading> {
+        pick_readings(self.readings.as_deref().unwrap_or_default(), firmware, with_refuted, |r| r.state, |r| r.firmware.as_str())
     }
 }
 
@@ -1422,6 +1932,10 @@ object! {
     /// A drum or sample sound fired by a note.
     Trigger {
         "osc" osc: String = ADDRESS,
+        /// The name a person reads (0.7); never empty.
+        "title" title: Option<String> = Opt(TITLE),
+        /// A description for a person, in CommonMark (0.7).
+        "description" description: Option<String> = Opt(STRING),
         "sound" sound: String = STRING,
         "section" section: Option<String> = Opt(STRING),
         "channel" channel: Option<u8> = Opt(CHANNEL),
@@ -1461,11 +1975,20 @@ object! {
 /// Where a piece of data comes from: its kind of source, its credit and
 /// licence, and the firmware it documents. A source may carry keys of its
 /// own beside these.
-#[derive(Clone, Debug, PartialEq)]
+///
+/// Its `Default` is the base of a struct update (`..Default::default()`), not a valid
+/// descriptor: `kind` is empty, and the reader does not validate a descriptor on its default alone.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Source {
     /// What kind of source: `vendor-doc`, `hardware-verified`,
     /// `community-re`, `knobkraft`…
     pub kind: String,
+    /// What a reading names it by (0.7): never empty, unique in the sources of a file. Before 0.7 an
+    /// `id` is a key kept as it is, never checked.
+    pub id: Option<String>,
+    /// Who supplies the source (0.7): an identifier of the table of providers. Before 0.7 a
+    /// `provider` is a key kept as it is, never checked.
+    pub provider: Option<String>,
     pub url: Option<String>,
     /// The firmware the source documents.
     pub firmware: Option<String>,
@@ -1482,13 +2005,15 @@ pub struct Source {
 
 impl Object for Source {
     const KEYS: &'static [&'static str] =
-        &["type", "url", "firmware", "author", "attribution", "license", "commit", "imported_at", "notes"];
+        &["type", "id", "provider", "url", "firmware", "author", "attribution", "license", "commit", "imported_at", "notes"];
 
     fn read(v: &Value, at: &At) -> Result<Self, Fault> {
         let o = v.as_object().ok_or_else(|| at.fault(FaultKind::BadValue, "an object"))?;
         let text = |key| crate::json::field(o, key, at, Opt(STRING));
         Ok(Source {
             kind: crate::json::field(o, "type", at, STRING)?,
+            id: o.get("id").and_then(Value::as_str).map(str::to_string),
+            provider: o.get("provider").and_then(Value::as_str).map(str::to_string),
             url: text("url")?,
             firmware: text("firmware")?,
             author: text("author")?,
@@ -1497,7 +2022,7 @@ impl Object for Source {
             commit: text("commit")?,
             imported_at: text("imported_at")?,
             notes: text("notes")?,
-            extra: o.iter().filter(|(k, _)| !Self::KEYS.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect(),
+            extra: o.iter().filter(|(k, v)| !Self::KEYS.contains(&k.as_str()) || (matches!(k.as_str(), "id" | "provider") && !v.is_string())).map(|(k, v)| (k.clone(), v.clone())).collect(),
         })
     }
 
@@ -1505,6 +2030,8 @@ impl Object for Source {
         let mut o = serde_json::Map::new();
         o.insert("type".into(), Value::String(self.kind.clone()));
         let texts = [
+            ("id", &self.id),
+            ("provider", &self.provider),
             ("url", &self.url),
             ("firmware", &self.firmware),
             ("author", &self.author),
@@ -1543,5 +2070,329 @@ object! {
         /// Sends MIDI clock (F8) even when stopped.
         "clock" clock: Option<bool> = Opt(Bool),
         "note_off" note_off: Option<NoteOff> = Opt(closed()),
+    }
+}
+
+/// The key the credit is written under before 0.7.
+const LEGACY_SOURCES: &str = "_sources";
+
+/// `o` with the key `from` named `to`, at the same place.
+pub(crate) fn rename_key(o: &serde_json::Map<String, Value>, from: &str, to: &str) -> serde_json::Map<String, Value> {
+    o.iter().map(|(k, v)| (if k == from { to.to_string() } else { k.clone() }, v.clone())).collect()
+}
+
+/// The keys 0.7 removes from the objects the format closes, as paths from the root of a device or
+/// a profile (`*` is every entry of a list). The converter 0.6 to 0.7 drops them and a reader of
+/// 0.7 refuses them as unknown fields, `sources[].imported_at` too, though a source is an open
+/// object.
+const REMOVED_IN_0_7: &[&[&str]] = &[
+    &["cc_params", "entries", "*", "transform_reverse"],
+    &["params", "entries", "*", "transform_reverse"],
+    &["device", "revision"],
+    &["device", "transport", "rate_limit_hz"],
+    &["sysex", "footer"],
+    &["midi_out", "note_offset"],
+    &["identity", "sends"],
+    &["sources", "*", "imported_at"],
+];
+
+/// The keys defined only from 0.7, as paths from the root of a device (`*` is every entry of a
+/// list). A reader of a version before 0.7 refuses them as unknown fields; a field new in 0.7 is
+/// one line more.
+const FROM_0_7: &[&[&str]] = &[
+    &["contexts"],
+    &["cc_params", "entries", "*", "title"],
+    &["cc_params", "entries", "*", "description"],
+    &["cc_params", "entries", "*", "value_description"],
+    &["cc_params", "entries", "*", "notes"],
+    &["cc_params", "entries", "*", "readings"],
+    &["params", "entries", "*", "readings"],
+    &["params", "entries", "*", "title"],
+    &["params", "entries", "*", "description"],
+    &["cc_params", "entries", "*", "polarity"],
+    &["identity", "manufacturerId"],
+    &["identity", "endpoint_name"],
+    &["commands", "*", "id"],
+    &["commands", "*", "title"],
+    &["commands", "*", "description"],
+    &["commands", "*", "readings"],
+    &["triggers", "entries", "*", "title"],
+    &["triggers", "entries", "*", "description"],
+];
+
+/// The first key of `paths` that `v` carries, refused as an unknown field at its pointer.
+pub(crate) fn refuse_paths(v: &Value, at: &At, paths: &[&[&str]], reason: &str) -> Result<(), Fault> {
+    fn walk(v: &Value, path: &[&str], at: &At, reason: &str) -> Result<(), Fault> {
+        let (key, rest) = path.split_first().expect("a path is not empty");
+        match (*key, v) {
+            ("*", Value::Array(items)) => items.iter().enumerate().try_for_each(|(i, x)| walk(x, rest, &At::Index(at, i), reason)),
+            (_, Value::Object(o)) if rest.is_empty() => match o.contains_key(*key) {
+                true => Err(At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} {reason}"))),
+                false => Ok(()),
+            },
+            (_, Value::Object(o)) => o.get(*key).map_or(Ok(()), |x| walk(x, rest, &At::Key(at, key), reason)),
+            _ => Ok(()),
+        }
+    }
+    paths.iter().try_for_each(|path| walk(v, path, at, reason))
+}
+
+/// The first key defined only from 0.7 that `v` carries, refused as an unknown field at its pointer.
+pub(crate) fn refuse_from_0_7(v: &Value, at: &At) -> Result<(), Fault> {
+    refuse_paths(v, at, FROM_0_7, "is not a field before 0.7")
+}
+
+/// The first removed key `v` carries, refused as an unknown field at its pointer.
+pub(crate) fn refuse_removed_in_0_7(v: &Value, at: &At) -> Result<(), Fault> {
+    refuse_paths(v, at, REMOVED_IN_0_7, "is not a field from 0.7")
+}
+
+/// The `id` of the sources of a file (`sources` then `midi_of_sources`): each is a text that is not
+/// empty, and written once; the later entry is refused.
+fn check_source_ids(d: &Device) -> Result<(), Fault> {
+    let mut seen = std::collections::HashSet::new();
+    for (key, list) in [("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)] {
+        for (n, s) in list.iter().flatten().enumerate() {
+            let at = format!("/{key}/{n}");
+            if s.extra.contains_key("id") || s.id.as_deref() == Some("") {
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/id"), rule: "an id is a text that is not empty".into() });
+            }
+            if let Some(id) = &s.id {
+                if !seen.insert(id.as_str()) {
+                    return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: at, rule: format!("the id {id} is written twice in the sources") });
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `source` of a reading names an `id` of the sources of the descriptor (its `sources` and
+/// `midi_of_sources`: for a file with `midi_of` that is the union with its target, so the reader
+/// of a file alone leaves this to `resolve`).
+pub(crate) fn check_reading_sources(d: &Device) -> Result<(), Fault> {
+    let ids: std::collections::HashSet<&str> = [&d.sources, &d.midi_of_sources].into_iter().flatten().flatten().filter_map(|s| s.id.as_deref()).collect();
+    for (n, c) in d.commands.iter().flatten().enumerate() {
+        for (m, r) in c.readings.iter().flatten().enumerate() {
+            if let Some(s) = r.source.as_deref().filter(|s| !ids.contains(s)) {
+                let rule = format!("the source {s} names no id of the sources");
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("/commands/{n}/readings/{m}/source"), rule });
+            }
+        }
+    }
+    let controls = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/cc_params/entries/{n}"), e.readings.as_deref()));
+    let params = d.params.iter().flat_map(|t| &t.entries).enumerate().map(|(n, e)| (format!("/params/entries/{n}"), e.readings.as_deref()));
+    for (at, readings) in controls.chain(params) {
+        for (m, r) in readings.iter().flat_map(|l| l.iter()).enumerate() {
+            if let Some(s) = r.source.as_deref().filter(|s| !ids.contains(s)) {
+                let rule = format!("the source {s} names no id of the sources");
+                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/readings/{m}/source"), rule });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `v` without the keys 0.7 removes, and without `imported_at` in each of `sources` and
+/// `midi_of_sources`.
+pub(crate) fn drop_removed_in_0_7(v: &mut Value) {
+    fn walk(v: &mut Value, path: &[&str]) {
+        let Some((key, rest)) = path.split_first() else { return };
+        match (*key, v) {
+            ("*", Value::Array(items)) => items.iter_mut().for_each(|x| walk(x, rest)),
+            (_, Value::Object(o)) if rest.is_empty() => {
+                o.remove(*key);
+            }
+            (_, Value::Object(o)) => {
+                if let Some(x) = o.get_mut(*key) {
+                    walk(x, rest);
+                }
+            }
+            _ => {}
+        }
+    }
+    REMOVED_IN_0_7.iter().for_each(|path| walk(v, path));
+    for list in ["sources", "midi_of_sources"] {
+        if let Some(Value::Array(sources)) = v.get_mut(list) {
+            sources.iter_mut().filter_map(Value::as_object_mut).for_each(|s| {
+                s.remove("imported_at");
+            });
+        }
+    }
+}
+
+/// The device of `v`. The credit is `sources` from 0.7, where `_sources` is refused (its value is
+/// not read); before 0.7 it is `_sources`, and `sources` is no field.
+pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
+    let Some(o) = v.as_object() else { return Device::read(v, at) };
+    let schema = crate::json::field(o, "$schema", at, Opt(SchemaUrlFrom05("device"))).ok().flatten();
+    if schema >= Some(Version::V0_7) {
+        refuse_removed_in_0_7(v, at)?;
+        if o.contains_key(LEGACY_SOURCES) {
+            return Err(At::Key(at, LEGACY_SOURCES).fault(FaultKind::BadValue, "`_sources` is not read from 0.7: the credit is `sources`"));
+        }
+        return Device::read(v, at);
+    }
+    refuse_paths(v, at, FROM_0_7, "is not a field before 0.7")?;
+    for key in ["sources", "midi_of_sources"] {
+        if o.contains_key(key) {
+            return Err(At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field before 0.7")));
+        }
+    }
+    // The reader models the form of 0.7: the controls of an older text are read in their own form,
+    // with its checks, and lifted to ways.
+    let (mut lifted, kept) = crate::flat::lift(o, schema, at)?;
+    move_manufacturer_id(&mut lifted);
+    let rules = take_port_names(&mut lifted, at)?;
+    let renamed = Value::Object(rename_key(&lifted, LEGACY_SOURCES, "sources"));
+    let mut device = Device::read(&renamed, at).map_err(|mut f| {
+        if f.pointer == "/sources" || f.pointer.starts_with("/sources/") {
+            f.pointer = format!("/_{}", &f.pointer[1..]);
+        }
+        f
+    })?;
+    put_port_rules(device.identity.as_mut(), rules);
+    for (entry, flat) in device.cc_params.iter_mut().flat_map(|t| &mut t.entries).zip(kept) {
+        entry.flat = flat;
+    }
+    // `provider` is a field from 0.7: before, it is a key of the source like another.
+    for source in device.sources.iter_mut().flatten() {
+        if let Some(p) = source.provider.take() {
+            source.extra.insert("provider".into(), Value::String(p));
+        }
+    }
+    Ok(device)
+}
+
+/// The profile of `v`, read in the form of 0.7 as [`read_device`] reads a device.
+pub(crate) fn read_profile(v: &Value, at: &At) -> Result<Profile, Fault> {
+    let Some(o) = v.as_object() else { return Profile::read(v, at) };
+    let schema = crate::json::field(o, "$schema", at, Opt(SchemaUrlFrom05("profile"))).ok().flatten();
+    if schema >= Some(Version::V0_7) {
+        refuse_removed_in_0_7(v, at)?;
+        return Profile::read(v, at);
+    }
+    refuse_from_0_7(v, at)?;
+    let mut older = o.clone();
+    let rules = take_port_names(&mut older, at)?;
+    let mut profile = Profile::read(&Value::Object(older), at)?;
+    put_port_rules(profile.identity.as_mut(), rules);
+    Ok(profile)
+}
+
+/// The port names of a text before 0.7, taken out of `identity.ports` and read as the rules 0.7
+/// says them: each name a `contains` rule with no direction, platform or stack, an empty one too.
+/// An entry that is no text is refused. A `ports` that is no list stays, for the reader to judge.
+fn take_port_names(v: &mut serde_json::Map<String, Value>, at: &At) -> Result<Option<Vec<PortRule>>, Fault> {
+    let Some(Value::Object(identity)) = v.get_mut("identity") else { return Ok(None) };
+    let Some(Value::Array(names)) = identity.get("ports") else { return Ok(None) };
+    let (block, ports) = (At::Key(at, "identity"), "ports");
+    let list = At::Key(&block, ports);
+    let rules = names
+        .iter()
+        .enumerate()
+        .map(|(n, name)| {
+            let value = STRING.read(name, &At::Index(&list, n))?;
+            Ok(PortRule {
+                operator: PortOperator::Contains,
+                value,
+                direction: None,
+                platform: None,
+                stack: None,
+                remarks: Default::default(),
+            })
+        })
+        .collect::<Result<Vec<_>, Fault>>()?;
+    identity.remove(ports);
+    Ok(Some(rules))
+}
+
+fn put_port_rules(identity: Option<&mut Identity>, rules: Option<Vec<PortRule>>) {
+    if let (Some(identity), Some(rules)) = (identity, rules) {
+        identity.ports = Some(Some(rules));
+    }
+}
+
+/// The other way: each rule of a text before 0.7 written as its plain name.
+fn port_rules_to_names(v: &mut Value) {
+    if let Some(Value::Array(ports)) = v.get_mut("identity").and_then(|i| i.get_mut("ports")) {
+        for rule in ports {
+            if let Some(name) = rule.get_mut("value") {
+                *rule = name.take();
+            }
+        }
+    }
+}
+
+/// The text of a profile as JSON: its port names as plain texts before 0.7.
+pub(crate) fn write_profile(p: &Profile) -> Value {
+    let mut v = p.write();
+    if p.schema < Some(Version::V0_7) {
+        port_rules_to_names(&mut v);
+    }
+    v
+}
+
+/// `device.manufacturer_id` of a device of a version before 0.7 as 0.7 says it: `identity.manufacturerId`,
+/// the same bytes, the block made when the file has none. A file with `midi_of` and no `identity` block
+/// gets none (the block would replace its target's, `manufacturerId` included): the value stays at
+/// `device._manufacturer_id`, a note. `device_id` stays in `device`.
+pub(crate) fn move_manufacturer_id(v: &mut serde_json::Map<String, Value>) {
+    let Some(Value::Object(device)) = v.get_mut("device") else { return };
+    if !device.contains_key("manufacturer_id") {
+        return;
+    }
+    let linked = v.contains_key("midi_of");
+    let has_identity = v.get("identity").is_some_and(Value::is_object);
+    let Some(Value::Object(device)) = v.get_mut("device") else { return };
+    if linked && !has_identity {
+        if !device.contains_key("_manufacturer_id") {
+            *device = rename_key(device, "manufacturer_id", "_manufacturer_id");
+        }
+        return;
+    }
+    let Some(bytes) = device.remove("manufacturer_id") else { return };
+    let identity = v.entry("identity").or_insert_with(|| Value::Object(Default::default()));
+    if let Value::Object(i) = identity {
+        i.insert("manufacturerId".into(), bytes);
+    }
+}
+
+/// The other way, for a device of a version before 0.7 written as its text had it.
+fn manufacturer_id_to_device(v: &mut Value) {
+    let Some(o) = v.as_object_mut() else { return };
+    let bytes = match o.get_mut("identity").and_then(Value::as_object_mut) {
+        Some(i) => i.remove("manufacturerId"),
+        None => None,
+    };
+    if o.get("identity").and_then(Value::as_object).is_some_and(|i| i.is_empty()) {
+        o.remove("identity");
+    }
+    let (linked, has_identity) = (o.contains_key("midi_of"), o.contains_key("identity"));
+    let Some(Value::Object(device)) = o.get_mut("device") else { return };
+    match bytes {
+        Some(b) => {
+            device.insert("manufacturer_id".into(), b);
+        }
+        None if linked && !has_identity && device.contains_key("_manufacturer_id") && !device.contains_key("manufacturer_id") => {
+            *device = rename_key(device, "_manufacturer_id", "manufacturer_id");
+        }
+        None => {}
+    }
+}
+
+/// The text of a device as JSON: before 0.7, its credit under `_sources` and its port names as
+/// plain texts.
+pub(crate) fn write_device(d: &Device) -> Value {
+    match d.write() {
+        Value::Object(o) if d.schema < Some(Version::V0_7) => {
+            let mut v = Value::Object(rename_key(&o, "sources", LEGACY_SOURCES));
+            let kept = d.cc_params.iter().flat_map(|t| &t.entries).map(|e| e.flat.as_deref()).collect::<Vec<_>>();
+            crate::flat::flatten(&mut v, d.schema, &kept);
+            manufacturer_id_to_device(&mut v);
+            port_rules_to_names(&mut v);
+            v
+        }
+        other => other,
     }
 }

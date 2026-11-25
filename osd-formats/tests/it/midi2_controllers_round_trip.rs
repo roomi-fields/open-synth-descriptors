@@ -92,15 +92,17 @@ fn a_device_exported_then_imported_keeps_what_the_format_carries() {
     let kept = controls(&json);
     assert_eq!(kept.len(), 3);
     assert!(json.get("params").is_none(), "no params block with made-up frames: {json}");
-    assert_eq!(kept[0]["cc"], 74);
-    assert_eq!(kept[0]["range"], json!([10, 100]));
+    assert_eq!(kept[0]["ways"][0]["ctrlIndex"], json!([74]));
+    assert_eq!(kept[0]["ways"][0]["range"], json!([10, 100]));
     assert_eq!(kept[0]["default"], 50);
     assert_eq!(kept[0]["channel"], 3);
     assert_eq!(kept[0]["role"]["setting"], "cutoff");
-    assert_eq!(kept[0]["recognize"], "relative");
-    assert_eq!(kept[1]["cc_lsb"], 37);
+    assert_eq!(kept[0]["ways"][0]["recognize"], "relative");
+    assert_eq!(kept[1]["ways"][0]["ctrlIndex"], json!([5, 37]));
     assert_eq!(kept[1]["section"], "/Free/Path");
-    assert_eq!(kept[2]["values"], json!({"A": 0, "B": 1, "C": 2}));
+    let mut values = kept[2]["values"].as_array().unwrap().clone();
+    values.sort_by_key(|v| v["value"].as_i64());
+    assert_eq!(values, vec![json!({"value": 0, "title": "A"}), json!({"value": 1, "title": "B"}), json!({"value": 2, "title": "C"})]);
     assert_eq!(canon(&back(&out.value)), canon(&v));
 }
 
@@ -122,6 +124,35 @@ fn the_title_and_the_numbering_of_the_map_ids_are_the_only_things_a_round_trip_m
 }
 
 #[test]
+fn a_title_and_a_description_survive_an_import_then_an_export() {
+    let text = json!([
+        {"title": "Cutoff", "description": "Opens the filter", "ctrlType": "cc", "ctrlIndex": [74], "numSigBits": 7},
+        {"title": "Rate", "description": "", "ctrlType": "cc", "ctrlIndex": [75], "numSigBits": 7, "paramPath": "/Mystery/Rate"},
+    ])
+    .to_string();
+    let l = list(&back(&text));
+    assert_eq!(l[0]["title"], "Cutoff");
+    assert_eq!(l[0]["description"], "Opens the filter");
+    assert_eq!(l[1]["title"], "Rate");
+    assert_eq!(l[1]["description"], "");
+}
+
+#[test]
+fn a_control_without_a_title_comes_back_with_its_derived_title_as_an_explicit_title() {
+    let d = cc_device(json!([{"osc": "/c", "cc": 3, "section": "/Mod/Depth"}, {"osc": "/d", "cc": 4}]));
+    let (v, _) = exported(&d);
+    let t = import(&v.to_string(), Format::Midi2Controllers, &source()).unwrap();
+    let json = json_of(&t.value);
+    let kept = controls(&json);
+    assert_eq!(kept[0]["title"], "/Mod/Depth");
+    assert_eq!(kept[1]["title"], "/d");
+    assert!(kept[1].get("description").is_none());
+    let again = list(&back(&v.to_string()));
+    assert_eq!(again[0]["title"], "/Mod/Depth");
+    assert_eq!(again[1]["title"], "/d");
+}
+
+#[test]
 fn the_channel_range_and_default_of_7_14_and_32_bit_controls_survive_an_export_then_an_import() {
     let d = device_with(json!({
         "role_vocabulary": "1",
@@ -136,7 +167,7 @@ fn the_channel_range_and_default_of_7_14_and_32_bit_controls_survive_an_export_t
     let out = export(&d, Format::Midi2Controllers).unwrap();
     let t = import(&out.value, Format::Midi2Controllers, &source()).unwrap();
     let kept = controls(&json_of(&t.value));
-    let got: Vec<(Value, Value, Value)> = kept.iter().map(|k| (k["channel"].clone(), k["range"].clone(), k["default"].clone())).collect();
+    let got: Vec<(Value, Value, Value)> = kept.iter().map(|k| (k["channel"].clone(), k["ways"][0]["range"].clone(), k["default"].clone())).collect();
     assert_eq!(
         got,
         [

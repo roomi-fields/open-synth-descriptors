@@ -1,0 +1,13 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+  "identity": {
+    "ports": [
+      {
+        "operator": "contains",
+        "value": "Synth",
+        "platform": "macos",
+        "stack": "jack"
+      }
+    ]
+  }
+}

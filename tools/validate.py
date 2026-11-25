@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Check descriptors against the OSD schemas.
 
-    python tools/validate.py <device|profile|sound|firmware|fingerprint> FILE_OR_DIR...
+    python tools/validate.py <device|profile|sound|firmware|fingerprint> FILE_OR_DIR... [--candidates FILE]
 
-Checked against the newest version in schemas/ (OSD_VERSION=0.1 picks another).
+Checked against the newest version in schemas/ that is not a candidate: the list of candidates
+(tools/candidates.list, or the file given) names those. OSD_VERSION=0.1 picks another version,
+a candidate included.
 
 A directory is read for every *.json in it; files whose name starts with _
 are maker profiles (checked as profiles) or other notes, never devices.
@@ -12,6 +14,7 @@ A file inside a conformance case whose case.json lists it in `schema_refused`
 file is expected valid.
 Needs the jsonschema package. Exit status 1 when a file is not valid.
 """
+import argparse
 import json
 import os
 import sys
@@ -20,13 +23,13 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
+import candidates
+
 SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
-VERSION = os.environ.get("OSD_VERSION") or max((p.name for p in SCHEMAS.iterdir() if p.is_dir()), key=lambda v: tuple(map(int, v.split("."))))
-HERE = SCHEMAS / VERSION
 
 
-def validators():
-    schemas = {p.name.split(".")[0]: json.loads(p.read_text(encoding="utf-8")) for p in HERE.glob("*.schema.json")}
+def validators(version):
+    schemas = {p.name.split(".")[0]: json.loads(p.read_text(encoding="utf-8")) for p in (SCHEMAS / version).glob("*.schema.json")}
     registry = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in schemas.values())
     return {name: Draft202012Validator(s, registry=registry) for name, s in schemas.items()}
 
@@ -62,11 +65,19 @@ def expected_refusal(p):
 
 
 def main(argv):
-    if len(argv) < 2:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("kind", nargs="?")
+    parser.add_argument("paths", nargs="*")
+    parser.add_argument("--candidates")
+    args = parser.parse_args(argv)
+    if not args.paths:
         sys.exit(__doc__)
-    kind, check = argv[0], validators()[argv[0]]
+    version = os.environ.get("OSD_VERSION") or candidates.newest(SCHEMAS, candidates.read(args.candidates))
+    if version is None:
+        sys.exit("schemas/: no version folder outside the candidates")
+    kind, check = args.kind, validators(version)[args.kind]
     n = bad = refused = 0
-    for p in files(argv[1:], kind):
+    for p in files(args.paths, kind):
         n += 1
         errors = sorted(check.iter_errors(json.loads(p.read_text(encoding="utf-8"))), key=lambda e: list(e.path))
         said = expected_refusal(p)

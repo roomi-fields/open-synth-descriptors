@@ -1,0 +1,9 @@
+{
+  "_about": "One id of a list that the dimension does not declare is refused at its index.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/in/part/1"
+  }
+}

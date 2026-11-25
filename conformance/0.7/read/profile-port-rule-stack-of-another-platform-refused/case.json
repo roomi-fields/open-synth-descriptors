@@ -1,0 +1,8 @@
+{
+  "_about": "A profile's rules are refused as a device's are.",
+  "read": "profile",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/stack"
+  }
+}

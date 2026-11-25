@@ -5,6 +5,7 @@
 
 pub mod midi1;
 pub mod probe;
+pub mod trial;
 
 use std::path::{Path, PathBuf};
 

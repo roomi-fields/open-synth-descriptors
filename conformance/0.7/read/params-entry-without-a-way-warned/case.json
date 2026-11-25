@@ -1,0 +1,75 @@
+{
+  "_about": "A `params` entry with an empty `ways` is kept with its `range`, `transmit` and `recognize`, its `default` compared to that range, and warned as `PartialControl` at its entry. The warnings of the controls come before the `UnknownProvider` of a source.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sources": [
+      {
+        "type": "contributed",
+        "provider": "a-provider-of-no-table",
+        "url": "https://example.org/d",
+        "license": "CC0-1.0"
+      }
+    ],
+    "params": {
+      "get_frame": [
+        240,
+        66,
+        {
+          "arg": "pr"
+        },
+        247
+      ],
+      "set_frame": [
+        240,
+        67,
+        {
+          "arg": "pr"
+        },
+        {
+          "arg": "value"
+        },
+        247
+      ],
+      "value_type": "u7",
+      "entries": [
+        {
+          "osc": "/osc1/shape",
+          "ways": [
+            {
+              "ctrlType": "sysex",
+              "ctrlIndex": [
+                16
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/osc1/pitch",
+          "ways": [],
+          "range": [
+            -64,
+            63
+          ],
+          "transmit": "absolute",
+          "recognize": "both",
+          "default": 0
+        }
+      ]
+    }
+  },
+  "warnings": [
+    {
+      "kind": "PartialControl",
+      "pointer": "/params/entries/1"
+    },
+    {
+      "kind": "UnknownProvider",
+      "pointer": "/sources/0/provider"
+    }
+  ]
+}

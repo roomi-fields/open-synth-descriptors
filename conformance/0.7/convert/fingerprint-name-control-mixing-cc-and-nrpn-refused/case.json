@@ -1,0 +1,8 @@
+{
+  "_about": "The control of a name in a fingerprint is not reached by ways: one that mixes a CC and an NRPN is refused on the way to 0.7, at /names/N/control, and no text is returned.",
+  "convert": "fingerprint",
+  "fault": {
+    "kind": "NotConvertible",
+    "pointer": "/names/0/control"
+  }
+}

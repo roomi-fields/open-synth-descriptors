@@ -3,7 +3,8 @@
 
 use osd::Source;
 
-/// One source as a sentence: who made it, where, under which licence, of which kind.
+/// One source as a sentence: who made it, where, under which licence, of which kind, and from
+/// which provider when it names one.
 pub(crate) fn source_text(s: &Source) -> String {
     let mut parts: Vec<String> = [&s.author, &s.attribution, &s.url].into_iter().flatten().filter(|p| !p.trim().is_empty()).cloned().collect();
     if let Some(l) = s.license.as_ref().filter(|l| !l.trim().is_empty()) {
@@ -12,6 +13,9 @@ pub(crate) fn source_text(s: &Source) -> String {
     let mut text = parts.join(", ");
     if !s.kind.is_empty() {
         text.push_str(&format!(" ({})", s.kind));
+    }
+    if let Some(p) = &s.provider {
+        text.push_str(&format!(" from {p}"));
     }
     text
 }

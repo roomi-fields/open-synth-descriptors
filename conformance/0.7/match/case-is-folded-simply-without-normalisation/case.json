@@ -1,0 +1,26 @@
+{
+  "_about": "Both texts take the simple case folding of Unicode and no normalisation: the Kelvin sign is `k`, the long s is `s`, the final sigma is `Σ`; `ß` is not `SS`, and a composed `é` is not `e` with a combining accent.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/2",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/3",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/4",
+      "verdict": "not_matched"
+    }
+  ]
+}

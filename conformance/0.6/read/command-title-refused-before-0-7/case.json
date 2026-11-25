@@ -1,0 +1,8 @@
+{
+  "_about": "A `title` is a field from 0.7: a 0.6 command that carries one is refused as UnknownField, at the key.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/commands/0/title"
+  }
+}

@@ -2,10 +2,11 @@
 //! detection observed of one device plugged in, and the device the person
 //! confirmed it is.
 
-use crate::device::{Sends, UsbId};
+use crate::device::{check_stack, refuse_paths, Platform, Sends, Stack, UsbId};
 use crate::firmware::FirmwareKind;
-use crate::json::{at_most, closed, int, list, list_of, matching, obj, object, words, At, Nullable, Opt, STRING};
+use crate::json::{at_most, closed, field, int, list, list_of, matching, obj, object, words, At, Nullable, Object, Opt, STRING};
 use crate::{Fault, FaultKind, SchemaUrl, Version};
+use serde_json::Value;
 
 words! {
     /// Where a detection ran: a web browser (no USB identity) or a program
@@ -21,6 +22,14 @@ object! {
         /// The day, no time.
         "observed" observed: String = STRING,
         "via" via: Option<Via> = Opt(closed()),
+        /// The platform the observation was taken on; unknown when absent (0.7).
+        "platform" platform: Option<Platform> = Opt(closed()),
+        /// The naming stack, when the tool knows it (0.7).
+        "stack" stack: Option<Stack> = Opt(closed()),
+        /// The name the device gives its own MIDI 2.0 endpoint, lower case (0.7).
+        "endpoint_name" endpoint_name: Option<String> = Opt(STRING),
+        /// The MIDI 2.0 product instance id of the unit observed, as it gives it (0.7).
+        "product_instance_id" product_instance_id: Option<String> = Opt(STRING),
         "ports" ports: Option<Ports> = Opt(obj()),
         "usb" usb: Option<UsbId> = Opt(obj()),
         /// Its answer to the Universal Identity Request, hex.
@@ -37,6 +46,19 @@ object! {
         "names" names: Option<Vec<Named>> = Opt(list_of(obj(), 0, 32)),
     }
     check check_controls
+}
+
+/// The keys of a fingerprint defined only from 0.7.
+const FROM_0_7: &[&[&str]] = &[&["platform"], &["stack"], &["endpoint_name"], &["product_instance_id"]];
+
+/// The fingerprint of `v`: before 0.7 the system and the signs of MIDI 2.0 are unknown fields.
+pub(crate) fn read_fingerprint(v: &Value, at: &At) -> Result<Fingerprint, Fault> {
+    if let Some(o) = v.as_object() {
+        if field(o, "$schema", at, Opt(SchemaUrl("fingerprint"))).is_ok_and(|s| s < Some(Version::V0_7)) {
+            refuse_paths(v, at, FROM_0_7, "is not a field before 0.7")?;
+        }
+    }
+    Fingerprint::read(v, at)
 }
 
 /// `^F0( [0-9A-F]{2})* F7$`
@@ -80,6 +102,7 @@ object! {
 /// The controls of a fingerprint from 0.6: `cc_lsb`, `rpn_msb` and `rpn_lsb` are fields of 0.6 (before
 /// it, `UnknownField`), and a control carries one message kind only.
 fn check_controls(f: &Fingerprint, at: &At) -> Result<(), Fault> {
+    check_stack(f.platform, f.stack, at)?;
     let v06 = f.schema >= Some(Version::V0_6);
     if v06 {
         check_subject(f, at)?;

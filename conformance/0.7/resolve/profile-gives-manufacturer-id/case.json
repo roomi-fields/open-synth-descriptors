@@ -1,0 +1,25 @@
+{
+  "_about": "A profile's `manufacturerId` is the driver's when its block does not say the key.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "identity": {
+      "request": [
+        240,
+        126,
+        127,
+        6,
+        1,
+        247
+      ],
+      "manufacturerId": [
+        66
+      ],
+      "profile": "acme"
+    }
+  }
+}

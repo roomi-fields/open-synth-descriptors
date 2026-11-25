@@ -1,0 +1,9 @@
+{
+  "_about": "A mode and a part of one message share no coordinate: in a mode a part also holds, so the later claim is refused (the worked pair a-c of 0003).",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

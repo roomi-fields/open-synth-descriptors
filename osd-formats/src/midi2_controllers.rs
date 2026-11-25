@@ -2,13 +2,22 @@
 //! `AllCtrlList` and `CtrlMapList`, in JSON. The importer and the exporter; the fate of each
 //! property of the controller object (tables 6 and 12) is in docs/midi2-controllers.md.
 
-use crate::midi_csv::check_source;
-use crate::{Fault, FaultKind, Loss, Translated};
+use crate::importer::check_source;
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Descriptor, Device, Resolved, Source};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeSet;
 
-const SCHEMA_URL: &str = "https://w3id.org/osd/0.6/device.schema.json";
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "midi2-controllers",
+    media_type: "application/json",
+    extension: "json",
+    import,
+    export,
+    import_into: None,
+};
+
+const SCHEMA_URL: &str = "https://w3id.org/osd/0.7/device.schema.json";
 
 /// The state of the role vocabulary an import names.
 const VOCABULARY_STATE: &str = "1";
@@ -38,10 +47,16 @@ enum Kind {
     Cc,
     Nrpn,
     Rpn,
+    ChPress,
+    PPress,
+    PBend,
 }
 
-/// The types of the standard (M2-117-UM v1.0, tables 6 and 12) a descriptor holds no control for.
-const STANDARD_TYPES_NOT_CARRIED: [&str; 6] = ["chPress", "pPress", "pBend", "pnrc", "pnac", "pnp"];
+/// The types of the standard (M2-117-UM v1.0, tables 6 and 12) a descriptor holds no way for.
+const STANDARD_TYPES_NOT_CARRIED: [&str; 3] = ["pnrc", "pnac", "pnp"];
+
+/// The kinds of way the controller list says: the six `ctrlType` words it shares with a way.
+const WAY_KINDS: [&str; 6] = ["cc", "nrpn", "rpn", "chPress", "pPress", "pBend"];
 
 /// The number of bits a count of values needs, from the standard's usual widths.
 fn bits_of(max: i64) -> i64 {
@@ -143,7 +158,7 @@ fn role_reads(role: &Value) -> bool {
         "$schema": SCHEMA_URL,
         "device": {"name": "x", "osc_prefix": "/x"},
         "role_vocabulary": VOCABULARY_STATE,
-        "cc_params": {"entries": [{"osc": "/x", "cc": 0, "role": role}]},
+        "cc_params": {"entries": [{"osc": "/x", "ways": [{"ctrlType": "cc", "ctrlIndex": [0]}], "role": role}]},
     });
     osd::read(&doc.to_string(), osd::Kind::Device).is_ok()
 }
@@ -245,35 +260,36 @@ fn read_entry(
         Some(Some("cc")) => Kind::Cc,
         Some(Some("nrpn")) => Kind::Nrpn,
         Some(Some("rpn")) => Kind::Rpn,
+        Some(Some("chPress")) => Kind::ChPress,
+        Some(Some("pPress")) => Kind::PPress,
+        Some(Some("pBend")) => Kind::PBend,
         Some(Some(t)) if STANDARD_TYPES_NOT_CARRIED.contains(&t) => {
             loss(losses, ptr, format!("the ctrlType {t} is a type of the standard that the descriptor has no field for: the entry is not carried"));
             return Ok(());
         }
         Some(_) => return Err(invalid(format!("{ptr}/ctrlType"), "ctrlType is one of the nine types of the standard: cc, chPress, pPress, nrpn, rpn, pBend, pnrc, pnac, pnp")),
     };
-    let index = index_of(o, ptr, if matches!(kind, Kind::Nrpn | Kind::Rpn) { 2 } else { 1 })?;
-    if kind == Kind::Cc && index[0] > 127 {
-        return Err(invalid(format!("{ptr}/ctrlIndex"), "a Control Change number is from 0 to 127"));
+    // A pressure and a pitch bend have no number; a polyphonic pressure has its note.
+    let index = match kind {
+        Kind::ChPress | Kind::PBend => Vec::new(),
+        _ => index_of(o, ptr, if matches!(kind, Kind::Nrpn | Kind::Rpn) { 2 } else { 1 })?,
+    };
+    if matches!(kind, Kind::Cc | Kind::PPress) && index[0] > 127 {
+        let what = if kind == Kind::Cc { "a Control Change number" } else { "a note number" };
+        return Err(invalid(format!("{ptr}/ctrlIndex"), format!("{what} is from 0 to 127")));
     }
 
     let mut entry = Map::new();
+    // The way: what the entry says of the one message that reaches the control.
+    let mut way = Map::new();
+    way.insert("ctrlType".into(), json!(o.get("ctrlType").and_then(Value::as_str).unwrap_or("cc")));
+    if !index.is_empty() {
+        way.insert("ctrlIndex".into(), json!(index));
+    }
     let natural = match kind {
-        Kind::Cc => {
-            entry.insert("cc".into(), json!(index[0]));
-            7
-        }
-        Kind::Nrpn => {
-            entry.insert("nrpn_msb".into(), json!(index[0]));
-            entry.insert("nrpn_lsb".into(), json!(index[1]));
-            14
-        }
-        Kind::Rpn => {
-            entry.insert("rpn_msb".into(), json!(index[0]));
-            entry.insert("rpn_lsb".into(), json!(index[1]));
-            14
-        }
+        Kind::Cc | Kind::ChPress | Kind::PPress => 7,
+        Kind::Nrpn | Kind::Rpn | Kind::PBend => 14,
     };
-
     let bits = match int_at(o, "numSigBits", ptr)? {
         Some(b) if (1..=32).contains(&b) => Some(b),
         Some(_) => return Err(invalid(format!("{ptr}/numSigBits"), "numSigBits is from 1 to 32")),
@@ -294,14 +310,15 @@ fn read_entry(
             }
         }
     };
-    if kind != Kind::Cc {
+    if matches!(kind, Kind::Nrpn | Kind::Rpn) {
         // numSigBits 7 is the data MSB alone; any other width of an NRPN or an RPN is read as the 14 bits of MSB and LSB.
-        entry.insert("value_bits".into(), json!(if bits == Some(7) { 7 } else { 14 }));
+        way.insert("value_bits".into(), json!(if bits == Some(7) { 7 } else { 14 }));
     }
     let mut range_out = range;
     if kind == Kind::Cc && bits == Some(14) {
         if index[0] < 32 {
-            entry.insert("cc_lsb".into(), json!(index[0] + 32));
+            way.insert("ctrlIndex".into(), json!([index[0], index[0] + 32]));
+            way.insert("value_bits".into(), json!(14));
         } else {
             loss(losses, format!("{ptr}/numSigBits"), "a 14-bit Control Change pairs a number below 32 with its LSB at +32: the pair is not kept");
         }
@@ -311,7 +328,7 @@ fn read_entry(
         }
     }
     if let Some(r) = range_out {
-        entry.insert("range".into(), json!(r));
+        way.insert("range".into(), json!(r));
     }
     if let Some(d) = int_at(o, "default", ptr)? {
         if !in_32(d) {
@@ -341,7 +358,7 @@ fn read_entry(
         if let Some(v) = o.get(from) {
             match v.as_str().filter(|s| DIRECTIONS.contains(s)) {
                 Some(s) => {
-                    entry.insert(to.into(), json!(s));
+                    way.insert(to.into(), json!(s));
                 }
                 None => return Err(invalid(format!("{ptr}/{from}"), format!("{from} is absolute, relative, both or none"))),
             }
@@ -386,7 +403,8 @@ fn read_entry(
                 return Err(invalid(format!("{ptr}/ctrlMapId"), format!("a value of the map {id} is outside the range {lo}..{hi}")));
             }
         }
-        entry.insert("values".into(), values);
+        let named: Vec<Value> = values.as_object().into_iter().flatten().map(|(title, value)| json!({"value": value, "title": title})).collect();
+        entry.insert("values".into(), Value::Array(named));
     }
 
     // The path of the control: a role, else a section, else nothing.
@@ -408,11 +426,20 @@ fn read_entry(
     }
 
     // What nothing carries.
-    if o.contains_key("title") {
-        loss(losses, format!("{ptr}/title"), "the descriptor holds no title: the label belongs to the role and to the tool that lays it out");
+    match o.get("title") {
+        None => {}
+        Some(Value::String(t)) if !t.is_empty() => {
+            entry.insert("title".into(), json!(t));
+        }
+        Some(Value::String(_)) => loss(losses, format!("{ptr}/title"), "empty title: the descriptor refuses an empty title"),
+        Some(_) => loss(losses, format!("{ptr}/title"), "the title is not a string"),
     }
-    if o.contains_key("description") {
-        loss(losses, format!("{ptr}/description"), "free text for people is not read by a program: the descriptor has no field for it");
+    match o.get("description") {
+        None => {}
+        Some(Value::String(t)) => {
+            entry.insert("description".into(), json!(t));
+        }
+        Some(_) => loss(losses, format!("{ptr}/description"), "the description is not a string"),
     }
     for key in o.keys().filter(|k| !ENTRY_KEYS.contains(&k.as_str())) {
         loss(losses, format!("{ptr}/{}", segment(key)), "the descriptor has no field for it");
@@ -423,6 +450,9 @@ fn read_entry(
         Kind::Cc => format!("/cc/{}", index[0]),
         Kind::Nrpn => format!("/nrpn/{}/{}", index[0], index[1]),
         Kind::Rpn => format!("/rpn/{}/{}", index[0], index[1]),
+        Kind::ChPress => "/chpress".to_string(),
+        Kind::PPress => format!("/ppress/{}", index[0]),
+        Kind::PBend => "/pbend".to_string(),
     };
     let mut osc = base.clone();
     let mut k = 2;
@@ -433,6 +463,7 @@ fn read_entry(
     let mut full = Map::new();
     full.insert("osc".into(), json!(osc));
     full.extend(entry);
+    full.insert("ways".into(), json!([Value::Object(way)]));
     built.cc.push(Value::Object(full));
     Ok(())
 }
@@ -445,7 +476,7 @@ fn host_of(url: &str) -> Option<String> {
     (!host.is_empty()).then(|| host.to_string())
 }
 
-pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let root: Value = serde_json::from_str(text).map_err(|e| invalid("", format!("the file is not valid JSON: {e}")))?;
     let mut losses = Vec::new();
@@ -509,10 +540,7 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
 // ---- export -----------------------------------------------------------------------------
 
 /// The keys of an entry the export carries, by what it writes from them.
-const CC_CARRIED: [&str; 19] = [
-    "osc", "cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb", "value_bits", "range", "default", "priority", "step_count", "transmit", "recognize", "values", "channel", "section", "expects",
-    "role",
-];
+const CC_CARRIED: [&str; 13] = ["osc", "ways", "scale", "default", "priority", "step_count", "values", "channel", "section", "expects", "role", "title", "description"];
 
 /// The maps written: equal value lists share one id.
 #[derive(Default)]
@@ -521,8 +549,8 @@ struct Maps {
 }
 
 impl Maps {
-    fn id_of(&mut self, values: &Map<String, Value>) -> String {
-        let mut list: Vec<(i64, String)> = values.iter().filter_map(|(k, v)| Some((v.as_i64()?, k.clone()))).collect();
+    fn id_of(&mut self, values: &[(i64, String)]) -> String {
+        let mut list: Vec<(i64, String)> = values.to_vec();
         list.sort();
         if let Some((_, id)) = self.lists.iter().find(|(l, _)| *l == list) {
             return id.clone();
@@ -540,55 +568,87 @@ impl Maps {
     }
 }
 
-fn export_entry(e: &Map<String, Value>, ptr: &str, block_channel: Option<i64>, role_path: Option<&str>, maps: &mut Maps, losses: &mut Vec<Loss>) -> Option<Value> {
+fn export_entry(e: &Map<String, Value>, entry: &osd::CcEntry, ptr: &str, block_channel: Option<i64>, role_path: Option<&str>, maps: &mut Maps, losses: &mut Vec<Loss>) -> Option<Value> {
     for key in e.keys().filter(|k| !CC_CARRIED.contains(&k.as_str())) {
         loss(losses, format!("{ptr}/{}", segment(key)), "the Property Exchange controller resources have no property for it");
     }
     let num = |k: &str| e.get(k).and_then(Value::as_i64);
-    let (ctrl_type, index, natural) = if let Some(cc) = num("cc") {
-        ("cc", vec![cc], 7)
-    } else if let (Some(a), Some(b)) = (num("nrpn_msb"), num("nrpn_lsb")) {
-        ("nrpn", vec![a, b], num("value_bits").unwrap_or(14))
-    } else if let (Some(a), Some(b)) = (num("rpn_msb"), num("rpn_lsb")) {
-        ("rpn", vec![a, b], num("value_bits").unwrap_or(14))
-    } else {
-        loss(losses, ptr, "the control has no complete address (cc, nrpn_msb and nrpn_lsb, or rpn_msb and rpn_lsb): it is not written");
+    // The first way, in the order written, that the list has a ctrlType for is written; every other way is a loss at its place.
+    let ways = &entry.ways;
+    let Some(chosen) = ways.iter().position(|w| WAY_KINDS.contains(&w.ctrl_type.as_str())) else {
+        for (m, w) in ways.iter().enumerate() {
+            loss(losses, format!("{ptr}/ways/{m}"), format!("the standard has no ctrlType for a {} message: this way is not written", w.ctrl_type));
+        }
+        loss(losses, ptr, "the control has no way the controller list says: it is not written");
         return None;
     };
+    for (m, w) in ways.iter().enumerate().filter(|(m, _)| *m != chosen) {
+        let reason = if WAY_KINDS.contains(&w.ctrl_type.as_str()) {
+            "an entry of the list has one ctrlType and one ctrlIndex: the first way is written".to_string()
+        } else {
+            format!("the standard has no ctrlType for a {} message: this way is not written", w.ctrl_type)
+        };
+        loss(losses, format!("{ptr}/ways/{m}"), reason);
+    }
+    let way = &ways[chosen];
+    let way_json = e.get("ways").and_then(Value::as_array).and_then(|l| l.get(chosen)).and_then(Value::as_object);
+    let ptr_way = format!("{ptr}/ways/{chosen}");
+    let ctrl_type = way.ctrl_type.as_str();
+    let all = way.ctrl_index.clone().unwrap_or_default();
+    let index = if ctrl_type == "cc" { all.iter().take(1).copied().collect() } else { all.clone() };
+    let natural = match ctrl_type {
+        "nrpn" | "rpn" => way.value_bits.unwrap_or(14),
+        "pBend" => 14,
+        _ => 7,
+    };
+    if way.nrpn_lsb_range.is_some() {
+        loss(losses, format!("{ptr_way}/nrpn_lsb_range"), "the Property Exchange controller resources have no property for it");
+    }
 
     let osc = e.get("osc").and_then(Value::as_str).unwrap_or("");
     let section = e.get("section").and_then(Value::as_str);
     let slash_section = section.filter(|s| s.starts_with('/'));
     let param_path = role_path.or(if role_path.is_none() { slash_section } else { None });
-    let title = param_path.map_or_else(|| osc.to_string(), str::to_string);
+    let title = match e.get("title").and_then(Value::as_str) {
+        Some(t) => t.to_string(),
+        None => param_path.map_or_else(|| osc.to_string(), str::to_string),
+    };
 
     let mut o = Map::new();
     o.insert("title".into(), json!(title));
+    if let Some(d) = e.get("description").and_then(Value::as_str) {
+        o.insert("description".into(), json!(d));
+    }
     if let Some(c) = num("channel").or(block_channel) {
         o.insert("channel".into(), json!(c + 1));
     }
     o.insert("ctrlType".into(), json!(ctrl_type));
-    o.insert("ctrlIndex".into(), json!(index));
-    for (from, to) in [("priority", "priority"), ("transmit", "transmit"), ("recognize", "recognize")] {
-        if let Some(v) = e.get(from) {
-            o.insert(to.into(), v.clone());
+    if !index.is_empty() {
+        o.insert("ctrlIndex".into(), json!(index));
+    }
+    if let Some(v) = e.get("priority") {
+        o.insert("priority".into(), v.clone());
+    }
+    for key in ["transmit", "recognize"] {
+        if let Some(v) = way_json.and_then(|w| w.get(key)) {
+            o.insert(key.into(), v.clone());
         }
     }
     let mut lsb_pair = false;
-    if let Some(lsb) = num("cc_lsb") {
-        if ctrl_type == "cc" && lsb == index[0] + 32 {
+    if let (true, Some(lsb), Some(msb)) = (ctrl_type == "cc", all.get(1), index.first()) {
+        if *lsb == msb + 32 {
             lsb_pair = true;
         } else {
-            loss(losses, format!("{ptr}/cc_lsb"), "a 14-bit Control Change is written as numSigBits 14 on its MSB: an LSB other than the MSB + 32 has no property");
+            loss(losses, format!("{ptr_way}/ctrlIndex"), "a 14-bit Control Change is written as numSigBits 14 on its MSB: an LSB other than the MSB + 32 has no property");
         }
     }
-    let range = match e.get("range").and_then(Value::as_array).filter(|a| a.len() == 2).and_then(|a| Some([a[0].as_i64()?, a[1].as_i64()?])) {
+    let range = match way.range {
         Some([lo, hi]) if lo > hi => {
-            loss(losses, format!("{ptr}/range"), "the lowest value is above the highest");
+            loss(losses, format!("{ptr_way}/range"), "the lowest value is above the highest");
             None
         }
         Some([lo, hi]) if lo < 0 || hi < 0 => {
-            loss(losses, format!("{ptr}/range"), "minMax is unsigned 32-bit values: a negative bound is not written");
+            loss(losses, format!("{ptr_way}/range"), "minMax is unsigned 32-bit values: a negative bound is not written");
             None
         }
         r => r,
@@ -612,14 +672,15 @@ fn export_entry(e: &Map<String, Value>, ptr: &str, block_channel: Option<i64>, r
     if let Some([lo, hi]) = range {
         o.insert("minMax".into(), json!([up(lo), up(hi)]));
     }
-    if let Some(d) = e.get("default") {
-        match d.as_i64() {
-            Some(d) if d < 0 => loss(losses, format!("{ptr}/default"), "default is an unsigned 32-bit value: a negative default is not written"),
-            Some(d) if bits < 32 && d >= 1i64 << bits => loss(losses, format!("{ptr}/default"), format!("the default {d} does not fit in numSigBits {bits}: it is not written")),
-            Some(d) => {
+    if let Some(d) = entry.default {
+        // The default is in the reference scale of the control: the list says it in the scale of the way written.
+        let d = entry.in_way(d, way);
+        match d {
+            d if d < 0 => loss(losses, format!("{ptr}/default"), "default is an unsigned 32-bit value: a negative default is not written"),
+            d if bits < 32 && d >= 1i64 << bits => loss(losses, format!("{ptr}/default"), format!("the default {d} does not fit in numSigBits {bits}: it is not written")),
+            d => {
                 o.insert("default".into(), json!(up(d)));
             }
-            None => loss(losses, format!("{ptr}/default"), "the default is not an integer: it is not written"),
         }
     }
     if let Some(s) = e.get("step_count") {
@@ -656,16 +717,17 @@ fn export_entry(e: &Map<String, Value>, ptr: &str, block_channel: Option<i64>, r
         Some("clock") => loss(losses, format!("{ptr}/expects"), "the standard has no clock: the control carries no typeHint"),
         Some(other) => loss(losses, format!("{ptr}/expects"), format!("{other:?} has no typeHint word: the control carries no typeHint")),
     }
-    if let Some(values) = e.get("values").and_then(Value::as_object).filter(|v| !v.is_empty()) {
-        o.insert("ctrlMapId".into(), json!(maps.id_of(values)));
+    if let Some(values) = entry.values.as_ref().filter(|v| !v.is_empty()) {
+        let named: Vec<(i64, String)> = values.iter().map(|v| (entry.in_way(v.value, way), v.title.clone())).collect();
+        o.insert("ctrlMapId".into(), json!(maps.id_of(&named)));
     }
     Some(Value::Object(o))
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     if d.sources.as_ref().is_none_or(|s| s.is_empty()) {
-        return Err(fault(FaultKind::NoSources, "/_sources", "a device without sources is not written: its credit and licence cannot be"));
+        return Err(fault(FaultKind::NoSources, "/sources", "a device without sources is not written: its credit and licence cannot be"));
     }
     let descriptor = Descriptor::Device(Box::new(d.clone()));
     let doc: Value = serde_json::from_str(&osd::write(&descriptor)).expect("a descriptor is JSON");
@@ -679,11 +741,11 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
     if let Some(top) = doc.as_object() {
-        for key in top.keys().filter(|k| !["$schema", "device", "role_vocabulary", "cc_params", "params", "_sources"].contains(&k.as_str())) {
+        for key in top.keys().filter(|k| !["$schema", "device", "role_vocabulary", "cc_params", "params", "sources", "_sources"].contains(&k.as_str())) {
             loss(&mut losses, format!("/{}", segment(key)), "the controller list holds controls only: nothing of this");
         }
     }
-    loss(&mut losses, "/_sources", "the controller resources have no place for a credit or a licence: the file carries none");
+    loss(&mut losses, "/sources", "the controller resources have no place for a credit or a licence: the file carries none");
 
     let mut maps = Maps::default();
     let mut list = Vec::new();
@@ -696,7 +758,8 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             let Some(e) = e.as_object() else { continue };
             let ptr = format!("/cc_params/entries/{n}");
             let role = role_paths.iter().find(|(p, _)| *p == format!("{ptr}/role")).map(|(_, r)| r.as_str());
-            if let Some(v) = export_entry(e, &ptr, block_channel, role, &mut maps, &mut losses) {
+            let Some(typed) = d.cc_params.as_ref().and_then(|c| c.entries.get(n)) else { continue };
+            if let Some(v) = export_entry(e, typed, &ptr, block_channel, role, &mut maps, &mut losses) {
                 list.push(v);
             }
         }

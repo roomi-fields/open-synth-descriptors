@@ -1,0 +1,15 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "T", "osc_prefix": "/t" },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/a",
+        "ways": [
+          { "ctrlType": "cc", "ctrlIndex": [39] },
+          { "ctrlType": "cc", "ctrlIndex": [7, 39], "value_bits": 14 }
+        ]
+      }
+    ]
+  }
+}

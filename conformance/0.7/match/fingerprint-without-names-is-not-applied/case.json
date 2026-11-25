@@ -1,0 +1,14 @@
+{
+  "_about": "A port rule says nothing of a fingerprint with neither list.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_applied"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "not_applied"
+    }
+  ]
+}

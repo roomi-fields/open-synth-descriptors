@@ -1,0 +1,17 @@
+{
+  "_about": "`identity.endpoint_name` is a rule with the operator `ends_with` and a value.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "endpoint_name": {
+        "operator": "ends_with",
+        "value": "Synth Endpoint"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "From 0.7 an entry of `identity.ports` is a rule: a plain text is refused at the entry.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "A platform outside the list is refused at the platform.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/platform"
+  }
+}

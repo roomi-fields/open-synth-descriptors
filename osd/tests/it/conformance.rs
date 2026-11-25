@@ -164,6 +164,24 @@ fn firmware_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
     None
 }
 
+/// What a reading case states of the warnings of its descriptor, when it does: `warnings`, the
+/// ordered list of `{kind, pointer}` that `osd::warnings` gives.
+fn warning_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
+    let want = case.get("warnings")?;
+    let got: Vec<Value> = osd::warnings(d)
+        .into_iter()
+        .map(|w| {
+            let kind = match w.kind {
+                osd::WarningKind::PartialControl => "PartialControl",
+                osd::WarningKind::UnknownProvider(_) => "UnknownProvider",
+            };
+            serde_json::json!({"kind": kind, "pointer": w.pointer})
+        })
+        .collect();
+    let got = Value::Array(got);
+    (got != *want).then(|| format!("warned {got}, the case states {want}"))
+}
+
 /// What a reading case asked for that the reader did not return, if anything.
 fn run_read(dir: &Path) -> Option<String> {
     let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
@@ -187,7 +205,7 @@ fn run_read(dir: &Path) -> Option<String> {
             if got != want_roles {
                 return Some(format!("roles {got:?}, the case states {want_roles:?}"));
             }
-            sound_transfer_claims(&d, &case).or_else(|| firmware_claims(&d, &case))
+            warning_claims(&d, &case).or_else(|| sound_transfer_claims(&d, &case)).or_else(|| firmware_claims(&d, &case))
         }
         (Err(f), None, Some(want)) => {
             let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});
@@ -938,6 +956,325 @@ fn run_convert_to_0_6(dir: &Path) -> Option<String> {
         }
         _ => Some("the case and the converter disagree".into()),
     }
+}
+
+/// What a conversion case of 0.7 asked for that `convert_to` did not return: the result is the
+/// 0.7 document, it reads as 0.7, validates against the 0.7 schema and converts to itself.
+fn run_convert_to_0_7(dir: &Path) -> Option<String> {
+    let case: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("case.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(dir.join("descriptor.json")).unwrap();
+    let kind = kind(case["convert"].as_str().unwrap());
+    match (osd::convert_to(&text, kind, osd::Version::V0_7), case.get("result"), case.get("fault")) {
+        (Ok(out), Some(want), None) => {
+            let doc: Value = serde_json::from_str(&out).unwrap();
+            if doc != *want {
+                return Some(format!("converted into {doc}"));
+            }
+            if let Err(f) = osd::read_as(&out, kind, osd::Version::V0_7) {
+                return Some(format!("the result does not read: {f}"));
+            }
+            if let Some(e) = common::Schemas::load("0.7").check(kind, &doc) {
+                return Some(format!("the result does not validate: {e}"));
+            }
+            (osd::convert_to(&out, kind, osd::Version::V0_7).as_deref() != Ok(out.as_str())).then(|| "converting the result changes it".into())
+        }
+        (Err(f), None, Some(want)) => {
+            let got = serde_json::json!({"kind": format!("{:?}", f.kind), "pointer": f.pointer});
+            (got != *want).then(|| format!("refused with {got} ({f})"))
+        }
+        _ => Some("the case and the converter disagree".into()),
+    }
+}
+
+#[test]
+fn every_conversion_case_of_0_7_passes() {
+    every_case(&common::repo().join("conformance/0.7/convert"), 44, run_convert_to_0_7);
+}
+
+#[test]
+fn the_0_7_conversion_cases_of_a_mixed_control_pass_from_0_4_and_from_0_5() {
+    let root = common::repo().join("conformance/0.7/convert");
+    let (mut from_0_4, mut from_0_5) = (0, 0);
+    let mut failures = Vec::new();
+    for name in [
+        "mixed-cc-and-nrpn-control-of-0-4-becomes-two-ways",
+        "mixed-cc-and-nrpn-control-of-0-5-becomes-two-ways",
+        "mixed-cc-and-rpn-control-becomes-two-ways",
+        "mixed-nrpn-and-rpn-control-becomes-two-ways",
+        "mixed-three-kinds-control-becomes-three-ways",
+        "mixed-control-with-nrpn-of-one-number-refused",
+        "mixed-control-with-cc-lsb-without-cc-refused",
+        "mixed-control-with-block-without-nrpn-refused",
+        "mixed-control-message-claimed-twice-refused",
+    ] {
+        let dir = root.join(name);
+        let text = std::fs::read_to_string(dir.join("descriptor.json")).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let doc: Value = serde_json::from_str(&text).unwrap();
+        match doc["$schema"].as_str() {
+            None => from_0_4 += 1,
+            Some(s) => {
+                assert!(s.contains("/0.5/"), "{name}: {s}");
+                from_0_5 += 1;
+            }
+        }
+        failures.extend(run_convert_to_0_7(&dir).map(|why| format!("{name}: {why}")));
+    }
+    assert!(from_0_4 >= 2 && from_0_5 >= 2, "{from_0_4} cases from 0.4, {from_0_5} from 0.5");
+    common::report("cases failed", failures);
+}
+
+#[test]
+fn every_reading_case_of_0_7_passes() {
+    every_case(&common::repo().join("conformance/0.7/read"), 86, run_read);
+}
+
+/// What a matching case asked for that `match_identity` did not return, if anything.
+fn run_match(dir: &Path) -> Option<String> {
+    let json = |f: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(dir.join(f)).unwrap()).unwrap() };
+    let case = json("case.json");
+    let device = match osd::read(&json("device.json").to_string(), osd::Kind::Device) {
+        Ok(osd::Descriptor::Device(d)) => d,
+        other => return Some(format!("device.json: {other:?}")),
+    };
+    let fingerprint = match osd::read(&json("fingerprint.json").to_string(), osd::Kind::Fingerprint) {
+        Ok(osd::Descriptor::Fingerprint(f)) => f,
+        other => return Some(format!("fingerprint.json: {other:?}")),
+    };
+    let got: Vec<Value> = osd::match_identity(&device, &fingerprint)
+        .into_iter()
+        .map(|m| {
+            let verdict = match m.verdict {
+                osd::MatchVerdict::Matched => "matched",
+                osd::MatchVerdict::NotMatched => "not_matched",
+                osd::MatchVerdict::NotApplied => "not_applied",
+            };
+            serde_json::json!({"pointer": m.pointer, "verdict": verdict})
+        })
+        .collect();
+    if case["match_identity"] != true {
+        return Some("the case does not state match_identity: true".into());
+    }
+    (Value::Array(got.clone()) != case["result"]).then(|| format!("matched {got:?}, the case states {}", case["result"]))
+}
+
+/// What a case on two product instance ids asked for that the reader did not return, if anything.
+fn run_same_product_instance_id(dir: &Path) -> Option<String> {
+    let json = |f: &str| -> Value { serde_json::from_str(&std::fs::read_to_string(dir.join(f)).unwrap()).unwrap() };
+    let case = json("case.json");
+    let read = |f: &str| match osd::read(&json(f).to_string(), osd::Kind::Fingerprint) {
+        Ok(osd::Descriptor::Fingerprint(x)) => x,
+        other => panic!("{}/{f}: {other:?}", dir.display()),
+    };
+    let (a, b) = (read("a.json"), read("b.json"));
+    let got = match osd::same_product_instance_id(&a, &b) {
+        Some(true) => "same",
+        Some(false) => "different",
+        None => "unknown",
+    };
+    if case["same_product_instance_id"] != true {
+        return Some("the case does not state same_product_instance_id: true".into());
+    }
+    (case["result"] != got).then(|| format!("answered {got}, the case states {}", case["result"]))
+}
+
+#[test]
+fn every_identity_matching_case_of_0_7_passes() {
+    every_case(&common::repo().join("conformance/0.7/match"), 22, run_match);
+}
+
+#[test]
+fn every_product_instance_id_case_of_0_7_passes() {
+    every_case(&common::repo().join("conformance/0.7/same_product_instance_id"), 7, run_same_product_instance_id);
+}
+
+#[test]
+fn every_input_of_a_matching_or_instance_id_case_validates_against_the_schema_of_its_own_version() {
+    let root = common::repo().join("conformance/0.7");
+    let mut failures = Vec::new();
+    let mut checked = 0;
+    for (kind_folder, inputs) in [
+        ("match", [("device.json", osd::Kind::Device), ("fingerprint.json", osd::Kind::Fingerprint)]),
+        ("same_product_instance_id", [("a.json", osd::Kind::Fingerprint), ("b.json", osd::Kind::Fingerprint)]),
+    ] {
+        for case in std::fs::read_dir(root.join(kind_folder)).unwrap() {
+            let case = case.unwrap().path();
+            for (name, kind) in inputs {
+                let doc: Value = serde_json::from_str(&std::fs::read_to_string(case.join(name)).unwrap()).unwrap();
+                let v = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.7/")) { "0.7" } else { "0.6" };
+                checked += 1;
+                if let Some(e) = common::Schemas::load(v).check(kind, &doc) {
+                    failures.push(format!("{}: {name}: {e}", case.display()));
+                }
+            }
+        }
+    }
+    assert!(checked >= 58, "{checked} files");
+    common::report("inputs do not validate", failures);
+}
+
+/// One name of case per row of the table of cases of proposal 0004 (more than one where a row
+/// names several fields or forms).
+#[test]
+fn every_row_of_the_table_of_cases_of_proposal_0004_is_a_case_of_0_7() {
+    let root = common::repo().join("conformance/0.7");
+    for case in [
+        "read/port-rules-each-operator-and-direction-accepted",
+        "read/port-rule-with-platform-accepted",
+        "read/port-rule-with-platform-and-stack-accepted",
+        "convert/port-name-becomes-contains-rule",
+        "read/port-rule-operator-outside-list-refused",
+        "read/port-rule-stack-without-platform-refused",
+        "read/port-rule-stack-of-another-platform-refused",
+        "read/port-rule-platform-outside-list-refused",
+        "read/port-rule-stack-outside-list-refused",
+        "read/fingerprint-with-platform-accepted",
+        "read/fingerprint-with-platform-and-stack-accepted",
+        "read/fingerprint-without-platform-accepted",
+        "read/fingerprint-stack-without-platform-refused",
+        "read/fingerprint-stack-of-another-platform-refused",
+        "match/rule-without-platform-applies-to-a-fingerprint-without",
+        "match/platform-rule-applies-to-the-same-platform-without-stack",
+        "match/platform-rule-applies-to-the-same-platform-with-a-stack",
+        "match/platform-rule-not-applied-to-another-platform",
+        "match/stack-rule-applies-to-the-same-platform-and-stack",
+        "match/stack-rule-not-applied-without-stack",
+        "match/platform-rule-not-applied-without-platform",
+        "match/stack-rule-not-applied-to-another-stack",
+        "match/case-is-ignored",
+        "read/port-rule-empty-value-refused",
+        "read/endpoint-name-equals-accepted",
+        "read/endpoint-name-contains-accepted",
+        "read/endpoint-name-starts-with-accepted",
+        "read/endpoint-name-ends-with-accepted",
+        "read/endpoint-name-with-direction-refused",
+        "read/endpoint-name-with-platform-refused",
+        "read/endpoint-name-with-stack-refused",
+        "read/fingerprint-with-endpoint-name-and-product-instance-id-accepted",
+        "read/device-product-instance-id-in-identity-refused",
+        "match/endpoint-rule-not-applied-without-endpoint-name",
+        "same_product_instance_id/other-case-is-different",
+        "convert/fingerprint-changes-only-its-schema",
+        "convert/empty-port-name-is-removed",
+        "resolve/profile-0-6-port-names-under-a-0-7-device",
+        "resolve/profile-0-7-under-a-0-6-device",
+        "resolve/profile-0-6-extending-a-0-7-profile",
+        "resolve/identity-from-a-0-7-profile-programs-from-a-0-6-one",
+    ] {
+        assert!(root.join(case).join("case.json").is_file(), "{case}");
+    }
+}
+
+#[test]
+fn the_0_7_cases_of_the_sources_exist_under_their_names() {
+    let root = common::repo().join("conformance/0.7");
+    for case in [
+        "convert/sources-key-renamed",
+        "convert/source-product-keys-become-general-fields",
+        "convert/script-text-unchanged",
+        "read/underscore-sources-refused",
+        "read/underscore-sources-beside-sources-refused",
+        "read/underscore-key-is-kept",
+        "resolve/midi-of-0-7-file-with-underscore-sources-refused",
+        "resolve/midi-of-0-7-file-adds-sources",
+    ] {
+        assert!(root.join(case).join("case.json").is_file(), "{case}");
+    }
+}
+
+#[test]
+fn the_0_7_cases_of_the_changes_of_form_exist_under_their_names() {
+    let root = common::repo().join("conformance/0.7");
+    for case in [
+        "convert/polarity-from-orientation",
+        "convert/orientation-other-word-not-convertible",
+        "convert/electra-number-becomes-id",
+        "convert/electra-other-shape-stays-a-note",
+        "convert/manufacturer-id-moves-to-identity",
+        "convert/manufacturer-id-joins-an-existing-identity-block",
+        "convert/manufacturer-id-moves-in-a-midi-of-file-with-an-identity-block",
+        "convert/manufacturer-id-of-a-midi-of-file-without-identity-stays-a-note",
+        "convert/device-without-manufacturer-id-gets-no-identity",
+        "read/polarity-accepted",
+        "read/orientation-refused",
+        "read/polarity-other-word-refused",
+        "read/identity-manufacturer-id-accepted",
+        "read/identity-manufacturer-id-null-accepted",
+        "read/device-manufacturer-id-refused",
+        "read/command-id-accepted",
+        "read/command-id-not-an-integer-refused",
+        "resolve/midi-of-0-7-identity-block-replaces-the-target-manufacturer-id",
+        "resolve/midi-of-0-7-file-without-identity-takes-the-target-manufacturer-id",
+        "resolve/profile-null-drops-manufacturer-id",
+        "resolve/profile-null-manufacturer-id-on-a-profile-without-it-accepted",
+    ] {
+        assert!(root.join(case).join("case.json").is_file(), "{case}");
+    }
+}
+
+#[test]
+fn every_reading_case_of_0_7_that_expects_a_result_validates_against_the_0_7_schema() {
+    let schemas = common::Schemas::load("0.7");
+    let mut failures = Vec::new();
+    for case in std::fs::read_dir(common::repo().join("conformance/0.7/read")).unwrap() {
+        let case = case.unwrap().path();
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+        let doc: Value = serde_json::from_str(&std::fs::read_to_string(case.join("descriptor.json")).unwrap()).unwrap();
+        let errors = schemas.errors(kind(spec["read"].as_str().unwrap()), &doc);
+        let name = case.file_name().unwrap().to_string_lossy().to_string();
+        // A case that says `schema_accepts` is refused by the reader alone (a claim between ways
+        // is no matter for a schema, which cannot compare two entries): the schema accepts it.
+        let reader_alone = spec.get("schema_accepts").and_then(Value::as_bool) == Some(true);
+        match (spec.get("result").is_some(), errors.is_empty()) {
+            (true, false) => failures.push(format!("{name}: {errors:?}")),
+            (false, false) if reader_alone => failures.push(format!("{name}: the schema refuses what it should accept: {errors:?}")),
+            (false, true) if reader_alone => {}
+            // A refusal of `_sources` is the schema's too: no 0.7 text carries the old key.
+            (false, true) => failures.push(format!("{name}: the schema accepts what the reader refuses")),
+            _ => {}
+        }
+    }
+    common::report("reading cases of 0.7 disagree with the schema", failures);
+}
+
+#[test]
+fn every_resolution_case_of_0_7_passes() {
+    every_case(&common::repo().join("conformance/0.7/resolve"), 16, run_resolve);
+}
+
+#[test]
+fn the_0_7_resolution_cases_join_a_0_6_target_to_a_0_7_file_and_the_reverse() {
+    let root = common::repo().join("conformance/0.7/resolve");
+    for (name, file_v, target_v) in [("midi-of-0-7-file-on-0-6-target", "0.7", "0.6"), ("midi-of-0-6-file-on-0-7-target", "0.6", "0.7")] {
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(root.join(name).join("case.json")).unwrap()).unwrap();
+        assert_eq!(spec["result"]["$schema"], "https://w3id.org/osd/0.7/device.schema.json", "{name}");
+        assert!(spec["result"]["midi_of_sources"].is_array(), "{name}: the target's credit is kept");
+        assert!(spec["result"]["_midi_of_sources"].is_null() && spec["result"]["_sources"].is_null(), "{name}: no key of the old form");
+        let a = files(&root.join(name).join("files"));
+        assert!(a["acme/a"].contains(&format!("/osd/{file_v}/")), "{name}");
+        assert!(a["acme/b"].contains(&format!("/osd/{target_v}/")), "{name}");
+    }
+}
+
+#[test]
+fn every_file_of_a_0_7_resolution_case_validates_against_the_schema_of_its_own_version() {
+    let mut failures = Vec::new();
+    for case in std::fs::read_dir(common::repo().join("conformance/0.7/resolve")).unwrap() {
+        let case = case.unwrap().path();
+        // A case that expects a refusal holds a file the schema refuses too.
+        let spec: Value = serde_json::from_str(&std::fs::read_to_string(case.join("case.json")).unwrap()).unwrap();
+        if spec.get("fault").is_some() {
+            continue;
+        }
+        for (id, text) in files(&case.join("files")) {
+            let doc: Value = serde_json::from_str(&text).unwrap();
+            let v = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.7/")) { "0.7" } else { "0.6" };
+            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            if let Some(e) = common::Schemas::load(v).check(kind, &doc) {
+                failures.push(format!("{}: {id}: {e}", case.file_name().unwrap().to_string_lossy()));
+            }
+        }
+    }
+    common::report("files do not validate", failures);
 }
 
 #[test]

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/bank",
+        "range": [
+          0,
+          3
+        ],
+        "transmit": "absolute",
+        "recognize": "none",
+        "nrpn_lsb_range": [
+          0,
+          7
+        ],
+        "default": 1,
+        "values": {
+          "A": 0,
+          "B": 1
+        },
+        "_name": "Bank"
+      },
+      {
+        "osc": "/filter/cutoff",
+        "cc": 74
+      },
+      {
+        "osc": "/bank/msb",
+        "orientation": "0-based"
+      }
+    ]
+  },
+  "params": {
+    "get_frame": [
+      240,
+      66,
+      {
+        "arg": "pr"
+      },
+      247
+    ],
+    "set_frame": [
+      240,
+      67,
+      {
+        "arg": "pr"
+      },
+      {
+        "arg": "value"
+      },
+      247
+    ],
+    "value_type": "u7",
+    "entries": [
+      {
+        "osc": "/osc1/pitch",
+        "range": [
+          -64,
+          63
+        ],
+        "transmit": "absolute",
+        "recognize": "both"
+      },
+      {
+        "osc": "/osc1/shape"
+      }
+    ]
+  }
+}

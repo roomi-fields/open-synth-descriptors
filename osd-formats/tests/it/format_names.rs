@@ -1,4 +1,5 @@
-//! The closed list of formats: MIDNAM and OSCQuery come after Electra One, each with its name.
+//! The closed list of formats: the present ones at their positions, each with its name; a format
+//! added comes after them.
 
 use osd_formats::Format;
 
@@ -24,9 +25,8 @@ fn the_deluge_comes_after_the_midi2_controller_list_and_is_named_deluge() {
 }
 
 #[test]
-fn knobkraft_comes_last_in_the_list_of_formats_and_is_named_knobkraft() {
-    assert_eq!(Format::ALL[7..], [Format::Knobkraft]);
-    assert_eq!(Format::ALL.len(), 8);
+fn knobkraft_comes_after_the_deluge_and_is_named_knobkraft() {
+    assert_eq!(Format::ALL[7..8], [Format::Knobkraft]);
     assert_eq!(Format::Knobkraft.name(), "knobkraft");
     assert_eq!(Format::from_name("knobkraft"), Some(Format::Knobkraft));
     assert_eq!(Format::from_name("KnobKraft"), None);

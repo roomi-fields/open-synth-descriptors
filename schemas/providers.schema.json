@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/osd/providers.schema.json",
+  "title": "OSD table of providers",
+  "description": "Who supplies the sources of a descriptor, each cited by its identifier in the field `provider`. The table has a version of its own, beside the versions of the format.",
+  "type": "object",
+  "required": [
+    "version",
+    "providers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date of the last change of the table."
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/provider"
+      },
+      "description": "The entries. An entry is never deleted and its identifier is never given to another provider."
+    }
+  },
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "url"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 64,
+          "description": "The identifier a source cites; never reused."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The name as its owner writes it."
+        },
+        "kind": {
+          "enum": [
+            "maker",
+            "community-firmware",
+            "partner"
+          ],
+          "description": "Who the entry is: maker made the device or its software, community-firmware is a firmware made by people other than the maker, partner is a project whose data formats or catalogues OSD carries."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The web address of the provider."
+        },
+        "midi_manufacturer_id": {
+          "type": "string",
+          "pattern": "^([0-9A-Fa-f]{2}|00[0-9A-Fa-f]{4})$",
+          "description": "The MIDI manufacturer id, when one exists: one byte as two hexadecimal digits, or three bytes 00 xx xx as six."
+        },
+        "credit": {
+          "type": "string",
+          "description": "On a seeded entry, where the identifier, the name and the address were read, and the licence read there."
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "The provider has ceased to exist, or the entry was a mistake."
+        },
+        "replaced_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 64,
+          "description": "The identifier of the entry that replaces a deprecated one."
+        }
+      }
+    }
+  }
+}

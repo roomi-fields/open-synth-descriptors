@@ -1,0 +1,55 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "ports": [
+      {
+        "operator": "equals",
+        "value": "Synth In",
+        "direction": "input"
+      },
+      {
+        "operator": "equals",
+        "value": "Synth Out",
+        "direction": "output"
+      },
+      {
+        "operator": "contains",
+        "value": "Synth In",
+        "direction": "input"
+      },
+      {
+        "operator": "contains",
+        "value": "Synth Out",
+        "direction": "output"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth In",
+        "direction": "input"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth Out",
+        "direction": "output"
+      },
+      {
+        "operator": "ends_with",
+        "value": "Synth In",
+        "direction": "input"
+      },
+      {
+        "operator": "ends_with",
+        "value": "Synth Out",
+        "direction": "output"
+      },
+      {
+        "operator": "contains",
+        "value": "Synth"
+      }
+    ]
+  }
+}

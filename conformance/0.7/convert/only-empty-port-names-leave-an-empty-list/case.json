@@ -1,0 +1,14 @@
+{
+  "_about": "A list of empty names alone stays a list, empty: the key still takes the place of a profile's.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "ports": []
+    }
+  }
+}

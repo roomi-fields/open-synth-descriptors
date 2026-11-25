@@ -1,0 +1,14 @@
+{
+  "_about": "The six product keys of a 0.6 source: `preset_name` becomes `title` (`name` stays beside it), `revision` becomes `version`, `content_sha256` becomes `sha256`, `preset_id` and `adaptation` drop when the last segment of the path of `url` is exactly their text and stay otherwise; a type named after a product becomes `contributed`, with its partner in `provider` and the old word as the first line of `notes`, and every other key is left as it is; a target that already exists wins and the old key stays.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "sources": [
+      { "type": "contributed", "provider": "electra-one", "title": "Preset A", "name": "Acme A", "version": "3", "sha256": "aa", "url": "https://x.org/p/abc123", "notes": "type in 0.6: electra-preset\nkept" },
+      { "type": "contributed", "provider": "knobkraft", "title": "Only name", "url": "https://x.org/p/zzz", "preset_id": "abc123", "adaptation": "Acme", "notes": "type in 0.6: knobkraft" },
+      { "type": "vendor-doc", "title": "T", "preset_name": "P", "version": "1", "revision": "2", "sha256": "bb", "content_sha256": "cc" },
+      { "type": "contributed", "provider": "knobkraft", "url": "https://x.org/a/Acme/?v=1#top", "adaptation": "ACME", "notes": "type in 0.6: knobkraft" }
+    ]
+  }
+}

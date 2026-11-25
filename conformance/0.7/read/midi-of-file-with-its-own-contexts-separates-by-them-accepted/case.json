@@ -1,0 +1,56 @@
+{
+  "_about": "A `midi_of` file with its own `part` dimension compares it: two parts separate.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "midi_of": "acme/b",
+    "contexts": {
+      "part": {
+        "values": [
+          {
+            "id": "track1"
+          },
+          {
+            "id": "track2"
+          }
+        ]
+      }
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "part": "track1"
+              }
+            }
+          ]
+        },
+        {
+          "osc": "/b",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "in": {
+                "part": "track2"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

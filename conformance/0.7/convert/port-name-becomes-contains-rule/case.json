@@ -1,0 +1,23 @@
+{
+  "_about": "A plain port name of 0.6 becomes a `contains` rule with no direction, platform or stack, in the same order; neither `endpoint_name` nor `product_instance_id` is written.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "ports": [
+        {
+          "operator": "contains",
+          "value": "Electra Controller"
+        },
+        {
+          "operator": "contains",
+          "value": "midiin2 electra controller"
+        }
+      ]
+    }
+  }
+}

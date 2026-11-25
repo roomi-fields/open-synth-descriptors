@@ -1,0 +1,8 @@
+{
+  "_about": "The endpoint name is the device's own: its rule has no stack.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/identity/endpoint_name/stack"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "A `provider` that is not a string is a bad value at its pointer.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/provider"
+  }
+}

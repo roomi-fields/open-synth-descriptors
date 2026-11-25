@@ -1,0 +1,65 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "commands": [
+    {
+      "osc": "/level_s1",
+      "_electra": {
+        "parameter": {
+          "type": "sysex",
+          "number": 1
+        }
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
+    },
+    {
+      "osc": "/level_s1_again",
+      "_electra": {
+        "parameter": {
+          "type": "sysex",
+          "number": 1
+        }
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
+    },
+    {
+      "osc": "/level_s2",
+      "_electra": {
+        "parameter": {
+          "type": "sysex",
+          "number": 405
+        }
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
+    },
+    {
+      "osc": "/dev_id",
+      "_electra": {
+        "parameter": {
+          "type": "virtual",
+          "number": 405
+        }
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
+    }
+  ]
+}

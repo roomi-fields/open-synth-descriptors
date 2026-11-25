@@ -8,7 +8,7 @@ The columns of `template.triggers.csv` of github.com/pencilresearch/midi (commit
 | `device` | `device.name` | the first row's; a different value on a later row is lost |
 | `section` | `section` | carried as it is |
 | `sound_name` | `sound` | the address `osc` is built from section and name |
-| `sound_description` | remark `_description` | the entry has no field for a description |
+| `sound_description` | `description` | carried as it is |
 | `midi_channel` | `channel` | an integer from 1 to 16, held as 0 to 15; any other cell (omni, any…) is lost, never a `channel_mode` |
 | `note_number_min_value` | `note_range`, first bound | both bounds are needed, else the row is lost |
 | `note_number_max_value` | `note_range`, second bound | both bounds are needed, else the row is lost |

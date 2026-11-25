@@ -1,0 +1,10 @@
+{
+  "_about": "A key starting with `_` (`_limitations` on a control, `_note` on the descriptor) is accepted; the reader keeps it and writes it back as it is, and no program reads its meaning.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "_note": "checked",
+    "cc_params": { "entries": [{ "osc": "/x", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }], "_limitations": "only the first half of the range is heard" }] }
+  }
+}

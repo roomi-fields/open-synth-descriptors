@@ -275,6 +275,13 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Box<Expr>),
 }
 
+/// The constant 0: the base of the `Default` of `ParamEntry`, not a meaningful expression.
+impl Default for Expr {
+    fn default() -> Self {
+        Expr::Literal(0)
+    }
+}
+
 pub(crate) struct ExprCodec;
 pub(crate) const EXPR: ExprCodec = ExprCodec;
 

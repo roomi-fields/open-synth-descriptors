@@ -1,0 +1,60 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "ports": [
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "windows",
+        "stack": "winmm"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "windows",
+        "stack": "windows-midi-services"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "windows",
+        "stack": "winrt"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "linux",
+        "stack": "alsa-seq"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "linux",
+        "stack": "alsa-rawmidi"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "linux",
+        "stack": "jack"
+      },
+      {
+        "operator": "starts_with",
+        "value": "Synth",
+        "direction": "output",
+        "platform": "macos",
+        "stack": "coremidi"
+      }
+    ]
+  }
+}

@@ -31,6 +31,13 @@ pub enum Address {
     Segments(Vec<Segment>),
 }
 
+/// The empty text: the base of the `Default` of `Command`, not a valid address.
+impl Default for Address {
+    fn default() -> Self {
+        Address::Text(String::new())
+    }
+}
+
 /// The places where an address is written, by what it may hold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AddressPlace {

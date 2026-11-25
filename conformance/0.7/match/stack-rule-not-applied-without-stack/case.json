@@ -1,0 +1,10 @@
+{
+  "_about": "A rule with a stack is not applied to a fingerprint of the same platform with no stack.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "not_applied"
+    }
+  ]
+}

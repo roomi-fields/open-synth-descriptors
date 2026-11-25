@@ -1,0 +1,8 @@
+{
+  "_about": "An operator outside the four is refused at the operator.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/operator"
+  }
+}

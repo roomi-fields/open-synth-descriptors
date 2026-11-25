@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Writes the book of the specification: python tools/build_book.py <book folder> [--pin FILE] [--cache FOLDER]
+"""Writes the book of the specification:
+python tools/build_book.py <book folder> [--pin FILE] [--cache FOLDER] [--candidates FILE]
 
 The source of the book is assembled from the texts of spec/ (their words unchanged) and the pages of
-`osd-reference build schemas/<newest version>`; the book tool is the one tools/mdbook.pin names,
+`osd-reference build schemas/<newest version>`. A version that the list of candidates
+(tools/candidates.list, or the file given) names has no page spec/<version>.md in the book, and the
+newest version is the newest the list does not name. The book tool is the one tools/mdbook.pin names,
 installed by tools/install_mdbook.py. The book is written into its own folder, never into the site
 folder. Meant to sit beside the schemas at <site>/book/: a link to a schema file is rendered as the
-path of that file in the site, a link to a repository file the book does not hold as its address in
-the public repository on main. Without the tool the build fails and writes nothing.
+path of that file in the site, a link to a repository file the book does not hold, or to a page or a
+schema withheld for a candidate, as its address in the public repository on main. Without the tool the build fails and writes nothing.
 """
 import argparse
 import os
@@ -17,6 +20,7 @@ import sys
 import tempfile
 from pathlib import Path, PurePosixPath
 
+import candidates
 import install_mdbook
 
 HERE = Path(__file__).resolve().parent
@@ -30,22 +34,17 @@ def fail(message):
     sys.exit(1)
 
 
-def newest_schemas():
-    versions = [p for p in (ROOT / "schemas").iterdir() if p.is_dir() and re.fullmatch(r"\d+(\.\d+)*", p.name)]
-    if not versions:
-        fail("schemas/: no version folder")
-    return max(versions, key=lambda p: tuple(int(n) for n in p.name.split(".")))
-
-
-def spec_pages():
-    """The texts of spec/, as paths under spec/, the specification of the newest version first."""
+def spec_pages(listed):
+    """The texts of spec/ the book holds, as paths under spec/, the specifications of the versions first."""
     spec = ROOT / "spec"
+    withheld = {f"{version}.md" for version in listed}
     pages = sorted(p.relative_to(spec).as_posix() for p in spec.rglob("*.md"))
+    pages = [p for p in pages if p not in withheld]
     return sorted(pages, key=lambda r: (re.fullmatch(r"\d+(\.\d+)*\.md", r) is None, r))
 
 
-def render_links(text, source):
-    """Rewrites the destination of each relative link that leaves spec/; the words stay."""
+def render_links(text, source, listed):
+    """Rewrites the destination of each relative link that leaves the book; the words stay."""
     depth = len(PurePosixPath(source).parts) - 1
     here = PurePosixPath("spec") / PurePosixPath(source).parent
 
@@ -55,10 +54,12 @@ def render_links(text, source):
             return match.group(0)
         path, _, fragment = target.partition("#")
         repo_path = PurePosixPath(os.path.normpath(here / path))
-        if repo_path.parts[:1] == ("spec",):
+        withheld_page = str(repo_path) in {f"spec/{version}.md" for version in listed}
+        if repo_path.parts[:1] == ("spec",) and not withheld_page:
             return match.group(0)
         tail = "#" + fragment if fragment else ""
-        if repo_path.parts[:1] == ("schemas",) and repo_path.suffix == ".json":
+        in_site = not candidates.withholds(listed, str(repo_path))
+        if repo_path.parts[:1] == ("schemas",) and repo_path.suffix == ".json" and in_site:
             return f"]({'../' * (depth + 1)}{repo_path}{tail}{title})"
         kind = "tree" if (ROOT / repo_path).is_dir() else "blob"
         return f"]({REPO}/{kind}/main/{repo_path}{tail}{title})"
@@ -87,10 +88,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("book")
     parser.add_argument("--pin", default=install_mdbook.DEFAULT_PIN)
-    parser.add_argument("--cache", default=install_mdbook.DEFAULT_CACHE)
+    parser.add_argument("--cache")
+    parser.add_argument("--candidates")
     args = parser.parse_args()
     mdbook = install_mdbook.install(args.pin, args.cache)
-    schemas = newest_schemas()
+    listed = candidates.read(args.candidates)
+    version = candidates.newest(ROOT / "schemas", listed)
+    if version is None:
+        fail("schemas/: no version folder outside the candidates")
+    schemas = ROOT / "schemas" / version
     with tempfile.TemporaryDirectory() as work:
         work = Path(work)
         src = work / "src"
@@ -102,11 +108,11 @@ def main():
             "This book holds the text of the specification and, for each kind of descriptor, the reference "
             "of its schema.\n"
         )
-        for rel in spec_pages():
+        for rel in spec_pages(listed):
             text = (ROOT / "spec" / rel).read_text()
             dest = src / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(render_links(text, rel))
+            dest.write_text(render_links(text, rel, listed))
             summary.append(f"- [{title_of(text, rel)}]({rel})")
         reference = work / "reference-pages"
         run = subprocess.run(

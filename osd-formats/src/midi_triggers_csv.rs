@@ -2,11 +2,19 @@
 //! The fate of each column is written in docs/midi-triggers-csv.md.
 
 use crate::csv;
-use crate::midi_csv::{adopt_identity, blank_device, check_source, slug, unique, used_addresses};
-use crate::{Fault, FaultKind, Loss, Translated};
+use crate::importer::{adopt_identity, blank_device, check_source, slug, unique, used_addresses};
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Device, Resolved, Source, Trigger, Triggers};
-use serde_json::Value;
 use std::collections::BTreeSet;
+
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "midi-triggers-csv",
+    media_type: "text/csv",
+    extension: "csv",
+    import,
+    export,
+    import_into: Some(import_into),
+};
 
 /// The header of `template.triggers.csv`, in order.
 const HEADER: [&str; 11] = [
@@ -34,9 +42,6 @@ const NOTE_MAX: usize = 7;
 const NOTE_DEFAULT: usize = 8;
 const COMMENTS: usize = 9;
 const VELOCITY: usize = 10;
-
-/// The remark of a trigger that holds the description the entry has no field for.
-const DESCRIPTION_REMARK: &str = "_description";
 
 fn fault(kind: FaultKind, place: impl Into<String>, rule: impl Into<String>) -> Fault {
     Fault { kind, place: place.into(), rule: rule.into() }
@@ -73,7 +78,7 @@ fn lost(losses: &mut Vec<(usize, Loss)>, line: usize, column: usize, reason: &st
 
 // ---- import -----------------------------------------------------------------------------
 
-pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
     let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
     let (entries, losses) = read(text, &mut identity, &mut used)?;
@@ -83,9 +88,12 @@ pub(crate) fn import(text: &str, source: &Source) -> Result<Translated<Device>, 
     Ok(Translated { value: device, lost: losses })
 }
 
-/// Adds the triggers of `text` to `base`, which keeps its identity and its other blocks.
-pub(crate) fn import_into(mut base: Device, text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
+/// Adds the triggers of `text` to `base`, which keeps its identity and its other blocks; a base
+/// before 0.7 is first converted to 0.7, its blocks as the converter gives them.
+fn import_into(base: Device, text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
+    // The entries added carry `title`, a field from 0.7: they join a base of 0.7.
+    let mut base = crate::base::in_0_7(base)?;
     let mut identity = (base.device.vendor.clone().unwrap_or_default(), base.device.name.clone());
     let mut used = used_addresses(&base);
     let (entries, losses) = read(text, &mut identity, &mut used)?;
@@ -171,8 +179,10 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         let joined: Vec<&str> = [section.as_str(), name.as_str()].into_iter().filter(|s| !s.is_empty()).collect();
         let path = if joined.is_empty() { format!("note-{lo}-{hi}") } else { joined.join("/") };
         let non_empty = |column: usize| Some(cells[column].clone()).filter(|s| !s.is_empty());
-        let mut entry = Trigger {
+        let entry = Trigger {
             osc: unique(format!("/{path}"), used),
+            title: None,
+            description: non_empty(DESCRIPTION),
             sound: cells[NAME].clone(),
             section: non_empty(SECTION),
             channel,
@@ -183,9 +193,6 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             comments: non_empty(COMMENTS),
             remarks: Default::default(),
         };
-        if let Some(d) = non_empty(DESCRIPTION) {
-            entry.remarks.insert(DESCRIPTION_REMARK.to_string(), Value::String(d));
-        }
         entries.push(entry);
     }
     Ok((entries, losses))
@@ -197,12 +204,12 @@ fn gone(losses: &mut Vec<Loss>, place: String, reason: &str) {
     losses.push(Loss { place, reason: reason.to_string() });
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     if d.sources.as_ref().is_none_or(|s| s.is_empty()) {
         return Err(fault(
             FaultKind::NoSources,
-            "/_sources",
+            "/sources",
             "a device without sources is not written: its credit and licence cannot be",
         ));
     }
@@ -212,7 +219,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let info = &d.device;
     for (pointer, present) in [
         ("/device/revision", info.revision.is_some()),
-        ("/device/manufacturer_id", info.manufacturer_id.is_some()),
+        ("/identity/manufacturerId", d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some())),
         ("/device/device_id", info.device_id.is_some()),
         ("/device/rate_limit_hz", info.rate_limit_hz.is_some()),
         ("/device/kind", info.kind.is_some()),
@@ -250,7 +257,7 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             row[DEVICE] = d.device.name.clone();
             row[SECTION] = e.section.clone().unwrap_or_default();
             row[NAME] = e.sound.clone();
-            row[DESCRIPTION] = e.remarks.get(DESCRIPTION_REMARK).and_then(Value::as_str).unwrap_or_default().to_string();
+            row[DESCRIPTION] = e.description.clone().unwrap_or_default();
             if let Some(c) = e.channel {
                 row[CHANNEL] = (u16::from(c) + 1).to_string();
             }
@@ -264,11 +271,11 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             if e.channel_mode.is_some() {
                 gone(&mut losses, at("channel_mode"), "the CSV has no column for it");
             }
-            for key in e.remarks.keys().filter(|k| k.as_str() != DESCRIPTION_REMARK) {
-                gone(&mut losses, at(key), "the CSV has no column for it");
+            if e.title.is_some() {
+                gone(&mut losses, at("title"), "the CSV has no column for it: the name of the row is the sound");
             }
-            if e.remarks.get(DESCRIPTION_REMARK).is_some_and(|v| !v.is_string()) {
-                gone(&mut losses, at(DESCRIPTION_REMARK), "a cell holds text: this remark is not text");
+            for key in e.remarks.keys() {
+                gone(&mut losses, at(key), "the CSV has no column for it");
             }
             let cells: Vec<&str> = row.iter().map(String::as_str).collect();
             out.push_str(&csv::line(&cells));

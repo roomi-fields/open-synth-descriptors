@@ -1,0 +1,5 @@
+{
+  "_about": "`sources[].imported_at` is not a field of 0.7: refused as UnknownField at its pointer, though a source is an open object.",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/sources/0/imported_at" }
+}

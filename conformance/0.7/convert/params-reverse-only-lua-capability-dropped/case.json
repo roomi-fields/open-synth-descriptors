@@ -1,0 +1,14 @@
+{
+  "_about": "The same for a `params` entry: its `transform_reverse` is the only Lua field, so `capabilities` [lua] goes with it.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "params": {
+      "get_frame": [240, 247],
+      "set_frame": [240, 247],
+      "value_type": "u7",
+      "entries": [{ "osc": "/b", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [3] }] }]
+    }
+  }
+}

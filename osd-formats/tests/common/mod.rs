@@ -80,6 +80,7 @@ pub fn source() -> osd::Source {
         imported_at: None,
         notes: None,
         extra: Default::default(),
+        ..Default::default()
     }
 }
 
@@ -164,6 +165,66 @@ pub fn device_from(text: &str) -> osd::Device {
         Ok(_) => panic!("not a device"),
         Err(f) => panic!("the fixture is refused: {f:?}"),
     }
+}
+
+/// A way as `(kind, numbers, value_bits, range)`.
+pub type WayShape = (String, Vec<i64>, Option<i64>, Option<[i64; 2]>);
+
+pub fn shape(w: &osd::Way) -> WayShape {
+    (w.ctrl_type.clone(), w.ctrl_index.clone().unwrap_or_default(), w.value_bits, w.range)
+}
+
+/// The kind and the numbers of the ways of a control, in the order written.
+pub fn messages_of(e: &osd::CcEntry) -> Vec<(String, Vec<i64>)> {
+    e.ways().iter().map(|w| (w.ctrl_type.clone(), w.ctrl_index.clone().unwrap_or_default())).collect()
+}
+
+/// A device of 0.7 from a document whose controls are written either as `ways` (taken as they
+/// are) or in the flat form of 0.6 (`cc`, `nrpn_msb`, `also`, `id`, …): the flat form is the 0.6
+/// text, with the texts of 0.7 under their `_` keys and `sources` as `_sources`, carried to 0.7 by
+/// the converter, so a fixture says its controls in the shortest form.
+pub fn device_from_fixture(mut doc: serde_json::Value) -> osd::Device {
+    let sections = ["cc_params", "params", "triggers"];
+    let has_ways = sections.iter().any(|s| doc[s]["entries"].as_array().is_some_and(|l| l.iter().any(|e| e.get("ways").is_some())));
+    if has_ways {
+        return device_from(&doc.to_string());
+    }
+    doc["$schema"] = serde_json::json!("https://w3id.org/osd/0.6/device.schema.json");
+    if let Some(sources) = doc.as_object_mut().and_then(|o| o.remove("sources")) {
+        doc["_sources"] = sources;
+    }
+    for section in sections {
+        let Some(list) = doc.get_mut(section).and_then(|s| s.get_mut("entries")).and_then(|e| e.as_array_mut()) else { continue };
+        for entry in list.iter_mut().filter_map(|e| e.as_object_mut()) {
+            for (new, old) in [("title", "_name"), ("description", "_description"), ("value_description", "_usage"), ("notes", "_notes")] {
+                if let Some(v) = entry.remove(new) {
+                    entry.insert(old.to_string(), v);
+                }
+            }
+        }
+    }
+    // The commands have no `_` text in 0.6: their title and description are set after the conversion.
+    let mut command_texts: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+    if let Some(list) = doc.get_mut("commands").and_then(|c| c.as_array_mut()) {
+        for command in list.iter_mut().filter_map(|c| c.as_object_mut()) {
+            let mut texts = serde_json::Map::new();
+            for key in ["title", "description"] {
+                if let Some(v) = command.remove(key) {
+                    texts.insert(key.to_string(), v);
+                }
+            }
+            command_texts.push(texts);
+        }
+    }
+    let text = osd::convert_to(&doc.to_string(), osd::Kind::Device, osd::Version::V0_7).unwrap_or_else(|f| panic!("the fixture does not convert: {f:?}\n{doc}"));
+    if command_texts.iter().all(|t| t.is_empty()) {
+        return device_from(&text);
+    }
+    let mut converted: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for (command, texts) in converted["commands"].as_array_mut().into_iter().flatten().zip(command_texts) {
+        command.as_object_mut().unwrap().extend(texts);
+    }
+    device_from(&converted.to_string())
 }
 
 /// The first line of `template.triggers.csv` of github.com/pencilresearch/midi (commit 215c64e8d3b3).

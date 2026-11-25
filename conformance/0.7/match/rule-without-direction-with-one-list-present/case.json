@@ -1,0 +1,18 @@
+{
+  "_about": "With one list alone, a rule with no direction is matched or not by that list; a rule of the absent direction is not applied.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/ports/1",
+      "verdict": "not_matched"
+    },
+    {
+      "pointer": "/identity/ports/2",
+      "verdict": "not_applied"
+    }
+  ]
+}

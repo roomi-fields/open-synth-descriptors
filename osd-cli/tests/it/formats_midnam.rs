@@ -2,7 +2,7 @@
 //! losses on the error output, one per line.
 
 use crate::common::{osd, repo};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const CREDIT: [&str; 6] = ["--source-url", "https://example.org/names", "--source-author", "A maker", "--license", "CC-BY-4.0"];
 
@@ -62,9 +62,9 @@ fn import_prints_the_descriptor_read_strictly_with_the_control_and_the_credit() 
     assert!(matches!(osd::read(&run.stdout, osd::Kind::Device), Ok(osd::Descriptor::Device(_))), "{}", run.stdout);
     let doc: Value = serde_json::from_str(&run.stdout).unwrap();
     assert_eq!(doc["device"]["name"], "Trundler");
-    assert_eq!(doc["cc_params"]["entries"][0]["cc"], 74);
-    assert_eq!(doc["_sources"][0]["license"], "CC-BY-4.0");
-    assert_eq!(doc["_sources"][0]["author"], "A maker");
+    assert_eq!(doc["cc_params"]["entries"][0]["ways"][0], json!({"ctrlType": "cc", "ctrlIndex": [74]}));
+    assert_eq!(doc["sources"][0]["license"], "CC-BY-4.0");
+    assert_eq!(doc["sources"][0]["author"], "A maker");
 }
 
 #[test]

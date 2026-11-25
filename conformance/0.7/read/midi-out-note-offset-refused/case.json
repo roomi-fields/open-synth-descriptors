@@ -1,0 +1,5 @@
+{
+  "_about": "`midi_out.note_offset` is not a field of 0.7: refused as UnknownField at its pointer.",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/midi_out/note_offset" }
+}

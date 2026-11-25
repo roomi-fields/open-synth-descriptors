@@ -1,0 +1,8 @@
+{
+  "_about": "A stack of another platform than the fingerprint's is refused at the stack.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/stack"
+  }
+}

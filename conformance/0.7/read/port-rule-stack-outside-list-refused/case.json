@@ -1,0 +1,8 @@
+{
+  "_about": "A stack outside the list is refused at the stack.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/stack"
+  }
+}

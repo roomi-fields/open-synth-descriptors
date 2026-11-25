@@ -1,0 +1,61 @@
+{
+  "_about": "A control that gives a CC of 14 bits, an NRPN and an RPN becomes one control with three ways, in the order CC, NRPN, RPN whatever the order of its fields; `range` is on every way and `nrpn_lsb_range` on the NRPN way alone.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1,
+                33
+              ],
+              "value_bits": 14,
+              "range": [
+                0,
+                16383
+              ]
+            },
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                1,
+                0
+              ],
+              "value_bits": 14,
+              "range": [
+                0,
+                16383
+              ],
+              "nrpn_lsb_range": [
+                0,
+                15
+              ]
+            },
+            {
+              "ctrlType": "rpn",
+              "ctrlIndex": [
+                0,
+                2
+              ],
+              "value_bits": 14,
+              "range": [
+                0,
+                16383
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

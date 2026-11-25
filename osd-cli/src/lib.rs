@@ -10,7 +10,7 @@ const VALIDATE_SHAPE: &str = "osd validate [--kind <kind>] <file>…";
 const CONVERT_SHAPE: &str = "osd convert [--kind <kind>] [--to <version>] <file> [-o <file>] [--force]";
 const INIT_SHAPE: &str = "osd init <kind> [-o <file>] [--force]";
 const IMPORT_SHAPE: &str =
-    "osd import <format> <file> [--source-url <url>] [--source-author <name>] --license <spdx> [--into <descriptor>] [-o <file>] [--force]";
+    "osd import <format> <file> [--source-url <url>] [--source-author <name>] [--source-provider <id>] --license <spdx> [--into <descriptor>] [-o <file>] [--force]";
 const EXPORT_SHAPE: &str = "osd export <format> <file> [-o <file>] [--force]";
 const CONFORMANCE_SHAPE: &str = "osd conformance <case folder>";
 const RESOLVE_SHAPE: &str = "osd resolve <id> --catalogue <folder>";
@@ -32,6 +32,15 @@ fn kind_names() -> String {
 
 fn format_names() -> String {
     osd_formats::Format::ALL.iter().map(|f| f.name()).collect::<Vec<_>>().join(", ")
+}
+
+/// The formats whose file `--into` adds to a descriptor, as the help names them.
+fn formats_into_names() -> String {
+    let names: Vec<&str> = osd_formats::Format::ALL.into_iter().filter(|f| f.imports_into()).map(osd_formats::Format::name).collect();
+    match names.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => names.concat(),
+    }
 }
 
 fn general_help() -> String {
@@ -79,11 +88,16 @@ fn word_help(word: &str) -> String {
              the file `-o` names; an existing file is replaced only with `--force`.\n\
              The descriptor carries the source given by `--source-url`, `--source-author` and `--license`:\n\
              one of the url or the author, and the license, are needed (exit 2 without them).\n\
-             `--into <descriptor>` (for midi-csv and midi-triggers-csv) adds the entries of the file to that\n\
+             `--source-provider <id>` says who supplies the file, an identifier of the table of providers;\n\
+             without it the source names none (exit 2 for an identifier that is not well formed).\n\
+             `--into <descriptor>` (for {}) adds the entries of the file to that\n\
              descriptor, which keeps its identity and its other blocks, and its sources then name both files.\n\
+             A descriptor before 0.7 is first converted to 0.7, its blocks as the converter gives them.\n\
              What the file could not say is printed on the error output, one line per loss.\n\
-             Exit 1 when the file is not valid in its format, 2 when misused.\n",
-            format_names()
+             Exit 1 when the file is not valid in its format, or the `--into` descriptor is refused or\n\
+             does not convert to 0.7, 2 when misused.\n",
+            format_names(),
+            formats_into_names()
         ),
         "export" => format!(
             "{EXPORT_SHAPE}\n\nWrites the descriptor file, read alone, in the format ({}) on the standard output, or in\n\
@@ -127,6 +141,7 @@ struct Options {
     force: bool,
     source_url: Option<String>,
     source_author: Option<String>,
+    source_provider: Option<String>,
     license: Option<String>,
     into: Option<String>,
     positional: Vec<String>,
@@ -143,6 +158,7 @@ fn parse(args: &[String], takes_kind: bool, takes_output: bool, takes_source: bo
             "--force" if takes_output => o.force = true,
             "--source-url" if takes_source => o.source_url = Some(it.next().ok_or("`--source-url` needs a url")?.clone()),
             "--source-author" if takes_source => o.source_author = Some(it.next().ok_or("`--source-author` needs a name")?.clone()),
+            "--source-provider" if takes_source => o.source_provider = Some(it.next().ok_or("`--source-provider` needs an identifier")?.clone()),
             "--into" if takes_into => o.into = Some(it.next().ok_or("`--into` needs a descriptor")?.clone()),
             "--license" if takes_source => o.license = Some(it.next().ok_or("`--license` needs an SPDX id")?.clone()),
             s if s.starts_with('-') && s.len() > 1 => return Err(format!("unknown option `{s}`")),
@@ -165,6 +181,28 @@ fn kind_of(given: Option<osd::Kind>, text: &str) -> Result<osd::Kind, String> {
 
 fn fault_line(file: &str, f: &osd::Fault) -> String {
     format!("{file}: {:?} at \"{}\": {}", f.kind, f.pointer, f.rule)
+}
+
+/// Prints on the error output one line per warning of `descriptor`; `asked` is the file or the id
+/// the word was given.
+fn warn(asked: &str, descriptor: &osd::Descriptor) {
+    for w in osd::warnings(descriptor) {
+        let said = match w.kind {
+            osd::WarningKind::PartialControl => "the control gives no message: it is to be completed".to_string(),
+            osd::WarningKind::UnknownProvider(id) => format!("the provider {id} is not in the table of providers of {}", osd::PROVIDERS_VERSION),
+        };
+        eprintln!("{asked}: warning at \"{}\": {said}", w.pointer);
+    }
+}
+
+/// The refusal `osd` gives a source of 0.7 that names the provider `id`, if it gives one.
+fn provider_fault(id: &str) -> Option<osd::Fault> {
+    let probe = serde_json::json!({
+        "$schema": format!("https://w3id.org/osd/{}/device.schema.json", osd::Version::V0_7.name()),
+        "device": {"name": "probe", "osc_prefix": "/probe"},
+        "sources": [{"type": "contributed", "provider": id}],
+    });
+    osd::read(&probe.to_string(), osd::Kind::Device).err()
 }
 
 /// Writes `text` to `path`, refusing an existing file unless `force`.
@@ -237,7 +275,10 @@ fn validate(o: Options, help: &str) -> i32 {
             }
         };
         match osd::read(&text, kind) {
-            Ok(_) => println!("{file}: ok"),
+            Ok(d) => {
+                warn(file, &d);
+                println!("{file}: ok");
+            }
             Err(f) => {
                 eprintln!("{}", fault_line(file, &f));
                 faulty = true;
@@ -285,7 +326,12 @@ fn convert(o: Options, help: &str) -> i32 {
         }
     };
     match osd::convert_to(&text, kind, target) {
-        Ok(out) => emit(&out, &o),
+        Ok(out) => {
+            if let Ok(d) = osd::read(&out, kind) {
+                warn(file, &d);
+            }
+            emit(&out, &o)
+        }
         Err(f) => {
             eprintln!("{}", fault_line(file, &f));
             1
@@ -331,10 +377,15 @@ fn import(o: Options, help: &str) -> i32 {
         Ok(f) => f,
         Err(c) => return c,
     };
+    if let Some((id, f)) = o.source_provider.as_deref().and_then(|id| provider_fault(id).map(|f| (id, f))) {
+        return misuse(&format!("`--source-provider {id}`: {}", f.rule), help);
+    }
     let text = match read_input(file) {
         Ok(t) => t,
         Err(c) => return c,
     };
+    // The literal survives the addition of a field: `..Default::default()` closes it.
+    #[allow(clippy::needless_update)]
     let source = osd::Source {
         kind: "community-re".to_string(),
         url: o.source_url.clone(),
@@ -346,6 +397,8 @@ fn import(o: Options, help: &str) -> i32 {
         imported_at: None,
         notes: None,
         extra: Default::default(),
+        provider: o.source_provider.clone(),
+        ..Default::default()
     };
     let translated = match &o.into {
         None => osd_formats::import(&text, format, &source),
@@ -370,10 +423,17 @@ fn import(o: Options, help: &str) -> i32 {
     match translated {
         Ok(t) => {
             print_losses(&t.lost);
-            emit(&osd::write(&osd::Descriptor::Device(Box::new(t.value))), &o)
+            let descriptor = osd::Descriptor::Device(Box::new(t.value));
+            warn(file, &descriptor);
+            emit(&osd::write(&descriptor), &o)
         }
         Err(f) => {
-            eprintln!("{file}: {f}");
+            // A base that does not convert is a fault of the `--into` file, not of the file added.
+            let at_fault = match &o.into {
+                Some(base_file) if f.kind == osd_formats::FaultKind::NotConvertible => base_file,
+                _ => file,
+            };
+            eprintln!("{at_fault}: {f}");
             if f.kind == osd_formats::FaultKind::SourceIncomplete {
                 2
             } else {
@@ -426,6 +486,7 @@ fn export(o: Options, help: &str) -> i32 {
             return 1;
         }
     };
+    warn(file, &osd::complete_descriptor(&resolved));
     match osd_formats::export(&resolved, format) {
         Ok(t) => {
             print_losses(&t.lost);
@@ -473,7 +534,9 @@ fn resolve(rest: &[String], help: &str) -> i32 {
     }
     match osd::resolve(id, &Folder(root.clone())) {
         Ok(r) => {
-            print!("{}", osd::write(&osd::complete_descriptor(&r)));
+            let descriptor = osd::complete_descriptor(&r);
+            warn(id, &descriptor);
+            print!("{}", osd::write(&descriptor));
             0
         }
         Err(f) => {

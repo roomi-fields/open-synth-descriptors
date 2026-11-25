@@ -1,0 +1,31 @@
+{
+  "_about": "A 0.6 control is written as it is, with no `readings`: a control without `readings` is one reading, its own, with no state.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "default": 64,
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ],
+              "range": [
+                0,
+                127
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

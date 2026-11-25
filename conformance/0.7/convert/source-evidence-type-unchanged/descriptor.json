@@ -1,0 +1,44 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "_sources": [
+    {
+      "type": "hardware-verified",
+      "notes": "kept"
+    },
+    {
+      "type": "hardware-observed"
+    },
+    {
+      "type": "software-verified",
+      "notes": "kept"
+    },
+    {
+      "type": "vendor-doc"
+    },
+    {
+      "type": "vendor-osc-api",
+      "notes": "kept"
+    },
+    {
+      "type": "vendor-self-described"
+    },
+    {
+      "type": "third-party-osc",
+      "notes": "kept"
+    },
+    {
+      "type": "community-re"
+    },
+    {
+      "type": "contributed",
+      "notes": "kept"
+    },
+    {
+      "type": "test-fixture"
+    }
+  ]
+}

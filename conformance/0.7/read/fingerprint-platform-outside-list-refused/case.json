@@ -1,0 +1,8 @@
+{
+  "_about": "A platform outside the list is refused.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/platform"
+  }
+}

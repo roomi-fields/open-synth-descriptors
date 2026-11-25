@@ -3,7 +3,6 @@
 
 use crate::common::{csv, entries, row, source, trigger_csv, trigger_header_line, trigger_row, triggers};
 use osd_formats::{import, FaultKind, Format};
-use serde_json::Value;
 
 fn ok(text: &str) -> osd_formats::Translated<osd::Device> {
     import(text, Format::MidiTriggersCsv, &source()).unwrap_or_else(|f| panic!("refused: {f:?}"))
@@ -55,7 +54,8 @@ fn a_row_with_a_note_range_becomes_a_trigger_with_every_column_it_carries() {
     assert_eq!(e.velocity_usage.as_deref(), Some("Soft: damped; hard: open"));
     assert_eq!(e.channel_mode, None);
     assert!(e.osc.starts_with('/'));
-    assert_eq!(e.remarks.get("_description").and_then(Value::as_str), Some("The big one"));
+    assert_eq!(e.description.as_deref(), Some("The big one"));
+    assert!(!e.remarks.contains_key("_description"));
     assert!(t.lost.is_empty(), "{:?}", t.lost);
 }
 
@@ -86,7 +86,7 @@ fn a_device_or_manufacturer_that_changes_between_rows_is_a_loss_at_its_cell() {
 fn the_descriptor_is_the_latest_version_and_reads_strictly_with_the_source_as_given() {
     let src = source();
     let t = import(&trigger_csv(&[kick()]), Format::MidiTriggersCsv, &src).unwrap();
-    assert_eq!(t.value.schema, Some(osd::Version::V0_6));
+    assert_eq!(t.value.schema, Some(osd::Version::V0_7));
     assert_eq!(t.value.sources, Some(vec![src]));
     let text = osd::write(&osd::Descriptor::Device(Box::new(t.value.clone())));
     match osd::read(&text, osd::Kind::Device) {
@@ -101,6 +101,7 @@ fn an_empty_cell_gives_no_value_the_source_does_not_give() {
     let e = &triggers(&t.value)[0];
     assert_eq!((e.channel, e.note, e.section.clone(), e.comments.clone(), e.velocity_usage.clone()), (None, None, None, None, None));
     assert_eq!(e.channel_mode, None);
+    assert_eq!(e.description, None);
     assert!(!e.remarks.contains_key("_description"));
     assert!(t.lost.is_empty(), "{:?}", t.lost);
 }

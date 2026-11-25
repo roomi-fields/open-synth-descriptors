@@ -114,7 +114,7 @@ fn the_reader_lists_0_6_among_its_versions_as_the_published_one() {
     assert_eq!(Version::V0_6.name(), "0.6");
     assert!(osd::VERSIONS.contains(&Version::V0_6));
     assert_eq!(osd::PUBLISHED, Version::V0_6);
-    assert_eq!(Some(&osd::PUBLISHED), osd::VERSIONS.last());
+    assert!(osd::VERSIONS.contains(&osd::PUBLISHED));
 }
 
 #[test]
@@ -568,7 +568,9 @@ fn every_reading_case_of_0_5_has_its_0_6_twin_with_the_same_expected_result() {
         // A firmware case names targets in 0.6: it is the conversion of its 0.5 twin (firmware_targets).
         let kind = |v: &str| value(&std::fs::read_to_string(root.join(v).join("read").join(n).join("case.json")).unwrap())["read"].clone();
         // The fingerprint case of 0.6 carries a full fingerprint of its own (the schema is unchanged).
-        if kind("0.5") == json!("firmware") || n == "fingerprint" {
+        // The 0.5 case of the numbers written back mixes a flat CC and NRPN, which 0.6 refuses: its 0.6 case
+        // says them with `also` (flat_fields_written_back).
+        if kind("0.5") == json!("firmware") || n == "fingerprint" || n == "control-numbers-written-back" {
             continue;
         }
         for f in ["descriptor.json", "case.json"] {

@@ -1,0 +1,27 @@
+{
+  "_about": "A trigger with a `description` keeps it; its `_description` stays.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "triggers": {
+      "entries": [
+        {
+          "osc": "/kick",
+          "sound": "Kick",
+          "channel": 9,
+          "channel_mode": "fixed",
+          "note_range": [
+            36,
+            36
+          ],
+          "description": "Own.",
+          "_description": "Old."
+        }
+      ]
+    }
+  }
+}

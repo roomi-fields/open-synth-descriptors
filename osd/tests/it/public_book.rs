@@ -24,10 +24,23 @@ struct Run {
 }
 
 fn python(script: &str, args: &[&str]) -> Run {
+    python_with(script, args, &[])
+}
+
+/// Runs the script with each named variable set to its value, or removed when it has none.
+fn python_with(script: &str, args: &[&str], vars: &[(&str, Option<&str>)]) -> Run {
     let script = common::repo().join(script);
     let mut last = None;
     for interpreter in ["python3", "python"] {
-        match Command::new(interpreter).arg(&script).args(args).output() {
+        let mut command = Command::new(interpreter);
+        command.arg(&script).args(args);
+        for (name, value) in vars {
+            match value {
+                Some(value) => command.env(name, value),
+                None => command.env_remove(name),
+            };
+        }
+        match command.output() {
             Ok(o) => {
                 let stdout = String::from_utf8_lossy(&o.stdout).to_string();
                 return Run {
@@ -178,6 +191,350 @@ fn the_book_build_fails_when_its_tool_cannot_be_installed_and_writes_no_book() {
     );
     assert_ne!(run.code, Some(0), "{}", run.out);
     assert!(!book.join("index.html").exists(), "a book is written without its tool");
+}
+
+// ---- The folder of the tool, named by MDBOOK ----
+
+const FOLDER: &str = "MDBOOK";
+
+/// A fake book tool: `mdbook build <work> -d <out>` writes one page into `<out>`.
+const FAKE_MDBOOK: &str = "#!/bin/sh\nmkdir -p \"$4\" && echo fixture-book > \"$4/index.html\"\n";
+
+/// A fake reference generator: `build <schemas> <out>` writes one page into `<out>`.
+const FAKE_REFERENCE: &str = "#!/bin/sh\nmkdir -p \"$3\" && echo '# Device' > \"$3/device.md\"\n";
+
+fn executable(path: &Path, text: &str) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, text).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+fn text(path: &Path) -> &str {
+    path.to_str().unwrap()
+}
+
+/// A release archive of the fake book tool at an address that is a local file or cannot be fetched,
+/// a folder for the tool, and homes of the user.
+struct Tool {
+    dir: TempDir,
+    pin: PathBuf,
+    release: PathBuf,
+}
+
+const ARCHIVE: &str = "mdbook-v9.9.9-x86_64-unknown-linux-gnu.tar.gz";
+
+impl Tool {
+    fn new() -> Tool {
+        Tool::holding(FAKE_MDBOOK)
+    }
+
+    /// The same, the book tool being the script given.
+    fn holding(mdbook: &str) -> Tool {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        executable(&src.join("mdbook"), mdbook);
+        let release = dir.path().join("releases").join(ARCHIVE);
+        std::fs::create_dir_all(release.parent().unwrap()).unwrap();
+        let status = Command::new("tar").arg("czf").arg(&release).arg("-C").arg(&src).arg("mdbook").status().unwrap();
+        assert!(status.success());
+        let pin = dir.path().join("mdbook.pin");
+        let tool = Tool { dir, pin, release };
+        tool.pinned_at(&format!("file://{}", tool.release.display()));
+        tool
+    }
+
+    fn pinned_at(&self, url: &str) {
+        let sha = sha256_of(&self.release);
+        std::fs::write(&self.pin, format!("version = 9.9.9\nurl = {url}\nsha256 = {sha}\n")).unwrap();
+    }
+
+    /// The pin now names an address that cannot be fetched.
+    fn offline(&self) {
+        self.pinned_at(&format!("http://127.0.0.1:1/releases/v9.9.9/{ARCHIVE}"));
+    }
+
+    fn path(&self, rel: &str) -> PathBuf {
+        self.dir.path().join(rel)
+    }
+
+    /// Fills the folder as a successful install leaves it: the pinned archive and its binary.
+    fn fill(&self, folder: &Path) {
+        let run = python(INSTALL, &["--pin", text(&self.pin), "--cache", text(folder)]);
+        assert_eq!(run.code, Some(0), "{}", run.out);
+    }
+
+    /// A home where the default folder of the tool cannot be created: `.cache` is a file.
+    fn sealed_home(&self) -> PathBuf {
+        let home = self.path("sealed-home");
+        write(&home, ".cache", "not a folder\n");
+        home
+    }
+
+    /// A writable home, and the default folder of the tool under it.
+    fn open_home(&self) -> (PathBuf, PathBuf) {
+        let home = self.path("open-home");
+        std::fs::create_dir_all(&home).unwrap();
+        // The name of the shared cache folder is written in two parts, as in the installer.
+        let default = home.join(".cache").join(concat!("grill", "house")).join("mdbook");
+        (home, default)
+    }
+
+    fn install(&self, home: &Path, folder: Option<&str>, more: &[&str]) -> Run {
+        let mut args = vec!["--pin", text(&self.pin)];
+        args.extend_from_slice(more);
+        python_with(INSTALL, &args, &[("HOME", Some(text(home))), (FOLDER, folder)])
+    }
+
+    fn build(&self, book: &Path, home: &Path, folder: Option<&str>, more: &[&str]) -> Run {
+        let reference = self.path("fake-reference");
+        if !reference.exists() {
+            executable(&reference, FAKE_REFERENCE);
+        }
+        let mut args = vec![text(book), "--pin", text(&self.pin)];
+        args.extend_from_slice(more);
+        let vars = [("HOME", Some(text(home))), (FOLDER, folder), ("OSD_REFERENCE", Some(text(&reference)))];
+        python_with(BUILD_BOOK, &args, &vars)
+    }
+}
+
+/// A folder and everything under it without any write permission, given back when dropped.
+struct ReadOnly(Vec<(PathBuf, std::fs::Permissions)>);
+
+impl ReadOnly {
+    fn seal(root: &Path) -> ReadOnly {
+        let mut paths = vec![root.to_path_buf()];
+        let mut next = 0;
+        while next < paths.len() {
+            if paths[next].is_dir() {
+                for entry in std::fs::read_dir(&paths[next]).unwrap() {
+                    paths.push(entry.unwrap().path());
+                }
+            }
+            next += 1;
+        }
+        let mut sealed = ReadOnly(Vec::new());
+        for path in paths.into_iter().rev() {
+            let old = std::fs::metadata(&path).unwrap().permissions();
+            let mut new = old.clone();
+            new.set_readonly(true);
+            std::fs::set_permissions(&path, new).unwrap();
+            sealed.0.push((path, old));
+        }
+        sealed
+    }
+}
+
+impl Drop for ReadOnly {
+    fn drop(&mut self) {
+        for (path, old) in self.0.iter().rev() {
+            let _ = std::fs::set_permissions(path, old.clone());
+        }
+    }
+}
+
+/// Every entry under a folder, with the bytes of each file and the time of its last change.
+fn snapshot(root: &Path) -> Vec<(PathBuf, Option<Vec<u8>>, std::time::SystemTime)> {
+    let mut paths = vec![root.to_path_buf()];
+    let mut out = Vec::new();
+    while let Some(path) = paths.pop() {
+        let meta = std::fs::metadata(&path).unwrap();
+        let bytes = if meta.is_dir() {
+            paths.extend(std::fs::read_dir(&path).unwrap().map(|e| e.unwrap().path()));
+            None
+        } else {
+            Some(std::fs::read(&path).unwrap())
+        };
+        out.push((path, bytes, meta.modified().unwrap()));
+    }
+    out.sort();
+    out
+}
+
+/// The path the installer printed last: a binary under the folder, which runs.
+fn assert_installed_under(run: &Run, folder: &Path) {
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    let binary = PathBuf::from(run.stdout.lines().last().expect("the binary path").trim());
+    assert!(binary.starts_with(folder), "{binary:?} is not under {folder:?}");
+    assert!(binary.is_file(), "{binary:?} is not a file");
+    assert_eq!(binary.file_name().unwrap(), "mdbook");
+}
+
+#[test]
+fn a_filled_read_only_folder_named_by_mdbook_serves_the_install_and_gains_nothing() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    tool.fill(&folder);
+    tool.offline();
+    let _sealed = ReadOnly::seal(&folder);
+    let before = snapshot(&folder);
+    let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_installed_under(&run, &folder);
+    assert_eq!(snapshot(&folder), before, "the install wrote into the folder");
+}
+
+#[test]
+fn a_filled_read_only_folder_named_by_mdbook_serves_the_book_build_and_gains_nothing() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    tool.fill(&folder);
+    tool.offline();
+    let _sealed = ReadOnly::seal(&folder);
+    let before = snapshot(&folder);
+    let book = tool.path("book");
+    let run = tool.build(&book, &tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    assert!(book.join("index.html").is_file(), "no book written: {}", run.out);
+    assert_eq!(snapshot(&folder), before, "the book build wrote into the folder");
+}
+
+/// The install and the book build refuse the read-only folder, naming it and the command that fills
+/// it, and leave it as found.
+fn assert_read_only_folder_refused(tool: &Tool, folder: &Path) {
+    let _sealed = ReadOnly::seal(folder);
+    let before = snapshot(folder);
+    let home = tool.sealed_home();
+
+    let run = tool.install(&home, Some(text(folder)), &[]);
+    assert_eq!(run.code, Some(1), "{}", run.out);
+    assert!(!run.out.contains("Traceback"), "{}", run.out);
+    assert!(run.out.contains(text(folder)), "the folder is not named: {}", run.out);
+    assert!(run.out.contains(INSTALL), "the command that fills the folder is not named: {}", run.out);
+    assert!(!run.stdout.lines().any(|l| l.trim().ends_with("mdbook")), "a binary path is printed: {}", run.stdout);
+
+    let book = tool.path("book");
+    let run = tool.build(&book, &home, Some(text(folder)), &[]);
+    assert_eq!(run.code, Some(1), "{}", run.out);
+    assert!(!run.out.contains("Traceback"), "{}", run.out);
+    assert!(run.out.contains(text(folder)) && run.out.contains(INSTALL), "{}", run.out);
+    assert!(!book.exists(), "a book is written without its tool");
+
+    assert_eq!(snapshot(folder), before, "the folder changed");
+}
+
+#[test]
+fn an_empty_read_only_folder_named_by_mdbook_is_refused_with_the_command_that_fills_it() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    std::fs::create_dir_all(&folder).unwrap();
+    assert_read_only_folder_refused(&tool, &folder);
+}
+
+#[test]
+fn a_read_only_folder_holding_only_another_version_is_refused_with_the_command_that_fills_it() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::copy(&tool.release, folder.join("mdbook-v1.0.0-x86_64-unknown-linux-gnu.tar.gz")).unwrap();
+    assert_read_only_folder_refused(&tool, &folder);
+}
+
+#[test]
+fn a_read_only_folder_whose_archive_is_not_extracted_is_refused_with_the_command_that_fills_it() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::copy(&tool.release, folder.join(ARCHIVE)).unwrap();
+    assert_read_only_folder_refused(&tool, &folder);
+}
+
+#[test]
+fn a_read_only_folder_whose_extraction_lacks_the_binary_is_refused_with_the_command_that_fills_it() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    tool.fill(&folder);
+    // What an interrupted extraction leaves: the folder of the pinned version, without its binary.
+    for entry in std::fs::read_dir(&folder).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            std::fs::remove_file(path.join("mdbook")).unwrap();
+        }
+    }
+    assert_read_only_folder_refused(&tool, &folder);
+}
+
+#[test]
+fn an_empty_writable_folder_named_by_mdbook_receives_the_pinned_tool() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    std::fs::create_dir_all(&folder).unwrap();
+    let (home, default) = tool.open_home();
+    let run = tool.install(&home, Some(text(&folder)), &[]);
+    assert_installed_under(&run, &folder);
+    assert!(folder.join(ARCHIVE).is_file(), "the archive is not kept in the folder");
+    assert!(!default.exists(), "the default folder is used although MDBOOK names another");
+}
+
+#[test]
+fn a_writable_folder_named_by_mdbook_that_holds_another_version_receives_the_pinned_tool() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    write(&folder, "mdbook-v1.0.0-x86_64-unknown-linux-gnu.tar.gz", "an older archive");
+    let (home, default) = tool.open_home();
+    let run = tool.install(&home, Some(text(&folder)), &[]);
+    assert_installed_under(&run, &folder);
+    assert!(folder.join(ARCHIVE).is_file(), "the archive is not kept in the folder");
+    assert!(!default.exists(), "the default folder is used although MDBOOK names another");
+}
+
+#[test]
+fn an_explicit_cache_wins_over_mdbook_for_the_install() {
+    let tool = Tool::new();
+    let named = tool.path("shared-tools");
+    let explicit = tool.path("explicit");
+    std::fs::create_dir_all(&named).unwrap();
+    let run = tool.install(&tool.sealed_home(), Some(text(&named)), &["--cache", text(&explicit)]);
+    assert_installed_under(&run, &explicit);
+    assert_eq!(std::fs::read_dir(&named).unwrap().count(), 0, "the folder of MDBOOK is written");
+}
+
+#[test]
+fn an_explicit_cache_wins_over_mdbook_for_the_book_build() {
+    let tool = Tool::new();
+    let named = tool.path("shared-tools");
+    let explicit = tool.path("explicit");
+    std::fs::create_dir_all(&named).unwrap();
+    let book = tool.path("book");
+    let run = tool.build(&book, &tool.sealed_home(), Some(text(&named)), &["--cache", text(&explicit)]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    assert!(book.join("index.html").is_file(), "no book written: {}", run.out);
+    assert!(explicit.join(ARCHIVE).is_file(), "the explicit folder is not used");
+    assert_eq!(std::fs::read_dir(&named).unwrap().count(), 0, "the folder of MDBOOK is written");
+}
+
+#[test]
+fn without_mdbook_the_install_downloads_into_the_default_folder_under_the_home() {
+    let tool = Tool::new();
+    let (home, default) = tool.open_home();
+    let run = tool.install(&home, None, &[]);
+    assert_installed_under(&run, &default);
+    assert!(default.join(ARCHIVE).is_file());
+}
+
+#[test]
+fn an_empty_mdbook_leaves_the_install_in_the_default_folder_under_the_home() {
+    let tool = Tool::new();
+    let (home, default) = tool.open_home();
+    let run = tool.install(&home, Some(""), &[]);
+    assert_installed_under(&run, &default);
+    assert!(default.join(ARCHIVE).is_file());
+}
+
+#[test]
+fn without_mdbook_or_with_it_empty_the_book_build_uses_the_default_folder_under_the_home() {
+    for folder in [None, Some("")] {
+        let tool = Tool::new();
+        let (home, default) = tool.open_home();
+        tool.fill(&default);
+        tool.offline();
+        let book = tool.path("book");
+        let run = tool.build(&book, &home, folder, &[]);
+        assert_eq!(run.code, Some(0), "MDBOOK {folder:?}: {}", run.out);
+        assert!(book.join("index.html").is_file(), "MDBOOK {folder:?}: no book: {}", run.out);
+    }
 }
 
 // ---- The link check, on fixtures ----
@@ -448,6 +805,168 @@ fn the_home_page_links_the_book_relatively_and_the_readme_links_it_by_the_site_a
         read("README.md").contains("https://roomi-fields.github.io/open-synth-descriptors/book/"),
         "README does not link the book"
     );
+}
+
+// ---- The candidates ----
+
+/// A fake book tool that publishes the source it is given, so a test reads the pages assembled.
+const SOURCE_MDBOOK: &str = "#!/bin/sh\nmkdir -p \"$4\" && cp -r \"$2/src/.\" \"$4/\"\n";
+
+/// A fake reference generator whose one page names the folder of the schemas it is given.
+const NAMING_REFERENCE: &str = "#!/bin/sh\nmkdir -p \"$3\" && echo \"# Device of ${2##*/}\" > \"$3/device.md\"\n";
+
+/// The source of the book that the script `script` assembles, with the list of candidates `list`
+/// given by `--candidates`, or without that option.
+fn assembled(script: &Path, list: Option<&str>) -> (Tool, PathBuf) {
+    let tool = Tool::holding(SOURCE_MDBOOK);
+    let reference = tool.path("naming-reference");
+    executable(&reference, NAMING_REFERENCE);
+    let candidates = tool.path("candidates.list");
+    let book = tool.path("book");
+    let cache = tool.path("cache");
+    let mut args = vec![text(&book), "--pin", text(&tool.pin), "--cache", text(&cache)];
+    if let Some(list) = list {
+        std::fs::write(&candidates, list).unwrap();
+        args.extend(["--candidates", text(&candidates)]);
+    }
+    let run = python_with(script.to_str().unwrap(), &args, &[("OSD_REFERENCE", Some(text(&reference)))]);
+    assert_eq!(run.code, Some(0), "{BUILD_BOOK}: {}", run.out);
+    (tool, book)
+}
+
+fn page_text(book: &Path, rel: &str) -> String {
+    std::fs::read_to_string(book.join(rel)).unwrap_or_else(|e| panic!("{rel} of the book: {e}"))
+}
+
+/// A repository with the scripts of `tools/`, the versions 1.0 and 2.0, a table beside them, and
+/// 2.0 listed as candidate with that table.
+fn repository_of_two_versions() -> TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("tools")).unwrap();
+    for entry in std::fs::read_dir(common::repo().join("tools")).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_file() {
+            std::fs::copy(&path, root.join("tools").join(path.file_name().unwrap())).unwrap();
+        }
+    }
+    write(root, "tools/candidates.list", TWO);
+    write(
+        root,
+        "spec/1.0.md",
+        "# One\n\n[next](2.0.md) [part](2.0.md#part) [device](../schemas/2.0/device.schema.json) \
+         [table](../schemas/table.json) [own](../schemas/1.0/device.schema.json)\n",
+    );
+    write(root, "spec/2.0.md", "# Two\n\n## Part\n\n[before](1.0.md)\n");
+    write(root, "spec/vocabulary/1.md", "# Words\n\n[next](../2.0.md) [table](../../schemas/table.json)\n");
+    for rel in ["schemas/1.0/device.schema.json", "schemas/2.0/device.schema.json", "schemas/table.json", "schemas/vocabulary/1/terms.json"] {
+        write(root, rel, "{}\n");
+    }
+    dir
+}
+
+const TWO: &str = "# the candidates\n2.0 schemas/table.json\n";
+
+fn public(path: &str) -> String {
+    format!("]({REPO}/blob/main/{path})")
+}
+
+#[test]
+fn the_book_has_no_page_of_a_candidate_and_the_reference_of_the_newest_other_version() {
+    let root = repository_of_two_versions();
+    for list in [None, Some(TWO)] {
+        let (_tool, book) = assembled(&root.path().join(BUILD_BOOK), list);
+        assert!(!book.join("2.0.md").exists(), "the book has the page of the candidate");
+        assert!(book.join("1.0.md").is_file() && book.join("vocabulary/1.md").is_file());
+        let summary = page_text(&book, "SUMMARY.md");
+        assert!(!summary.contains("(2.0.md)"), "{summary}");
+        assert!(summary.contains("# Reference 1.0"), "{summary}");
+        assert!(page_text(&book, "reference/device.md").contains("Device of 1.0"));
+    }
+}
+
+#[test]
+fn a_link_to_a_page_or_a_schema_withheld_is_rendered_at_its_address_in_the_public_repository() {
+    let root = repository_of_two_versions();
+    let (_tool, book) = assembled(&root.path().join(BUILD_BOOK), None);
+    let one = page_text(&book, "1.0.md");
+    for want in [
+        public("spec/2.0.md"),
+        public("spec/2.0.md#part"),
+        public("schemas/2.0/device.schema.json"),
+        public("schemas/table.json"),
+    ] {
+        assert!(one.contains(&want), "no {want} in {one}");
+    }
+    assert!(one.contains("](../schemas/1.0/device.schema.json)"), "a schema the site holds leaves it: {one}");
+    let words = page_text(&book, "vocabulary/1.md");
+    for want in [public("spec/2.0.md"), public("schemas/table.json")] {
+        assert!(words.contains(&want), "no {want} in {words}");
+    }
+}
+
+#[test]
+fn with_no_candidate_the_book_has_every_page_and_the_reference_of_the_newest_version() {
+    let root = repository_of_two_versions();
+    let (_tool, book) = assembled(&root.path().join(BUILD_BOOK), Some("# none\n"));
+    assert!(book.join("2.0.md").is_file());
+    assert!(page_text(&book, "SUMMARY.md").contains("# Reference 2.0"));
+    assert!(page_text(&book, "reference/device.md").contains("Device of 2.0"));
+    let one = page_text(&book, "1.0.md");
+    for kept in ["](2.0.md)", "](2.0.md#part)", "](../schemas/2.0/device.schema.json)", "](../schemas/table.json)"] {
+        assert!(one.contains(kept), "no {kept} in {one}");
+    }
+}
+
+#[test]
+fn an_older_candidate_leaves_the_book_and_its_newer_versions_stay() {
+    let root = repository_of_two_versions();
+    let (_tool, book) = assembled(&root.path().join(BUILD_BOOK), Some("1.0\n"));
+    assert!(!book.join("1.0.md").exists());
+    assert!(page_text(&book, "reference/device.md").contains("Device of 2.0"));
+    let two = page_text(&book, "2.0.md");
+    assert!(two.contains(&public("spec/1.0.md")), "{two}");
+}
+
+#[test]
+fn the_book_of_the_repository_with_0_7_listed_has_no_page_of_it_and_the_reference_of_0_6() {
+    let list = "0.7 schemas/providers.json schemas/providers.schema.json\n";
+    let (_tool, book) = assembled(&common::repo().join(BUILD_BOOK), Some(list));
+    assert!(!book.join("0.7.md").exists());
+    assert!(book.join("0.6.md").is_file() && book.join("CHANGELOG.md").is_file());
+    assert!(page_text(&book, "reference/device.md").contains("Device of 0.6"));
+}
+
+#[test]
+fn the_book_of_the_repository_without_the_option_has_no_page_of_a_listed_version() {
+    let list = read("tools/candidates.list");
+    let (_tool, book) = assembled(&common::repo().join(BUILD_BOOK), None);
+    for line in list.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        let version = line.split_whitespace().next().unwrap();
+        assert!(!book.join(format!("{version}.md")).exists(), "the book has the page of {version}");
+    }
+    assert!(book.join("0.6.md").is_file());
+}
+
+#[test]
+fn with_no_candidate_the_real_book_has_the_page_of_0_7_and_its_links_resolve_in_the_whole_site() {
+    let dir = tempfile::tempdir().unwrap();
+    let candidates = dir.path().join("candidates.list");
+    std::fs::write(&candidates, "# none\n").unwrap();
+    let site = dir.path().join("site");
+    let book = site.join("book");
+    let run = python(BUILD_SITE, &[text(&site), "--candidates", text(&candidates)]);
+    assert_eq!(run.code, Some(0), "{BUILD_SITE}: {}", run.out);
+    let run = python(BUILD_BOOK, &[text(&book), "--candidates", text(&candidates)]);
+    assert_eq!(run.code, Some(0), "{BUILD_BOOK}: {}", run.out);
+    assert!(book.join("0.7.html").is_file(), "no page of 0.7");
+    let mut args = vec![text(&book), "--site", text(&site)];
+    let list = common::repo().join("export/public.list");
+    if list.is_file() {
+        args.extend(["--public-list", text(&list)]);
+    }
+    let run = python(CHECK_BOOK, &args);
+    assert_eq!(run.code, Some(0), "{}", run.out);
 }
 
 // ---- The workflows ----

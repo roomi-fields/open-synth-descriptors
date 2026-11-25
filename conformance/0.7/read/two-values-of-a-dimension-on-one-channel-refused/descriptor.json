@@ -1,0 +1,36 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "contexts": {
+    "part": {
+      "values": [
+        {
+          "id": "track1",
+          "channel": 2
+        },
+        {
+          "id": "track2",
+          "channel": 2
+        }
+      ]
+    }
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/a",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              7
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

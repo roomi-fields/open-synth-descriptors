@@ -1,0 +1,5 @@
+{
+  "_about": "`sysex` is the kind of a `params` way only: on an entry of `cc_params` it is BadValue at `ctrlType`.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/cc_params/entries/0/ways/0/ctrlType" }
+}

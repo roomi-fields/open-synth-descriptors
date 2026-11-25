@@ -1,0 +1,19 @@
+{
+  "_about": "An empty name of 0.6 matches nothing: the converter removes it, and no recognition changes.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "ports": [
+        {
+          "operator": "contains",
+          "value": "Synth"
+        }
+      ]
+    }
+  }
+}

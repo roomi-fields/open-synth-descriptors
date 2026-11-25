@@ -1,0 +1,5 @@
+{
+  "_about": "A 0.7 descriptor that carries `_sources` is refused as BadValue at `/_sources`, not as UnknownField: the refusal of a migration, the value is not read.",
+  "read": "device",
+  "fault": { "kind": "BadValue", "pointer": "/_sources" }
+}

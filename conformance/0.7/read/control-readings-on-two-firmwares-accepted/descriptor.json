@@ -1,0 +1,46 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/filter/cutoff",
+        "scale": [
+          0,
+          255
+        ],
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              74
+            ]
+          }
+        ],
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "title": "Filter cutoff",
+            "range": [
+              0,
+              127
+            ]
+          },
+          {
+            "state": "to-confirm",
+            "firmware": "1.3",
+            "title": "Cutoff",
+            "range": [
+              0,
+              255
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

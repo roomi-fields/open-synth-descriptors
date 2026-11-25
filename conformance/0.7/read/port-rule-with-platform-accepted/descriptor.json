@@ -1,0 +1,26 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "ports": [
+      {
+        "operator": "contains",
+        "value": "Synth",
+        "platform": "windows"
+      },
+      {
+        "operator": "contains",
+        "value": "Synth",
+        "platform": "linux"
+      },
+      {
+        "operator": "contains",
+        "value": "Synth",
+        "platform": "macos"
+      }
+    ]
+  }
+}

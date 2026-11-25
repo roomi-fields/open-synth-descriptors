@@ -1,0 +1,8 @@
+{
+  "_about": "An empty value is refused on the endpoint rule too.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/endpoint_name/value"
+  }
+}

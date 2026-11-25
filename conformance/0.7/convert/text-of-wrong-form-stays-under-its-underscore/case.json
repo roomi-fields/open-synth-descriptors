@@ -1,0 +1,26 @@
+{
+  "_about": "Only a string moves (non-empty for `_name`); an empty `_name` and a `_usage` that is not a string stay as they are, so the result is valid.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }],
+          "_name": "",
+          "_usage": 7,
+          "_description": [
+            "x"
+          ],
+          "_notes": 3
+        }
+      ]
+    }
+  }
+}

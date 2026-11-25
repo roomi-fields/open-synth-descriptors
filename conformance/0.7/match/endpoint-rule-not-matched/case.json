@@ -1,0 +1,14 @@
+{
+  "_about": "The endpoint rule reads the endpoint name alone, never a port name.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    },
+    {
+      "pointer": "/identity/endpoint_name",
+      "verdict": "not_matched"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "_about": "Two controls of the same part answer the same message on the same channel, known or not: their sets meet, refused.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

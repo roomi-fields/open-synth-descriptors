@@ -1,0 +1,5 @@
+{
+  "_about": "The flat fields of 0.6 (`cc`, `nrpn_msb`, `also`, and the others) are not fields of a 0.7 entry: refused at the field.",
+  "read": "device",
+  "fault": { "kind": "UnknownField", "pointer": "/cc_params/entries/0/cc" }
+}

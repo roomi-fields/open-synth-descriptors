@@ -1,0 +1,47 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "ports": [
+      {
+        "operator": "equals",
+        "value": "electra port"
+      },
+      {
+        "operator": "equals",
+        "value": "electra"
+      },
+      {
+        "operator": "contains",
+        "value": "ra po"
+      },
+      {
+        "operator": "contains",
+        "value": "po ra"
+      },
+      {
+        "operator": "starts_with",
+        "value": "electra"
+      },
+      {
+        "operator": "starts_with",
+        "value": "port"
+      },
+      {
+        "operator": "ends_with",
+        "value": "port"
+      },
+      {
+        "operator": "ends_with",
+        "value": "electra"
+      },
+      {
+        "operator": "contains",
+        "value": "e.ectra"
+      }
+    ]
+  }
+}

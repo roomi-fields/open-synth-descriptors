@@ -1,0 +1,18 @@
+{
+  "_about": "`identity.manufacturerId` is a list of bytes, as `device.manufacturer_id` was; `null` is accepted and written back (the rule of a null key).",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "identity": {
+      "manufacturerId": [
+        0,
+        32,
+        41
+      ]
+    }
+  }
+}

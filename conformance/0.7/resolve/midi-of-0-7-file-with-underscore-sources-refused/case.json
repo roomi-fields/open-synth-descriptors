@@ -1,0 +1,5 @@
+{
+  "_about": "A midi_of file of 0.7 that carries `_sources` is refused as a 0.7 descriptor is: BadValue at `/_sources`, in its own file.",
+  "resolve": "acme/a",
+  "fault": { "kind": "BadValue", "file": "acme/a", "pointer": "/_sources" }
+}

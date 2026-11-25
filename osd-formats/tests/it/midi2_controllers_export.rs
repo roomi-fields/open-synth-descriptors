@@ -115,13 +115,13 @@ fn an_rpn_of_lsb_below_32_is_scaled_by_zero_extension_and_from_32_by_min_center_
 fn a_negative_bound_or_default_is_a_loss_and_is_not_written() {
     let d = cc_device(json!([
         {"osc": "/a", "cc": 1, "range": [-10, 100]},
-        {"osc": "/b", "cc": 2, "default": -3},
+        {"osc": "/b", "cc": 2, "range": [-10, 100], "default": -3},
         {"osc": "/c", "cc": 3, "range": [0, 100], "default": 50},
     ]));
     let (v, lost) = exported(&d);
     let l = list(&v);
     assert!(l[0].get("minMax").is_none(), "{}", l[0]);
-    assert_eq!(lost_at(&lost, "/cc_params/entries/0/range").len(), 1, "{lost:?}");
+    assert_eq!(lost_at(&lost, "/cc_params/entries/0/ways/0/range").len(), 1, "{lost:?}");
     assert!(l[1].get("default").is_none(), "{}", l[1]);
     assert_eq!(lost_at(&lost, "/cc_params/entries/1/default").len(), 1, "{lost:?}");
     assert!(l[2].get("default").is_some());
@@ -264,6 +264,28 @@ fn the_title_is_the_role_path_else_a_section_starting_with_a_slash_else_the_osc_
 }
 
 #[test]
+fn the_title_and_the_description_of_the_control_are_written_and_the_title_derives_only_when_absent() {
+    let d = cc_device(json!([
+        {"osc": "/a", "cc": 1, "title": "Cutoff", "description": "Opens the filter", "role": {"parts": [{"part": "filter"}], "setting": "cutoff"}},
+        {"osc": "/b", "cc": 2, "title": "Depth", "section": "/Mod/Depth"},
+        {"osc": "/c", "cc": 3, "title": "Plain"},
+        {"osc": "/d", "cc": 4, "description": ""},
+        {"osc": "/e", "cc": 5, "section": "/Mod/Rate"},
+    ]));
+    let (v, lost) = exported(&d);
+    let l = list(&v);
+    let titles: Vec<&str> = l.iter().map(|e| e["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, ["Cutoff", "Depth", "Plain", "/d", "/Mod/Rate"]);
+    assert_eq!(l[0]["description"], "Opens the filter");
+    assert_eq!(l[0]["paramPath"], "/Filter/Cutoff");
+    assert_eq!(l[3]["description"], "");
+    for i in [1, 2, 4] {
+        assert!(l[i].get("description").is_none(), "{}", l[i]);
+    }
+    assert!(lost.iter().all(|x| !x.place.ends_with("/title") && !x.place.ends_with("/description")), "{lost:?}");
+}
+
+#[test]
 fn a_section_is_written_back_as_a_param_path_only_for_a_control_without_a_role_and_only_when_it_starts_with_a_slash() {
     let d = cc_device(json!([
         {"osc": "/a", "cc": 1, "section": "/Amp/Gain", "role": {"parts": [{"part": "filter"}], "setting": "cutoff"}},
@@ -291,7 +313,7 @@ fn the_losses_name_the_trigger_the_clock_and_each_field_the_format_has_no_proper
     let d = device(json!({"capabilities": ["lua"], "cc_params": {"entries": [
         {"osc": "/a", "cc": 1, "expects": "trigger"},
         {"osc": "/b", "cc": 2, "expects": "clock"},
-        {"osc": "/c", "cc": 3, "orientation": "centered", "transform": "x*2", "transform_reverse": "x/2"},
+        {"osc": "/c", "cc": 3, "orientation": "centered", "transform": "x*2"},
         {"osc": "/d", "cc": 4},
     ]}}));
     let (_, lost) = exported(&d);
@@ -301,7 +323,7 @@ fn the_losses_name_the_trigger_the_clock_and_each_field_the_format_has_no_proper
     let clock = lost_at(&lost, "/cc_params/entries/1/expects");
     assert_eq!(clock.len(), 1, "{lost:?}");
     assert!(clock[0].reason.contains("typeHint"), "{:?}", clock[0]);
-    for field in ["orientation", "transform", "transform_reverse"] {
+    for field in ["polarity", "transform"] {
         assert_eq!(lost_at(&lost, &format!("/cc_params/entries/2/{field}")).len(), 1, "{field}: {lost:?}");
     }
     assert!(!lost.iter().any(|l| l.place.starts_with("/cc_params/entries/3")), "{lost:?}");
@@ -312,7 +334,7 @@ fn the_credit_and_licence_are_in_the_text_or_the_losses_list_the_sources() {
     let d = cc_device(json!([{"osc": "/a", "cc": 1}]));
     let out = export(&d, Format::Midi2Controllers).unwrap();
     let in_text = out.value.contains("CC-BY-4.0");
-    let in_losses = out.lost.iter().any(|l| l.place == "/_sources");
+    let in_losses = out.lost.iter().any(|l| l.place == "/sources");
     assert!(in_text || in_losses, "{out:?}");
     if in_losses {
         assert_eq!(osd_formats::credit_to_carry(&d, &out.lost).len(), 1);
@@ -321,7 +343,7 @@ fn the_credit_and_licence_are_in_the_text_or_the_losses_list_the_sources() {
 
 #[test]
 fn a_device_without_sources_is_refused() {
-    let d = device_with(json!({"_sources": null, "cc_params": {"entries": [{"osc": "/a", "cc": 1}]}}));
+    let d = device_with(json!({"sources": null, "cc_params": {"entries": [{"osc": "/a", "cc": 1}]}}));
     let fault = export(&d, Format::Midi2Controllers).expect_err("refused");
     assert_eq!(fault.kind, FaultKind::NoSources);
 }

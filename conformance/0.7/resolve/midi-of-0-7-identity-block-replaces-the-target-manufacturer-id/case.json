@@ -1,0 +1,36 @@
+{
+  "_about": "A 0.7 file with `midi_of` and an `identity` block gives the resolved device that block whole: the target's `manufacturerId` is not kept when the block omits it.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "midi_of": "acme/b",
+    "identity": {
+      "reply": [
+        240,
+        126,
+        "any",
+        6,
+        2
+      ]
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

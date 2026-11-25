@@ -1,0 +1,8 @@
+{
+  "_about": "A source type named after a product left the closed list in 0.7: it is a bad value at `type`.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/1/type"
+  }
+}

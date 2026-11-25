@@ -1,0 +1,8 @@
+{
+  "_about": "A product instance id names a unit, not a model: a device descriptor does not hold one.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/identity/product_instance_id"
+  }
+}

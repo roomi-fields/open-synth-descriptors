@@ -41,7 +41,7 @@ fn every_device_of_the_conformance_cases_and_the_examples_that_names_a_source_ex
 
 #[test]
 fn a_device_without_a_source_is_not_exported() {
-    let f = export(&device_with(json!({"_sources": null})), Format::OscQuery).unwrap_err();
+    let f = export(&device_with(json!({"sources": null})), Format::OscQuery).unwrap_err();
     assert_eq!(f.kind, FaultKind::NoSources);
 }
 
@@ -135,7 +135,7 @@ fn nothing_is_in_the_namespace_that_the_descriptor_does_not_hold() {
 fn full_device() -> Value {
     json!({
         "identity": {"request": [240, 126, 127, 6, 1, 247]},
-        "sysex": {"header": [240, 1], "footer": [247]},
+        "sysex": {"header": [240, 1]},
         "midi_out": {"default_channel": 3},
         "programs": {"program_change": true, "banks": [{"name": "Factory", "size": 3, "first_pc": 10, "first_number": 1}]},
         "triggers": {"entries": [{"osc": "/kick", "sound": "Kick", "note_range": [36, 36], "note": 36}]},
@@ -156,7 +156,7 @@ fn each_element_the_format_cannot_carry_has_a_loss_with_its_place() {
         "/replies",
         "/cc_params/entries/0/section",
         "/cc_params/entries/0/expects",
-        "/cc_params/entries/0/orientation",
+        "/cc_params/entries/0/polarity",
     ] {
         let found = lost_at(&lost, place);
         assert_eq!(found.len(), 1, "{place}: {lost:?}");
@@ -167,7 +167,7 @@ fn each_element_the_format_cannot_carry_has_a_loss_with_its_place() {
 #[test]
 fn what_the_namespace_carries_is_not_in_the_losses() {
     let (_, lost) = ns_of(full_device());
-    for place in ["/cc_params/entries/0", "/cc_params/entries/0/osc", "/cc_params/entries/0/range", "/cc_params/entries/0/cc", "/device/osc_prefix", "/_sources"] {
+    for place in ["/cc_params/entries/0", "/cc_params/entries/0/osc", "/cc_params/entries/0/range", "/cc_params/entries/0/cc", "/device/osc_prefix", "/sources"] {
         assert!(lost_at(&lost, place).is_empty(), "{place} is carried: {lost:?}");
     }
 }

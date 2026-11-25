@@ -1,0 +1,10 @@
+{
+  "_about": "`_sources` and `_midi_of_sources` of a 0.6 text become `sources` and `midi_of_sources` in 0.7; the converter writes no `_sources`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "sources": [{ "type": "vendor-doc", "notes": "Acme manual A" }],
+    "midi_of_sources": [{ "type": "vendor-doc", "notes": "Acme manual B" }]
+  }
+}

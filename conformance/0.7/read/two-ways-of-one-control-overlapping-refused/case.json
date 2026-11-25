@@ -1,0 +1,9 @@
+{
+  "_about": "Two ways of one control that overlap are refused like two controls: the second way, naming the first.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/1"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "T", "osc_prefix": "/t" },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/pan",
+        "scale": [-64, 63],
+        "default": 0,
+        "ways": [{ "ctrlType": "cc", "ctrlIndex": [10], "range": [0, 127] }]
+      }
+    ]
+  }
+}

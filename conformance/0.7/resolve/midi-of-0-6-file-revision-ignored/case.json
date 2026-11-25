@@ -1,0 +1,10 @@
+{
+  "_about": "A 0.6 file on a 0.7 target: the identity of the pair is read by the rule of 0.7, four keys (`name`, `vendor`, `osc_prefix`, `kind`). `revision` is not one, and the converted file no longer has it: the resolved device holds none.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "cc_params": { "entries": [{ "osc": "/x", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] }] },
+    "midi_of": "acme/b"
+  }
+}

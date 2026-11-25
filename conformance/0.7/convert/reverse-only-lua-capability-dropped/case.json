@@ -1,0 +1,9 @@
+{
+  "_about": "A 0.6 descriptor whose only Lua field is `transform_reverse` of a `cc_params` entry and that declares `capabilities` [lua]: the converter removes the field and, with it, the capability only it required; the key goes when the list becomes empty, so the result reads.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": { "entries": [{ "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] }] }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "_about": "The dimension `part` is not known to the file (the target declares it): its coordinate is not compared, so it separates nothing and the two ways overlap.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

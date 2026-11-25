@@ -1,0 +1,8 @@
+{
+  "_about": "A rule says its operator.",
+  "read": "device",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/identity/ports/0/operator"
+  }
+}

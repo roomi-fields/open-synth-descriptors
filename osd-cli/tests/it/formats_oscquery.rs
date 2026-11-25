@@ -41,7 +41,7 @@ fn import_prints_the_descriptor_read_strictly_with_the_command_and_the_credit() 
     assert_eq!(doc["device"]["osc_prefix"], "/synth");
     assert_eq!(doc["commands"].as_array().unwrap().len(), 1);
     assert_eq!(doc["commands"][0]["osc"], "/cutoff");
-    assert_eq!(doc["_sources"][0]["license"], "CC0-1.0");
+    assert_eq!(doc["sources"][0]["license"], "CC0-1.0");
 }
 
 #[test]

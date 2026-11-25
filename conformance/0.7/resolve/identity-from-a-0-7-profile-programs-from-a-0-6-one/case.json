@@ -1,0 +1,30 @@
+{
+  "_about": "With `identity` from a 0.7 profile and `programs` from a 0.6 one, every older text is converted and the result states 0.7.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "ports": [
+        {
+          "operator": "starts_with",
+          "value": "Synth",
+          "platform": "linux"
+        }
+      ],
+      "profile": "acme"
+    },
+    "programs": {
+      "banks": [
+        {
+          "name": "A",
+          "size": 128
+        }
+      ],
+      "profile": "acme/banks"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "_about": "A fingerprint may hold the endpoint name observed and the product instance id, as observed.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+    "observed": "2026-11-25",
+    "device": {
+      "vendor": "Acme",
+      "model": "Synth",
+      "firmware": "1.0"
+    },
+    "platform": "linux",
+    "stack": "alsa-seq",
+    "endpoint_name": "synth endpoint",
+    "product_instance_id": "SN-0001 Ab"
+  }
+}

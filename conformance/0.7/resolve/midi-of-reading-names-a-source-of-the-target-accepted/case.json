@@ -1,0 +1,36 @@
+{
+  "_about": "The `source` of a reading of a file with `midi_of` is resolved in the union of its sources and its target's: it may name an `id` of the target.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "midi_of": "acme/b",
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "mine"
+      }
+    ],
+    "commands": [
+      {
+        "osc": "/dump",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "manual"
+          }
+        ]
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "id": "manual"
+      }
+    ]
+  }
+}

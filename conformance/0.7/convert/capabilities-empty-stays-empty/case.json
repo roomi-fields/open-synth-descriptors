@@ -1,0 +1,10 @@
+{
+  "_about": "A 0.6 `capabilities` [] with no Lua field converts as before: the empty list stays, the converter removes nothing from it.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "capabilities": [],
+    "cc_params": { "entries": [{ "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }] }] }
+  }
+}

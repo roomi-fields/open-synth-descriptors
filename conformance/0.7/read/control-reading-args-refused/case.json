@@ -1,0 +1,9 @@
+{
+  "_about": "A reading of a control has no `args`, which mean nothing on a control: the key is refused as UnknownField at the key.",
+  "read": "device",
+  "schema_pointer": "/cc_params/entries/0/readings/0",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/cc_params/entries/0/readings/0/args"
+  }
+}

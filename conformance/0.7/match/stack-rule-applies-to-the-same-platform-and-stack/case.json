@@ -1,0 +1,10 @@
+{
+  "_about": "A rule with a platform and a stack applies to a fingerprint of the same platform and stack.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    }
+  ]
+}

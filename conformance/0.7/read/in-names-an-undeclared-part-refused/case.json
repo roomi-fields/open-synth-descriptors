@@ -1,0 +1,9 @@
+{
+  "_about": "`in` names a part the device does not declare: `BadValue` at the dimension of `in`.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/in/part"
+  }
+}

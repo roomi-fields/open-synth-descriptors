@@ -1,0 +1,22 @@
+{
+  "_about": "A fingerprint keeps its names and gains no `platform`, `stack`, `endpoint_name` or `product_instance_id`.",
+  "convert": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+    "observed": "2026-11-25",
+    "device": {
+      "vendor": "Acme",
+      "model": "Synth",
+      "firmware": "1.0"
+    },
+    "via": "native",
+    "ports": {
+      "inputs": [
+        "synth in"
+      ],
+      "outputs": [
+        "synth out"
+      ]
+    }
+  }
+}

@@ -80,22 +80,21 @@ fn a_control_gives_its_step_count_and_the_reader_returns_it() {
 fn a_control_gives_how_it_is_sent_and_recognised_and_the_reader_returns_it() {
     for w in ["absolute", "relative", "both", "none"] {
         let [(cc, _), (param, _)] = both(json!({"transmit": w, "recognize": w}));
-        let e = &device(&cc).cc_params.unwrap().entries[0];
-        assert_eq!((word(e.transmit.as_ref()), word(e.recognize.as_ref())), (Some(w.into()), Some(w.into())));
-        let e = &device(&param).params.unwrap().entries[0];
-        assert_eq!((word(e.transmit.as_ref()), word(e.recognize.as_ref())), (Some(w.into()), Some(w.into())));
+        let way = device(&cc).cc_params.unwrap().entries[0].ways().remove(0);
+        assert_eq!((word(way.transmit.as_ref()), word(way.recognize.as_ref())), (Some(w.into()), Some(w.into())));
+        let way = device(&param).params.unwrap().entries[0].ways().remove(0);
+        assert_eq!((word(way.transmit.as_ref()), word(way.recognize.as_ref())), (Some(w.into()), Some(w.into())));
     }
     let [(cc, _), _] = both(json!({"transmit": "relative"}));
-    let e = &device(&cc).cc_params.unwrap().entries[0];
-    assert_eq!((word(e.transmit.as_ref()), word(e.recognize.as_ref())), (Some("relative".into()), None));
+    let way = device(&cc).cc_params.unwrap().entries[0].ways().remove(0);
+    assert_eq!((word(way.transmit.as_ref()), word(way.recognize.as_ref())), (Some("relative".into()), None));
 }
 
 #[test]
 fn a_cc_entry_gives_named_values_and_the_reader_returns_them() {
     let doc = with_cc(json!({"osc": "/a", "cc": 74, "range": [0, 3], "expects": "discrete", "values": {"off": 0, "low": 1, "high": 3}}));
-    let values = device(&doc).cc_params.unwrap().entries[0].values.clone().unwrap();
-    assert_eq!(values.len(), 3);
-    assert_eq!((values["off"], values["low"], values["high"]), (0, 1, 3));
+    let out: Value = serde_json::from_str(&osd::write(&read(&doc).unwrap())).unwrap();
+    assert_eq!(out["cc_params"]["entries"][0]["values"], json!({"off": 0, "low": 1, "high": 3}));
 }
 
 #[test]
@@ -237,8 +236,9 @@ fn before_0_6_the_added_fields_are_unknown() {
 fn a_0_5_param_entry_keeps_its_values_without_a_range_check() {
     let doc = with_param(json!({"osc": "/a", "id": 3, "range": [0, 3], "values": {"wild": 99}}));
     let text = doc.to_string().replace("osd/0.6/", "osd/0.5/");
-    let Descriptor::Device(d) = osd::read(&text, Kind::Device).expect("0.5 reads it") else { panic!("a device") };
-    assert_eq!(d.params.unwrap().entries[0].values.as_ref().unwrap()["wild"], 99);
+    let d = osd::read(&text, Kind::Device).expect("0.5 reads it");
+    let out: Value = serde_json::from_str(&osd::write(&d)).unwrap();
+    assert_eq!(out["params"]["entries"][0]["values"]["wild"], 99);
 }
 
 #[test]

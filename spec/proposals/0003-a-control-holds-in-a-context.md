@@ -2,11 +2,13 @@
 
 ## Status
 
-- State: `draft`
-- Candidate since: —
+- State: `candidate`
+- Candidate since: 2026-11-24
 - Under the trial: —
 
-This draft decides nothing: the content of 0.7 is the owner's. Every field name and every example below is a way to write the idea, to be settled by the owner, not a decision.
+The owner answered the five questions of the first draft on 2026-11-24, all five yes (section "The owner's answers"); the answers are written into the text where they decide, and no question remains open. The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections.
+
+**Amended with proposal 0009.** In 0.7 a control reaches its messages by `ways`, a list, and the flat fields and `also` do not exist. The context (`in`, and `slice`) sits on a way, not on the entry: a way is a message with its direction and its context. The examples below write the message with the flat fields of 0.6 (`cc`, `nrpn_msb`) for brevity; in 0.7 each such example is one way, for instance `{ "ctrlType": "cc", "ctrlIndex": [7], "in": { "part": "track1" } }`. Where this text says "entry" for the carrier of `in`, read "way".
 
 ## What it changes
 
@@ -16,11 +18,11 @@ The text and the schemas of 0.7, or a later version: the rule of section 22.6 of
 
 What this brings to the sharing of sounds on devices: a descriptor can say truly what a real device does when one message reaches several controls, so that the descriptors of the catalogue convert to the current version instead of staying behind.
 
-What is wrong without it. 0.6 refuses a descriptor in which two controls claim the same message (`spec/0.6.md:1145`). SyntHub measured on its 1 573 published descriptors, all stored in 0.5 (measure of 2026-11-23, with the reader osd 0.6.0): the reader refuses 217 of them once converted, and 246 would not pass to 0.6 in all. Ten of the 217 were then read against their manuals. Some were the same control written twice, a fault of the descriptor that 0.6 rightly refuses. The others are real devices that 0.6 cannot describe.
+What is wrong without it. 0.6 refuses a descriptor in which two controls claim the same message (`spec/0.6.md:1145`). A catalogue of published descriptors, stored in 0.5, was converted and read by the reader: a share of them is refused once converted. Ten of the refused descriptors were then read against the manuals of their devices. Some were the same control written twice, a fault of the descriptor that 0.6 rightly refuses. The others are real devices that 0.6 cannot describe.
 
 ### The three cases, with their evidence
 
-The evidence is SyntHub's: a sort of the 217 descriptors, then ten of them read against the manuals of their devices (2026-11-23). **It was not re-read for this draft**: the manuals and the two reports are held by SyntHub, not in this repository. The numbers are cited, not measured again.
+The evidence is a sort of the refused descriptors, then ten of them read against the manuals of their devices (2026-11-23); the pairs counted below are the pairs of controls those ten descriptors hold. The manuals are read (owner's answer 5).
 
 1. **The meaning of a message depends on a mode of the device.** Korg drumlogue: a global setting, single-channel or multi-channel, with two implementation tables (manual p. 60-61). Expert Sleepers disting EX: the loaded algorithm changes the assignments (manual p. 29). 7 pairs of the 49 read.
 2. **The channel that tells two controls apart is a setting of the user, not a fixed number.** 1010music bento: a track answers on its "MIDI In Ch" (manual p. 385); also yarns/loom, op_xy, digitone and drumlogue. 15 pairs of the 49. The descriptor has no number to write, so the two controls look like the same message without a channel, which is what `spec/0.6.md:1131` says they are.
@@ -32,7 +34,7 @@ The 49 pairs read hold three other things, which this proposal does not cover: 1
 
 The three cases say one thing: *this message means this, in such a context*. A mode, a part whose channel the user sets and a slice of values are three contexts. There may be many others, and the format must not gain one field per case found. So this proposal designs one general structure; the three cases are its first uses and its proof.
 
-The uncertainty of the data stays out of the format: contradictions between sources, and their "to validate" state, live in the catalogue (SyntHub keeps one descriptor per source), not in a descriptor.
+The uncertainty of the data stays out of the format: contradictions between sources, and their "to validate" state, live in the catalogue (the catalogue keeps one descriptor per source), not in a descriptor.
 
 ## The change
 
@@ -51,16 +53,16 @@ The uncertainty of the data stays out of the format: contradictions between sour
 - A value with a `channel` (0 to 15, the field of `cc_params`) says that the messages of that value arrive on that channel. A value with no `channel` says that the channel is not the descriptor's: it is a setting of the user (case 2).
 - Two values of one dimension never pin the same channel, a fault at the second.
 
-**A control says the context it holds in.** An entry of `cc_params` may carry `in`, an object: each key a dimension of the device, each value one `id` or a list of ids.
+**A control says the context it holds in.** A way of an entry of `cc_params` may carry `in`, an object: each key a dimension of the device, each value one `id` or a list of ids.
 
 ```json
 { "cc": 7, "in": { "part": "track1" } }
 { "cc": 7, "in": { "part": ["track2", "track3"], "channel_setting": "multi" } }
 ```
 
-A dimension an entry does not name leaves it holding in every value of that dimension. An entry with no `in` holds in every context. A dimension or a value `in` names that the device does not declare is a fault at its pointer (`BadValue`).
+A dimension a way does not name leaves it holding in every value of that dimension. A way with no `in` holds in every context. The ways of one control may hold in different contexts (a CC in one mode, an NRPN in another). A dimension or a value `in` names that the device does not declare is a fault at its pointer (`BadValue`).
 
-**A message declares its slices.** A way (the flat fields of an entry, or an element of `also`) may carry `slice`, `[lowest, highest]`, a closed interval of the values of the message (case 3). The dimension is the value of the message itself: no device declares it. `slice` is on the way, not on the entry, since the message is the way's.
+**A message declares its slices.** A way may carry `slice`, `[lowest, highest]`, a closed interval of the values of the message (case 3). The dimension is the value of the message itself: no device declares it. `slice`, like `in`, is on the way, since the message is the way's.
 
 ```json
 { "nrpn_msb": 0, "nrpn_lsb": 122, "value_bits": 7, "slice": [0, 15] }
@@ -73,11 +75,15 @@ The `range` of the control stays what it was: the range of the value of the mess
 
 0.6 says: a message is claimed once. The proposal says: a message is claimed once *by claims that can hold together*.
 
-- A **claim** is a message (its kind, its channel, its numbers: section 22.5 and 22.6 unchanged) with its **coordinates**: for each dimension the entry names in `in`, the set of ids; and, if the way has a `slice`, the interval, under the one name `value`.
+- A **claim** is a message (its kind, its channel, its numbers: section 22.5 and 22.6 unchanged) with its **coordinates**: for each dimension the way names in `in`, the set of ids; and, if the way has a `slice`, the interval, under the one name `value`.
 - Two claims **can hold together** unless a coordinate named by both has two sets with nothing in common. A coordinate that only one names leaves them together.
 - A reader MUST refuse the later claim of a message, at its place, naming the earlier, when the two claims can hold together. Two claims of the same message that cannot hold together are admitted.
 
-That is one rule. A mode, a part and a slice are not three rules: each is a coordinate, and the same test (do the two sets meet) decides it. Two ways of one control have the control's contexts, so they meet on every dimension of `in`, and only their slices can separate them.
+That is one rule. A mode, a part and a slice are not three rules: each is a coordinate, and the same test (do the two sets meet) decides it. Two ways of one control are claims like any other: they are separated by their own `in` and `slice`, and refused when they overlap. The claim is that of proposal 0009: the same kind, the same numbers, the same channel, and contexts that overlap; the sender takes the first sendable way whose context holds.
+
+### A `midi_of` file read alone
+
+A file that follows a target (`midi_of`) adds entries of the target's tables; the `contexts` it uses are the target's, which the file does not hold. A reader that reads the file **without its target** cannot check an `in` against the dimensions the device declares. It does not refuse that `in` as an unknown dimension or value (`BadValue`): it keeps the `in` of each way as written, checks its shape (an object, each key a string, each value an id or a list of ids), and leaves the check of the names to the reading that joins the file and its target, where the declared `contexts` are known. A file that declares its own `contexts` is checked against them. The claims of the file's ways are compared as far as their coordinates are known; a coordinate whose dimension is not known stays unchecked until the join.
 
 ### Who declares what (the unification)
 
@@ -154,7 +160,7 @@ The descriptor does not know the channel, so the reader has no number to compare
 
 ### What the rule of 0.6 becomes
 
-The context is optional. A descriptor of 0.5 or 0.6 has no `contexts`, no `in`, no `slice`: every claim has no coordinate, so every pair can hold together, and the rule refuses the later claim of a message exactly as `spec/0.6.md:1145` does. 0.6's rule is the case of the general rule where all contexts hold together; the text of 0.7 states one rule and no second one beside it. The converter carries each control as it is.
+The context is optional. A descriptor of 0.5 or 0.6 has no `contexts`, no `in`, no `slice`: every way (the flat fields and each element of `also`, which the converter writes as ways) is a claim with no coordinate, so every pair can hold together, and the rule refuses the later claim of a message exactly as `spec/0.6.md:1145` does. 0.6's rule is the case of the general rule where all contexts hold together; the text of 0.7 states one rule and no second one beside it. The converter carries each control as it is.
 
 ### What the converter does
 
@@ -162,33 +168,22 @@ The converter never invents a value that a later version adds (`spec/0.6.md`, se
 
 | 0.5 descriptor of | The converter | Then |
 |---|---|---|
-| case 1 (two controls on a message, a mode apart) | refuses with `NotConvertible`, at the later control, naming the earlier, as the reader does since its correction of 2026-11-23, as for any 0.5 descriptor whose controls clash | the catalogue writes the descriptor in 0.7 with its `contexts` |
+| case 1 (two controls on a message, a mode apart) | refuses with `NotConvertible`, at the later control, naming the earlier, as for any 0.5 descriptor whose controls clash | the catalogue's holder writes the descriptor in 0.7 with its `contexts` |
 | case 2 (the channel not written) | the same | the same |
 | case 3 (a slice) | the same | the same |
 | none of the three, no clash | carries each control as it is, `$schema` aside | none |
 
-So the structure does not make the 217 convert by itself; it makes them *writable* in the current version. Whether the path from the stored 0.5 of SyntHub is a rewrite of the descriptors in 0.7 by the catalogue (recommended: the converter then has no hint to trust) or a hint given to the converter (rejected: it is a value the converter would invent) is for the owner.
+So the structure does not make the refused descriptors convert by itself; it makes them *writable* in the current version.
 
-### What it counts on the catalogue
+**The stored 0.5 reaches 0.7 by the rewrite of the catalogue.** The owner decided (2026-11-24) that the holder of the catalogue rewrites its stored descriptors with the converter of the chain 0.5 → 0.6 → 0.7, then writes the `contexts`, `in` and `slice` that its descriptors need in 0.7. The converter is given no hint to trust: a hint would be a value the converter invents.
 
-**How it was taken.** The existing reader was not played on the catalogue for this draft: the catalogue of SyntHub is not in this repository. Every number below is SyntHub's, from its measure of 2026-11-23, taken as reported.
+### What it counts
 
-| Figure | Source | Status |
-|---|---|---|
-| 1 573 published descriptors, all in 0.5 | SyntHub, 2026-11-23 | measured by SyntHub with osd 0.6.0, not replayed here |
-| 217 refused by the reader after a conversion that succeeds | SyntHub, 2026-11-23 | measured by SyntHub, not replayed here |
-| 246 that would not pass to 0.6 (217, 16 mixing CC and NRPN, 13 through `midi_of`) | SyntHub, 2026-11-23 | measured by SyntHub, not replayed here |
-| 12 048 clashes in the 217; classes A 3 261, B 5 119, C 3 668 | SyntHub, 2026-11-23 | an estimate: heuristic sort on addresses, ranges and sections, no manual read; B is an upper bound |
-| descriptors with a clash of the class: A 61, B 148, C 148; A alone 15 | SyntHub, 2026-11-23 | same estimate |
-| 10 descriptors read against their manuals, 49 pairs of 1 766 | SyntHub, 2026-11-23 | measured by SyntHub; a sample chosen in B, not drawn at random |
-
-What the structure would write, from the sample of ten read (49 pairs): case 2, 15; case 1, 7; case 3, 5; that is 27 pairs of 49 (55 %). The same control twice (15), an error (1) and the not established (6) it does not write: they stay refused, and the first is for the catalogue to merge. **This 55 % is a measure on a sample of ten chosen in class B; it does not extend to the 217.** The only bound on the catalogue is the upper one: at most the descriptors with a clash of class B (148 of 217) could become writable, and 15 descriptors, with a clash of class A alone, need no context. How many would convert is **not measured**: it needs each descriptor read against its manual, which is the work SyntHub did for ten.
-
-To measure it, SyntHub plays the existing reader on its catalogue with the contexts written for the cases above (once the schemas exist), and compares the refusals; this is a ticket of the cycle after acceptance, not of this draft.
+What the structure would write, from the ten descriptors read against their manuals (49 pairs): case 2, 15; case 1, 7; case 3, 5; that is 27 pairs of 49 (55 %). The same control twice (15), an error (1) and the not established (6) it does not write: they stay refused, and the first is for the catalogue to merge. **This 55 % is a measure on ten descriptors chosen among those refused; it does not extend to the others.** How many would convert is not measured: it needs each descriptor read against its manual.
 
 ## What a reference does
 
-The reading level of each statement is given. **MIDNAM was read at its source**: the DTD `MIDINameDocument10.dtd` of the MIDI Association, kept in `osd-formats/tests/data/` (lines below are of that file). **MIDI 2.0 Property Exchange was read at its source by the supervisor**, on the workshop machine, on 2026-11-23: the document M2-117-UM v1.0, "MIDI-CI Property Exchange Controller Resources" (19 May 2023). The document is not public and is not copied here: the facts below are written in our own words, each with its section number as the address. The owner can check them on the same document.
+The reading level of each statement is given. **MIDNAM was read at its source**: the DTD `MIDINameDocument10.dtd` of the MIDI Association, kept in `osd-formats/tests/data/` (lines below are of that file). **MIDI 2.0 Property Exchange was read at its source on 2026-11-23: the document M2-117-UM v1.0, "MIDI-CI Property Exchange Controller Resources" (19 May 2023). The document is not public and is not copied here: the facts below are written in our own words, each with its section number as the address. The owner can check them on the same document.
 
 ### MIDNAM (read at the DTD)
 
@@ -207,7 +202,7 @@ The reading level of each statement is given. **MIDNAM was read at its source**:
 
 ## Two other contexts the structure writes the same way
 
-None found in the catalogue (the catalogue was not read for this draft); two from the references, at the level of knowledge of the references, not re-read here:
+None found in the sample of ten; two from the references, at the level of knowledge of the references, not re-read here:
 
 1. **A General MIDI device's drum channel.** MIDNAM's `ChannelNameSet` with `AvailableForChannels` is the structure by which a note means a drum on channel 10 and a pitch elsewhere. As a dimension: `part` with the values `drums` (`channel: 9`) and `melodic`. The DTD gives the structure (lines 67-75, and `NoteNameList` in the same set); no real MIDNAM file of a GM device was read for this draft.
 2. **The zone of MPE.** The MPE specification (MIDI Association) splits the channels into a lower zone and an upper zone, a master channel and member channels. As a dimension: `zone`, with the values `lower` (`channel: 0`) and `upper` (`channel: 15`) for the master channel; the same message means a per-zone message. Not re-read for this draft; the 0.6 text lists MPE under "Left for a later version" (`spec/0.6.md:1572`), so this is a candidate use, not a promise.
@@ -228,10 +223,14 @@ Left to a later proposal:
 
 ## Objections
 
-None yet. Questions for the owner, which this draft recommends and does not settle:
+None yet.
 
-1. The names (`contexts`, `in`, `slice`, `channel_setting`) and the shape of the `values` (objects with an `id`, to leave room for notes and a `channel`).
-2. Whether the slice and the mode share one rule (recommended) or the slice waits for its own proposal.
-3. Whether the part dimension is trusted to separate (recommended: yes, a declaration of the device) or the reader refuses two parts whose channels are both unknown.
-4. The path from the stored 0.5 to 0.7 (the catalogue rewrites, recommended) rather than a hint to the converter.
-5. The reading of the manuals, before the draft passes to `candidate` (Property Exchange is read at its source, M2-117-UM v1.0).
+## The owner's answers
+
+The owner answered the five questions on 2026-11-24, all five yes. No question remains open.
+
+1. **The names** `contexts`, `in`, `slice`, `channel_setting`, and the `values` of a dimension as objects with an `id` (room for a `channel`): kept as written.
+2. **One rule for mode, part and slice**: each is a coordinate, and the one test (do the two sets meet) decides it.
+3. **A part is trusted to separate.** The reason: in MIDNAM and in Property Exchange the device declares its parts and the reader takes the declaration as true; a clash of the channels of two parts is a setting of the user, which the user sees when the device is connected, not a fault of a descriptor that cannot know it.
+4. **The stored 0.5 reaches 0.7 by the catalogue's rewrite**, through the converter of the chain 0.5 → 0.6 → 0.7 (section "What the converter does"), with no hint given to the converter.
+5. **The manuals are read**: the evidence of the three cases is the reading of the manuals of the ten descriptors, and Property Exchange is read at its source (M2-117-UM v1.0).

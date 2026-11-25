@@ -1,0 +1,27 @@
+{
+  "_about": "A 0.6 command is written as it is, with no `readings`: a command without `readings` is one reading, its own, with no state.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "commands": [
+      {
+        "osc": "/dump",
+        "section": "Utility",
+        "args": [
+          {
+            "name": "value",
+            "type": "int",
+            "range": [
+              0,
+              127
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

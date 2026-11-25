@@ -1,0 +1,9 @@
+{
+  "_about": "`readings` is a non-empty list: an empty one is refused as BadValue.",
+  "read": "device",
+  "schema_pointer": "/commands/0/readings",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/commands/0/readings"
+  }
+}

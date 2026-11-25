@@ -1,0 +1,27 @@
+{
+  "$schema": "https://w3id.org/osd/0.5/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/filter/cutoff",
+        "cc": 74,
+        "nrpn_msb": 1,
+        "nrpn_lsb": 8,
+        "range": [
+          0,
+          127
+        ]
+      },
+      {
+        "osc": "/filter/resonance",
+        "nrpn_msb": 1,
+        "nrpn_lsb": 9
+      }
+    ]
+  }
+}

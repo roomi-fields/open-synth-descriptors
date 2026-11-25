@@ -1,0 +1,9 @@
+{
+  "_about": "A reading of a file with `midi_of` whose `source` is in neither its sources nor its target's is refused as BadValue at `source`, in its file.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/commands/0/readings/0/source"
+  }
+}

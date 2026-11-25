@@ -1,0 +1,20 @@
+{
+  "_about": "The first way (14 bits) is the most precise: it is the reference already, so no `scale` is written and `default` stays 8192.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "default": 8192,
+          "ways": [
+            { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14 },
+            { "ctrlType": "cc", "ctrlIndex": [74] }
+          ]
+        }
+      ]
+    }
+  }
+}

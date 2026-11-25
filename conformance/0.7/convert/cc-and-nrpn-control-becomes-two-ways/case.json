@@ -1,0 +1,19 @@
+{
+  "_about": "The worked example of the proposal: a CC and an NRPN of 0.6 become two ways in the same order; `transmit` and `recognize` are written on both; the control has no `default`, `values` or `step_count`, so no `scale` is written.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "ways": [
+            { "ctrlType": "cc", "ctrlIndex": [74], "range": [0, 127], "transmit": "absolute", "recognize": "both" },
+            { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14, "range": [0, 16383], "transmit": "absolute", "recognize": "both" }
+          ]
+        }
+      ]
+    }
+  }
+}

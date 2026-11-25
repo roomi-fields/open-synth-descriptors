@@ -31,6 +31,16 @@ pub(crate) const SOURCE_TYPES: [&str; 14] = [
     "test-fixture",
 ];
 
+/// The source types of 0.4 to 0.6 named after a product, each with the provider the converter to
+/// 0.7 writes for it: none for `midnam`, a format and not a supplier. From 0.7 none is a source
+/// type.
+pub(crate) const PRODUCT_SOURCE_TYPES: [(&str, Option<&str>); 4] = [
+    ("electra-preset", Some("electra-one")),
+    ("pencilresearch", Some("pencilresearch")),
+    ("knobkraft", Some("knobkraft")),
+    ("midnam", None),
+];
+
 /// The makers' words for what a program change selects, with the term each
 /// one merges into.
 const SELECTS_SYNONYMS: [(&str, &str); 18] = [
@@ -134,8 +144,11 @@ pub(crate) fn check_license(license: Option<&str>, pointer: &str) -> Result<(), 
     }
 }
 
-pub(crate) fn check_source(kind: &str, license: Option<&str>, pointer: &str) -> Result<(), Fault> {
-    list_or_extension(kind, &SOURCE_TYPES, &format!("{pointer}/type"))?;
+/// The `type` and `license` of a source; `from_0_7` leaves out the types named after a product.
+pub(crate) fn check_source(kind: &str, license: Option<&str>, from_0_7: bool, pointer: &str) -> Result<(), Fault> {
+    let types: Vec<&str> =
+        SOURCE_TYPES.into_iter().filter(|t| !from_0_7 || PRODUCT_SOURCE_TYPES.iter().all(|(product, _)| product != t)).collect();
+    list_or_extension(kind, &types, &format!("{pointer}/type"))?;
     match license {
         Some(l) if !is_license(l) => Err(fault(
             FaultKind::BadValue,

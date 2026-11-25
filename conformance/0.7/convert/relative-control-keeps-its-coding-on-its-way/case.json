@@ -1,0 +1,16 @@
+{
+  "_about": "A control in the relative mode: its one way has `transmit: relative` and `recognize: relative`, kept without loss; a simple CC has no `value_bits`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t" },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/encoder/1",
+          "ways": [{ "ctrlType": "cc", "ctrlIndex": [20], "transmit": "relative", "recognize": "relative" }]
+        }
+      ]
+    }
+  }
+}

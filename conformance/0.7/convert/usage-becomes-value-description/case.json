@@ -1,0 +1,25 @@
+{
+  "_about": "`_usage` of an entry with `values` becomes `value_description`, and no `_usage` stays.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/filter/cutoff",
+          "ways": [{ "ctrlType": "cc", "ctrlIndex": [74] }],
+          "values": [
+            { "value": 0, "title": "closed" },
+            { "value": 127, "title": "open" }
+          ],
+          "value_description": "0 closes, 127 opens."
+        }
+      ]
+    }
+  }
+}

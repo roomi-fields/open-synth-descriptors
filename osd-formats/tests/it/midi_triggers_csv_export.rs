@@ -115,5 +115,5 @@ fn a_device_without_sources_is_refused_with_a_typed_fault() {
     let text = r#"{"$schema": "https://w3id.org/osd/0.5/device.schema.json", "device": {"name": "T", "osc_prefix": "/t"}}"#;
     let f = export(&resolved(device_from(text)), Format::MidiTriggersCsv).expect_err("refused");
     assert_eq!(f.kind, FaultKind::NoSources);
-    assert!(f.place.contains("_sources"), "{:?}", f.place);
+    assert_eq!(f.place, "/sources");
 }

@@ -5,10 +5,19 @@
 
 use crate::credit::source_text;
 use crate::xml::escape;
-use crate::{Fault, FaultKind, Loss, Translated};
-use osd::{Descriptor, Resolved};
+use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use osd::{Descriptor, Device, Resolved, Source};
 use serde_json::Value;
 use std::collections::BTreeMap;
+
+pub(crate) const CONTRACT: Contract = Contract {
+    name: "deluge",
+    media_type: "application/xml",
+    extension: "xml",
+    import,
+    export,
+    import_into: None,
+};
 
 /// The CC numbers the firmware reads (kNumRealCCNumbers, 120 of them).
 const CC_COUNT: i64 = 120;
@@ -33,19 +42,20 @@ fn comment_safe(text: &str) -> String {
     out
 }
 
-pub(crate) fn import_refusal() -> Fault {
-    Fault {
+/// This format is exported only: every file is refused.
+fn import(_: &str, _: &Source) -> Result<Translated<Device>, Fault> {
+    Err(Fault {
         kind: FaultKind::InvalidFile,
         place: "format".to_string(),
         rule: "the Deluge does not import: its device definitions are written by hand and read by the firmware, so there is nothing to read back".to_string(),
-    }
+    })
 }
 
-pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
+fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     let sources = d.sources.as_deref().unwrap_or_default();
     if sources.is_empty() {
-        return Err(Fault { kind: FaultKind::NoSources, place: "/_sources".into(), rule: "a device without sources is not written: its credit and licence cannot be".into() });
+        return Err(Fault { kind: FaultKind::NoSources, place: "/sources".into(), rule: "a device without sources is not written: its credit and licence cannot be".into() });
     }
     let descriptor = Descriptor::Device(Box::new(d.clone()));
     let doc: Value = serde_json::from_str(&osd::write(&descriptor)).expect("a descriptor is JSON");
@@ -58,11 +68,11 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
     if let Some(top) = doc.as_object() {
-        for key in top.keys().filter(|k| !["$schema", "device", "role_vocabulary", "cc_params", "params", "_sources"].contains(&k.as_str())) {
+        for key in top.keys().filter(|k| !["$schema", "device", "role_vocabulary", "cc_params", "params", "sources", "_sources"].contains(&k.as_str())) {
             loss(&mut losses, format!("/{}", segment(key)), "the device definition holds CC labels only: nothing of this");
         }
     }
-    loss(&mut losses, "/_sources", "the device definition has no field for a credit or a licence: it goes in a comment of the file");
+    loss(&mut losses, "/sources", "the device definition has no field for a credit or a licence: it goes in a comment of the file");
 
     let mut labels: BTreeMap<i64, String> = BTreeMap::new();
     if let Some(b) = doc.get("cc_params").and_then(Value::as_object) {
@@ -72,7 +82,14 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         for (n, e) in b.get("entries").and_then(Value::as_array).into_iter().flatten().enumerate() {
             let Some(e) = e.as_object() else { continue };
             let ptr = format!("/cc_params/entries/{n}");
-            let Some(cc) = e.get("cc").and_then(Value::as_i64) else {
+            let ways = e.get("ways").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+            // The first way that is a Control Change is the one written; each other way is named lost.
+            let first_cc = ways.iter().position(|w| w.get("ctrlType").and_then(Value::as_str) == Some("cc"));
+            let Some(at) = first_cc else {
+                loss(&mut losses, &ptr, "the device definition names CC numbers only: a command with no CC is not written");
+                continue;
+            };
+            let Some(cc) = ways[at].get("ctrlIndex").and_then(Value::as_array).and_then(|i| i.first()).and_then(Value::as_i64) else {
                 loss(&mut losses, &ptr, "the device definition names CC numbers only: a command with no CC is not written");
                 continue;
             };
@@ -96,8 +113,17 @@ pub(crate) fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                     loss(&mut losses, format!("{ptr}/section"), "a free section is not a path: it is never a name");
                 }
             }
-            for key in e.keys().filter(|k| !["cc", "osc", "section", "role"].contains(&k.as_str())) {
+            for key in e.keys().filter(|k| !["ways", "osc", "section", "role"].contains(&k.as_str())) {
                 loss(&mut losses, format!("{ptr}/{}", segment(key)), "the device definition has no field for it: only the name of the CC is written");
+            }
+            for (m, w) in ways.iter().enumerate() {
+                if m != at {
+                    loss(&mut losses, format!("{ptr}/ways/{m}"), "the device definition names one CC per command: only the first way that is a CC is written");
+                } else if let Some(w) = w.as_object() {
+                    for key in w.keys().filter(|k| !["ctrlType", "ctrlIndex"].contains(&k.as_str())) {
+                        loss(&mut losses, format!("{ptr}/ways/{m}/{}", segment(key)), "the device definition has no field for it: only the name of the CC is written");
+                    }
+                }
             }
             labels.insert(cc, name.to_string());
         }

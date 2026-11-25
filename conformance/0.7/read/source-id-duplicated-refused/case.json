@@ -1,0 +1,9 @@
+{
+  "_about": "An `id` written twice in the `sources` of a file is refused as BadValue at the second entry.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/1"
+  }
+}

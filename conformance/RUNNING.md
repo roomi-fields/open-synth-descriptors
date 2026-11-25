@@ -8,7 +8,8 @@ on one and how the run is reported. Nothing here needs `osd`.
 
 A reader is an executable, the adapter, that takes **one case folder as its only argument**. It
 reads `case.json` and the files beside it, does what the case states (read, convert, resolve,
-resolve an assembly, code bytes, judge needs, read a vocabulary) and writes **one JSON object on
+resolve an assembly, code bytes, judge needs, read a vocabulary, match an identity against a
+fingerprint, compare two product instance ids) and writes **one JSON object on
 its standard output**, then exits 0.
 
 The object holds, by the names `case.json` uses, each key the case expects:
@@ -17,6 +18,9 @@ The object holds, by the names `case.json` uses, each key the case expects:
   `roles`, `coded`, `identities`, and so on). A reader may write keys the case does not expect:
   they are ignored.
 - A fault is `{kind, pointer}` and, for a resolve case, `file` too.
+- `warnings`, which a reading case may state, is the ordered list of `{kind, pointer}` of what the
+  reader reports without refusing: `PartialControl` (an entry that reaches no message) and
+  `UnknownProvider` (a `provider` the table of providers does not hold).
 
 A folder that is not a case, or a case of a kind the reader does not know, is answered with
 exit code 2 and a message on the standard error, never with a result. Any other exit code than 0
@@ -40,7 +44,7 @@ The reader maps each refusal of its own to the `kind` the case expects:
 
 A runner compares the output to the case, key by key. Every expectation key of the case is
 compared; not compared are `_about`, the kind selector (`read`, `convert`, `resolve`,
-`resolve_assembly`, `coding`, `judge_needs`), the inputs a case states (`bytes`), `schema_pointer`,
+`resolve_assembly`, `coding`, `judge_needs`, `match_identity`, `same_product_instance_id`), the inputs a case states (`bytes`), `schema_pointer`,
 `schema_accepts` and `schema_refused` (they judge the schema, not the reader).
 
 - Objects are equal key order aside; arrays are equal in order; numbers are equal by value;

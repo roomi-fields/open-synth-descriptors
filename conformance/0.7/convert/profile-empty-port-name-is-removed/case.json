@@ -1,0 +1,15 @@
+{
+  "_about": "An empty name of a profile is removed too.",
+  "convert": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+    "identity": {
+      "ports": [
+        {
+          "operator": "contains",
+          "value": "Synth"
+        }
+      ]
+    }
+  }
+}

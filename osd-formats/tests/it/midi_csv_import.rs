@@ -1,8 +1,7 @@
 //! The import of a pencilresearch/midi CSV: the descriptor, its source, its refusals and its losses.
 
-use crate::common::{csv, entries, header_line, row, source};
+use crate::common::{csv, entries, header_line, messages_of, row, shape, source};
 use osd_formats::{import, FaultKind, Format};
-use serde_json::Value;
 
 fn ok(text: &str) -> osd_formats::Translated<osd::Device> {
     import(text, Format::MidiCsv, &source()).unwrap_or_else(|f| panic!("refused: {f:?}"))
@@ -31,24 +30,21 @@ fn glide() -> Vec<String> {
     ])
 }
 
-fn remark(e: &osd::CcEntry, key: &str) -> Option<String> {
-    e.remarks.get(key).and_then(Value::as_str).map(str::to_string)
-}
-
 #[test]
 fn a_row_with_a_cc_becomes_a_control_with_its_name_section_and_range() {
     let t = ok(&csv(&[glide()]));
     let list = entries(&t.value);
     assert_eq!(list.len(), 1);
     let e = &list[0];
-    assert_eq!(e.cc, Some(65));
-    assert_eq!(e.cc_lsb, None);
-    assert_eq!(e.range, Some([0, 127]));
+    assert_eq!(shape(&e.ways()[0]), ("cc".to_string(), vec![65], None, Some([0, 127])));
     assert_eq!(e.section.as_deref(), Some("Oscillators"));
-    assert_eq!(e.orientation, Some(osd::Orientation::ZeroBased));
-    assert_eq!(remark(e, "_name").as_deref(), Some("Glide switch"));
-    assert_eq!(remark(e, "_description").as_deref(), Some("Enables or disables glide"));
-    assert_eq!(remark(e, "_notes").as_deref(), Some("Typo in manual (says CC 66; 65 is correct)"));
+    assert_eq!(e.polarity, Some(osd::Polarity::Unipolar));
+    assert_eq!(e.title.as_deref(), Some("Glide switch"));
+    assert_eq!(e.description.as_deref(), Some("Enables or disables glide"));
+    assert_eq!(e.notes.as_deref(), Some("Typo in manual (says CC 66; 65 is correct)"));
+    for key in ["_name", "_description", "_notes", "_usage"] {
+        assert!(!e.remarks.contains_key(key), "{key}");
+    }
     assert!(e.osc.starts_with('/'));
 }
 
@@ -58,7 +54,7 @@ fn the_usage_text_is_carried_whole_whatever_its_length() {
     let mut r = glide();
     r[17] = long.clone();
     let t = ok(&csv(&[r]));
-    assert_eq!(remark(&entries(&t.value)[0], "_usage"), Some(long));
+    assert_eq!(entries(&t.value)[0].value_description, Some(long));
 }
 
 #[test]
@@ -70,9 +66,9 @@ fn the_manufacturer_and_device_name_the_descriptor_device() {
 }
 
 #[test]
-fn the_descriptor_is_a_0_6_descriptor_and_reads_strictly() {
+fn the_descriptor_is_a_0_7_descriptor_and_reads_strictly() {
     let t = ok(&csv(&[glide()]));
-    assert_eq!(t.value.schema, Some(osd::Version::V0_6));
+    assert_eq!(t.value.schema, Some(osd::Version::V0_7));
     let text = osd::write(&osd::Descriptor::Device(Box::new(t.value.clone())));
     match osd::read(&text, osd::Kind::Device) {
         Ok(osd::Descriptor::Device(back)) => assert_eq!(*back, t.value),
@@ -91,9 +87,8 @@ fn a_cc_with_an_lsb_becomes_a_14_bit_pair_with_the_range_of_the_cc_columns() {
         ("orientation", "centered"),
     ]);
     let e = &entries(&ok(&csv(&[r])).value)[0];
-    assert_eq!((e.cc, e.cc_lsb), (Some(1), Some(33)));
-    assert_eq!(e.range, Some([0, 16383]));
-    assert_eq!(e.orientation, Some(osd::Orientation::Centered));
+    assert_eq!(shape(&e.ways()[0]), ("cc".to_string(), vec![1, 33], Some(14), Some([0, 16383])));
+    assert_eq!(e.polarity, Some(osd::Polarity::Bipolar));
 }
 
 #[test]
@@ -108,17 +103,16 @@ fn an_nrpn_becomes_nrpn_msb_and_lsb_with_the_range_of_the_nrpn_columns() {
     let list = entries(&ok(&csv(&[r])).value);
     assert_eq!(list.len(), 1);
     let e = &list[0];
-    assert_eq!((e.cc, e.nrpn_msb, e.nrpn_lsb), (None, Some(3), Some(9)));
-    assert_eq!(e.range, Some([10, 200]));
+    assert_eq!(shape(&e.ways()[0]), ("nrpn".to_string(), vec![3, 9], Some(14), Some([10, 200])));
 }
 
 #[test]
 fn an_nrpn_of_a_csv_row_is_read_with_the_14_bits_of_the_data_msb_and_lsb() {
     let r = row(&[("parameter_name", "Depth"), ("nrpn_msb", "3"), ("nrpn_lsb", "9")]);
     let list = entries(&ok(&csv(&[r])).value);
-    assert_eq!(list[0].value_bits, Some(14));
+    assert_eq!(list[0].ways()[0].value_bits, Some(14));
     let cc = row(&[("parameter_name", "Cutoff"), ("cc_msb", "74")]);
-    assert_eq!(entries(&ok(&csv(&[cc])).value)[0].value_bits, None);
+    assert_eq!(entries(&ok(&csv(&[cc])).value)[0].ways()[0].value_bits, None);
 }
 
 #[test]
@@ -137,13 +131,11 @@ fn a_row_with_a_cc_and_an_nrpn_gives_one_control_with_the_cc_first_and_the_nrpn_
     let list = entries(&ok(&csv(&[r])).value);
     assert_eq!(list.len(), 1);
     let e = &list[0];
-    assert_eq!((e.cc, e.nrpn_msb, e.range), (Some(74), None, Some([0, 127])));
-    let also = e.also.as_ref().expect("the nrpn is a further way");
-    assert_eq!(also.len(), 1);
-    assert_eq!((also[0].cc, also[0].nrpn_msb, also[0].nrpn_lsb, also[0].range), (None, Some(1), Some(2), Some([0, 16383])));
     let ways = e.ways();
-    assert_eq!((ways.len(), ways[0].cc, ways[1].nrpn_msb), (2, Some(74), Some(1)));
-    assert_eq!(remark(e, "_name").as_deref(), Some("Cutoff"));
+    assert_eq!(ways.len(), 2, "the nrpn is a further way");
+    assert_eq!(shape(&ways[0]), ("cc".to_string(), vec![74], None, Some([0, 127])));
+    assert_eq!(shape(&ways[1]), ("nrpn".to_string(), vec![1, 2], Some(14), Some([0, 16383])));
+    assert_eq!(e.title.as_deref(), Some("Cutoff"));
     assert_eq!(e.section.as_deref(), Some("Filter"));
     assert_eq!(e.osc, "/filter/cutoff");
 }
@@ -155,6 +147,7 @@ fn a_row_with_a_cc_and_an_nrpn_and_one_range_gives_that_range_to_both_ways() {
     assert!(t.lost.is_empty(), "{:?}", t.lost);
     let ways = entries(&t.value)[0].ways();
     assert_eq!((ways.len(), ways[0].range, ways[1].range), (2, Some([0, 127]), Some([0, 127])));
+    assert_eq!(ways[1].ctrl_type, "nrpn");
 }
 
 #[test]
@@ -164,7 +157,8 @@ fn a_row_with_a_14_bit_cc_and_an_nrpn_keeps_the_pair_in_the_first_way() {
     let list = entries(&t.value);
     assert_eq!(list.len(), 1);
     let ways = list[0].ways();
-    assert_eq!((ways[0].cc, ways[0].cc_lsb, ways[1].nrpn_msb, ways[1].nrpn_lsb), (Some(1), Some(33), Some(1), Some(2)));
+    assert_eq!(messages_of(&list[0]), vec![("cc".to_string(), vec![1, 33]), ("nrpn".to_string(), vec![1, 2])]);
+    assert_eq!(ways.len(), 2);
     // The imported descriptor stays valid: it reads back strictly.
     let text = osd::write(&osd::Descriptor::Device(Box::new(t.value)));
     assert!(osd::read(&text, osd::Kind::Device).is_ok());
@@ -223,10 +217,8 @@ fn rows_claiming_a_message_already_in_the_base_give_a_descriptor_that_reads() {
 fn an_empty_cell_gives_no_value_the_source_does_not_give() {
     let r = row(&[("parameter_name", "Bare"), ("cc_msb", "7")]);
     let e = &entries(&ok(&csv(&[r])).value)[0];
-    assert_eq!((e.range, e.orientation, e.section.clone(), e.cc_lsb), (None, None, None, None));
-    assert_eq!(remark(e, "_description"), None);
-    assert_eq!(remark(e, "_notes"), None);
-    assert_eq!(remark(e, "_usage"), None);
+    assert_eq!((e.ways()[0].range, e.polarity, e.section.clone(), e.ways()[0].ctrl_index.clone()), (None, None, None, Some(vec![7])));
+    assert_eq!((e.title.clone(), e.description.clone(), e.notes.clone(), e.value_description.clone()), (Some("Bare".to_string()), None, None, None));
 }
 
 #[test]
@@ -339,7 +331,7 @@ fn a_default_value_of_the_row_becomes_the_default_of_the_control_of_its_address(
     let list = entries(&t.value);
     assert_eq!(list.len(), 3);
     assert_eq!((list[0].default, list[1].default, list[2].default), (None, Some(64), Some(10)));
-    assert_eq!((list[1].cc, list[2].cc), (Some(1), None));
+    assert_eq!((messages_of(&list[1]), messages_of(&list[2])), (vec![("cc".to_string(), vec![1]), ("nrpn".to_string(), vec![2, 3])], vec![("nrpn".to_string(), vec![4, 5])]));
 }
 
 #[test]
@@ -405,10 +397,10 @@ fn an_empty_default_cell_is_not_a_loss() {
 }
 
 #[test]
-fn an_orientation_the_format_does_not_hold_is_a_loss_not_a_value() {
+fn a_polarity_word_the_format_does_not_hold_is_a_loss_not_a_value() {
     let r = row(&[("parameter_name", "Odd"), ("cc_msb", "1"), ("orientation", "upside-down")]);
     let t = ok(&csv(&[r]));
-    assert_eq!(entries(&t.value)[0].orientation, None);
+    assert_eq!(entries(&t.value)[0].polarity, None);
     assert_eq!(t.lost.iter().map(|l| l.place.as_str()).collect::<Vec<_>>(), ["line 2, column orientation"]);
 }
 
@@ -451,9 +443,10 @@ fn a_row_whose_only_default_is_in_the_nrpn_cell_and_whose_ranges_differ_has_the_
     let t = ok(&csv(&[glide(), r]));
     assert!(t.lost.is_empty(), "{:?}", t.lost);
     let e = &entries(&t.value)[1];
-    assert_eq!((e.cc, e.nrpn_msb, e.nrpn_lsb, e.range, e.default), (None, Some(2), Some(3), Some([0, 16383]), Some(8192)));
     let ways = e.ways();
-    assert_eq!((ways.len(), ways[1].cc, ways[1].range), (2, Some(1), Some([0, 127])));
+    assert_eq!(shape(&ways[0]), ("nrpn".to_string(), vec![2, 3], Some(14), Some([0, 16383])));
+    assert_eq!(e.default, Some(8192));
+    assert_eq!((ways.len(), ways[1].ctrl_type.as_str(), ways[1].ctrl_index.clone(), ways[1].range), (2, "cc", Some(vec![1]), Some([0, 127])));
 }
 
 #[test]
@@ -479,6 +472,6 @@ fn a_row_with_a_cc_and_an_nrpn_of_one_range_or_a_default_in_the_cc_cell_keeps_th
         ("nrpn_max_value", "16383"),
     ]);
     let list = entries(&ok(&csv(&[glide(), same, in_cc])).value);
-    assert_eq!((list[1].cc, list[1].default, list[1].range), (Some(1), Some(64), Some([0, 127])));
-    assert_eq!((list[2].cc, list[2].default, list[2].range), (Some(4), Some(10), Some([0, 127])));
+    assert_eq!((list[1].ways()[0].ctrl_index.clone(), list[1].default, list[1].ways()[0].range), (Some(vec![1]), Some(64), Some([0, 127])));
+    assert_eq!((list[2].ways()[0].ctrl_index.clone(), list[2].default, list[2].ways()[0].range), (Some(vec![4]), Some(10), Some([0, 127])));
 }

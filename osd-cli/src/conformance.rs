@@ -63,6 +63,10 @@ pub fn answer(dir: &Path) -> Result<Value, NotACase> {
         Ok(coding_case(&case))
     } else if object.contains_key("judge_needs") {
         judge_case(dir)
+    } else if object.contains_key("match_identity") {
+        match_case(dir)
+    } else if object.contains_key("same_product_instance_id") {
+        same_product_instance_id_case(dir)
     } else if dir.join("vocabulary.json").is_file() {
         vocabulary_case(dir)
     } else {
@@ -87,6 +91,9 @@ fn read_case(dir: &Path, case: &Value) -> Result<Value, NotACase> {
         })
         .collect();
     out.insert("roles".into(), Value::Array(roles));
+    if case.get("warnings").is_some() {
+        out.insert("warnings".into(), warnings_of(&d));
+    }
     if let osd::Descriptor::Device(device) = &d {
         sound_claims(device, case, &mut out);
     }
@@ -94,6 +101,20 @@ fn read_case(dir: &Path, case: &Value) -> Result<Value, NotACase> {
         firmware_claims(f, case, &mut out);
     }
     Ok(Value::Object(out))
+}
+
+/// The warnings of a descriptor, as `{kind, pointer}`, in the order the reader gives them.
+fn warnings_of(d: &osd::Descriptor) -> Value {
+    osd::warnings(d)
+        .into_iter()
+        .map(|w| {
+            let kind = match w.kind {
+                osd::WarningKind::PartialControl => "PartialControl",
+                osd::WarningKind::UnknownProvider(_) => "UnknownProvider",
+            };
+            json!({"kind": kind, "pointer": w.pointer})
+        })
+        .collect()
 }
 
 /// `identity_support`, `identities`, `settings` and `comparisons` of a device with sound transfers.
@@ -269,6 +290,49 @@ fn judge_case(dir: &Path) -> Result<Value, NotACase> {
             json!({"module": j.module, "verdict": verdict})
         })
         .collect();
+    Ok(json!({"result": result}))
+}
+
+/// The descriptor of file `name` of the case, read as a `kind`, or the answer its fault is.
+fn input(dir: &Path, name: &str, kind: osd::Kind) -> Result<Result<osd::Descriptor, Value>, NotACase> {
+    Ok(osd::read(&read_text(&dir.join(name))?, kind).map_err(|f| fault(&f)))
+}
+
+fn match_case(dir: &Path) -> Result<Value, NotACase> {
+    let device = input(dir, "device.json", osd::Kind::Device)?;
+    let fingerprint = input(dir, "fingerprint.json", osd::Kind::Fingerprint)?;
+    let (device, fingerprint) = match (device, fingerprint) {
+        (Ok(osd::Descriptor::Device(d)), Ok(osd::Descriptor::Fingerprint(f))) => (d, f),
+        (Err(f), _) | (_, Err(f)) => return Ok(f),
+        _ => return Err(NotACase("device.json and fingerprint.json are not a device and a fingerprint".into())),
+    };
+    let result: Vec<Value> = osd::match_identity(&device, &fingerprint)
+        .into_iter()
+        .map(|m| {
+            let verdict = match m.verdict {
+                osd::MatchVerdict::Matched => "matched",
+                osd::MatchVerdict::NotMatched => "not_matched",
+                osd::MatchVerdict::NotApplied => "not_applied",
+            };
+            json!({"pointer": m.pointer, "verdict": verdict})
+        })
+        .collect();
+    Ok(json!({"result": result}))
+}
+
+fn same_product_instance_id_case(dir: &Path) -> Result<Value, NotACase> {
+    let a = input(dir, "a.json", osd::Kind::Fingerprint)?;
+    let b = input(dir, "b.json", osd::Kind::Fingerprint)?;
+    let (a, b) = match (a, b) {
+        (Ok(osd::Descriptor::Fingerprint(a)), Ok(osd::Descriptor::Fingerprint(b))) => (a, b),
+        (Err(f), _) | (_, Err(f)) => return Ok(f),
+        _ => return Err(NotACase("a.json and b.json are not two fingerprints".into())),
+    };
+    let result = match osd::same_product_instance_id(&a, &b) {
+        Some(true) => "same",
+        Some(false) => "different",
+        None => "unknown",
+    };
     Ok(json!({"result": result}))
 }
 

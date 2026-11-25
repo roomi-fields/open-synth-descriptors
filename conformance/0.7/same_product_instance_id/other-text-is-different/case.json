@@ -1,0 +1,5 @@
+{
+  "_about": "Two product instance ids that differ are different.",
+  "same_product_instance_id": true,
+  "result": "different"
+}

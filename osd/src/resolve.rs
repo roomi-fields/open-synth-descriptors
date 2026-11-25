@@ -4,6 +4,7 @@
 //! by the rules of the section Resolution of `spec/0.6.md` (23.3 to 23.34),
 //! each held by conformance cases.
 
+use crate::convert::drop_lua_capability_no_field_requires;
 use crate::json::{At, Object};
 use crate::{convert_to, read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind, Version, VERSIONS};
 use serde_json::Value;
@@ -58,7 +59,11 @@ pub struct Resolved {
 /// The `device` keys that say which firmware a file is, not how it speaks
 /// MIDI: a file with `midi_of` keeps these and takes the rest from its target
 /// (23.4, section Resolution of `spec/0.6.md`).
+/// From 0.7 `revision` is no field and the keys are `IDENTITY_0_7`: a pair of two files of 0.6 keeps
+/// `revision` among them (a published version does not change).
 const IDENTITY: [&str; 5] = ["name", "vendor", "revision", "osc_prefix", "kind"];
+/// The identity keys of a pair of which either file is of 0.7 or later.
+const IDENTITY_0_7: [&str; 4] = ["name", "vendor", "osc_prefix", "kind"];
 
 /// Route lists a `midi_of` file may add to its target's, by OSC address
 /// (23.5, 23.7, 23.9; section Resolution of `spec/0.6.md`).
@@ -78,7 +83,7 @@ const PROFILE_DEPTH: usize = 8;
 
 /// The driver `id` as its firmware runs it, by the rules 23.3 to 23.34 of the
 /// section Resolution of `spec/0.6.md`: `follow` applies those of
-/// `midi_of` (23.4 to 23.22), `complete` those of profiles (23.23 to 23.32). A file naming another with
+/// `midi_of` (23.4 to 23.22), `complete_from_profiles` those of profiles (23.23 to 23.32). A file naming another with
 /// `midi_of` (its catalogue id, `m-vave/fm-1.vendor.fw-15`: a firmware that
 /// shares that MIDI interface) keeps its own identity — the `_` keys and
 /// the `device` keys of `IDENTITY` — and takes everything else from the
@@ -91,7 +96,9 @@ const PROFILE_DEPTH: usize = 8;
 /// (`convert_to`, forward only) before they are joined, so the document states
 /// the more recent of the two; a conversion that fails refuses the resolution
 /// in the file it fails in. Then each block
-/// naming a maker profile is completed from it (`complete`).
+/// naming a maker profile is completed from it (`complete_from_profiles`), every
+/// text older than 0.7 carried to 0.7 first when the joined device or one of
+/// those profiles is of 0.7.
 pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
     let mut read = Vec::new();
     let (doc, typed) = fetch(id, files, Kind::Device, &mut read)?
@@ -109,20 +116,26 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
             let declared = doc.get("capabilities").cloned();
             let text_version = version_of(&doc);
             let mut doc = follow(id, doc, text_version, files, &mut Vec::new(), &mut read)?;
-            let maker = maker_of(id).unwrap_or_default().to_string();
-            for key in OWN_BLOCKS {
-                if let Some(block) = doc.get(key).cloned() {
-                    doc[key] = complete(&maker, key, block, id, files, &mut Vec::new(), &mut read)?;
-                }
-            }
+            let converted = complete_from_profiles(&mut doc, id, files, &mut read)?;
             // The capabilities declared were checked on the driver's own text; the
             // merge keeps what the driver declared, not its target's.
             match declared {
                 Some(c) => doc["capabilities"] = c,
                 None => { doc.as_object_mut().map(|o| o.remove("capabilities")); }
             }
+            if converted {
+                // A field the conversion removes may have been the only reason of a declared `lua`.
+                if let Some(o) = doc.as_object_mut() {
+                    drop_lua_capability_no_field_requires(o, Kind::Device);
+                }
+            }
             crate::sound_transfer::check_controls(&doc, true).map_err(|f| f.in_file(id))?;
-            Device::read(&doc, &At::Root).map_err(|f| f.in_file(id))?
+            let device = crate::device::read_device(&doc, &At::Root).map_err(|f| f.in_file(id))?;
+            // The `source` of a reading is judged here, in the union of the file's sources and its target's.
+            if device.schema >= Some(Version::V0_7) {
+                crate::device::check_reading_sources(&device).map_err(|f| f.in_file(id))?;
+            }
+            device
         }
     };
     // The device a virtual instrument stands for is a file of the catalogue.
@@ -184,10 +197,10 @@ fn version_of(doc: &Value) -> Version {
         .unwrap_or(Version::V0_4)
 }
 
-/// The document `doc` of file `file` carried forward to version `to`; a
-/// conversion that fails is the fault of that file.
-fn upgrade(doc: &Value, to: Version, file: &str) -> Result<Value, Fault> {
-    let text = convert_to(&doc.to_string(), Kind::Device, to).map_err(|f| f.in_file(file))?;
+/// The document `doc` of file `file`, of kind `kind`, carried forward to version
+/// `to`; a conversion that fails is the fault of that file.
+fn upgrade(doc: &Value, kind: Kind, to: Version, file: &str) -> Result<Value, Fault> {
+    let text = convert_to(&doc.to_string(), kind, to).map_err(|f| f.in_file(file))?;
     serde_json::from_str(&text).map_err(|e| At::Root.fault(FaultKind::Syntax, e.to_string()).in_file(file))
 }
 
@@ -198,6 +211,7 @@ fn upgrade(doc: &Value, to: Version, file: &str) -> Result<Value, Fault> {
 /// a `params` table without its three shape keys when the target has one.
 fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
     let from_06 = text_version >= Version::V0_6;
+    let own_version_07 = text_version >= Version::V0_7;
     let Some(target) = doc.get("midi_of") else { return Ok(doc) };
     let fault = |kind: FaultKind, pointer: String, why: String| Fault { kind, file: Some(id.to_string()), pointer, rule: format!("midi_of {target}: {why}") };
     let link = |kind: FaultKind, why: &str| fault(kind, "/midi_of".into(), why.into());
@@ -209,7 +223,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     if maker_of(id) != Some(parts[0]) {
         return Err(link(FaultKind::BadValue, "names another maker's driver"));
     }
-    let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k)
+    let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k) || (k == "sources" && own_version_07)
         || (from_06 && k == "capabilities") || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
     if let Some(own) = doc.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
         return Err(fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)")));
@@ -236,7 +250,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     let own_version = version_of(&doc);
     let target_text_version = version_of(&out);
     if target_text_version < own_version {
-        out = upgrade(&out, own_version, tid)?;
+        out = upgrade(&out, Kind::Device, own_version, tid)?;
     }
     chain.push(id.to_string());
     if chain.iter().any(|p| p == tid) {
@@ -247,7 +261,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     }
     let mut out = follow(tid, out, target_text_version, files, chain, read)?;
     let target_version = version_of(&out);
-    let doc = if own_version < target_version { upgrade(&doc, target_version, id)? } else { doc.clone() };
+    let doc = if own_version < target_version { upgrade(&doc, Kind::Device, target_version, id)? } else { doc.clone() };
     let name = |d: &Value| d.pointer("/device/name").and_then(Value::as_str).map(str::to_string);
     if name(&doc).is_some() && name(&doc) != name(&out) {
         return Err(link(FaultKind::BadValue, "the target is another device"));
@@ -259,9 +273,21 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     };
     let obj = out.as_object_mut().ok_or_else(|| link(FaultKind::BadValue, "the target is not a driver"))?;
     // Credit for the MIDI taken from the target: its sources and those it took from.
-    let shared: Vec<Value> = ["_sources", "_midi_of_sources"].iter()
+    // From 0.7 the credit is `sources` and `midi_of_sources`; before, the `_` keys.
+    let (sources_key, shared_key) = if target_version >= Version::V0_7 { ("sources", "midi_of_sources") } else { ("_sources", "_midi_of_sources") };
+    let shared: Vec<Value> = [sources_key, shared_key].iter()
         .filter_map(|k| obj.get(*k).and_then(Value::as_array)).flatten().cloned().collect();
-    obj.retain(|k, _| !k.starts_with('_'));
+    // From 0.7 the `id` of the sources of the file and of its target are one set: each is unique.
+    if target_version >= Version::V0_7 {
+        let taken: HashSet<&str> = shared.iter().filter_map(|s| s.get("id").and_then(Value::as_str)).collect();
+        let own = doc.get("sources").and_then(Value::as_array).into_iter().flatten();
+        for (n, id) in own.enumerate().filter_map(|(n, s)| s.get("id").and_then(Value::as_str).map(|i| (n, i))) {
+            if taken.contains(id) {
+                return Err(fault(FaultKind::BadValue, format!("/sources/{n}"), format!("the id {id} is already a source id of the target")));
+            }
+        }
+    }
+    obj.retain(|k, _| !k.starts_with('_') && !(k == "sources" || k == "midi_of_sources"));
     let mut device = obj.remove("device").unwrap_or_else(|| Value::Object(Default::default()));
     for (k, v) in doc.as_object().into_iter().flatten() {
         if k == "$schema" {
@@ -273,7 +299,10 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
             }
             obj.insert(k.clone(), v.clone());
         } else if k == "device" {
-            for key in IDENTITY {
+            // The rule follows the declared version of the pair, read before the conversion
+            // that removes `revision` made the two texts one version.
+            let keys: &[&str] = if own_version.max(target_text_version) >= Version::V0_7 { &IDENTITY_0_7 } else { &IDENTITY };
+            for &key in keys {
                 match v.get(key) {
                     Some(x) => { device[key] = x.clone(); }
                     None => { device.as_object_mut().map(|d| d.remove(key)); }
@@ -294,7 +323,12 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
                 None => {
                     // Taken as it is: from 0.6 it must then hold the shape keys its target would have given.
                     if k == "params" && from_06 {
-                        let table = crate::device::Params::read(v, &At::Key(&At::Root, "params")).map_err(|f| f.in_file(id))?;
+                        // Its entries are read with the device, in the form of the version it names.
+                        let mut shape = v.clone();
+                        if let Some(o) = shape.as_object_mut().filter(|o| o.get("entries").is_some_and(Value::is_array)) {
+                            o.insert("entries".into(), Value::Array(Vec::new()));
+                        }
+                        let table = crate::device::Params::read(&shape, &At::Key(&At::Root, "params")).map_err(|f| f.in_file(id))?;
                         crate::device::check_params_shape(&table).map_err(|f| f.in_file(id))?;
                     }
                     obj.insert(k.clone(), v.clone());
@@ -305,7 +339,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
         }
     }
     if !shared.is_empty() {
-        obj.insert("_midi_of_sources".into(), Value::Array(shared));
+        obj.insert(shared_key.into(), Value::Array(shared));
     }
     obj.insert("device".into(), device);
     Ok(out)
@@ -320,35 +354,110 @@ fn profile_file(id: &str) -> Option<String> {
     Some(match family { Some(f) => format!("{maker}/_profile.{f}"), None => format!("{maker}/_profile") })
 }
 
-/// Rules 23.23 to 23.32 of the section Resolution of `spec/0.6.md`.
-/// What a maker's models share is written once, in a profile kept in the
-/// maker's folder (`profile_file`): `"identity": {"profile": "roland",
-/// "family": [89, 1], "member": [0, 0]}` takes the Roland identity request,
-/// reply pattern and firmware rule, the model giving its bytes. A block
-/// naming a profile is that profile's block (itself completed from the
-/// profile it names, up to `PROFILE_DEPTH` links, never in a circle) with
-/// the block's own keys in place of the profile's; a key set to null drops
-/// the profile's. The profile is the same maker's. `from` is the file that
-/// writes the block.
-fn complete(maker: &str, key: &str, block: Value, from: &str, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
-    let Some(pid) = block.get("profile").cloned() else { return Ok(block) };
-    let link = |kind: FaultKind, why: String| Fault { kind, file: Some(from.to_string()), pointer: format!("/{key}/profile"), rule: format!("profile {pid}: {why}") };
-    let pid = pid.as_str().ok_or_else(|| link(FaultKind::BadValue, "not a profile id".into()))?.to_string();
-    let file = profile_file(&pid).ok_or_else(|| link(FaultKind::BadValue, "not a profile id (<maker> or <maker>/<name>)".into()))?;
-    if file.split('/').next() != Some(maker) { return Err(link(FaultKind::BadValue, "another maker's".into())); }
-    if chain.contains(&pid) { return Err(link(FaultKind::LinkCycle, "the links come back to it (a circle)".into())); }
-    chain.push(pid.clone());
-    if chain.len() > PROFILE_DEPTH { return Err(link(FaultKind::LinkTooDeep, format!("more than {PROFILE_DEPTH} profile links"))); }
-    let (prof, _) = fetch(&file, files, Kind::Profile, read)?.ok_or_else(|| link(FaultKind::LinkMissing, format!("no file {file}")))?;
-    let base = prof.get(key).cloned().ok_or_else(|| link(FaultKind::LinkMissing, format!("the profile has no {key}")))?;
-    let mut out = complete(maker, key, base, &file, files, chain, read)?;
-    let obj = out.as_object_mut().ok_or_else(|| link(FaultKind::BadValue, format!("its {key} is not an object")))?;
-    for (k, v) in block.as_object().into_iter().flatten() {
-        match v {
-            Value::Null => { obj.remove(k); }
-            v => { obj.insert(k.clone(), v.clone()); }
+/// A profile of the chain of a block: the name that links it, its file, its text and its version.
+struct ProfileLink {
+    name: String,
+    file: String,
+    doc: Value,
+    version: Version,
+}
+
+/// The profiles `block` names, the nearest first: the one it names, then the one that profile's
+/// block names, up to `PROFILE_DEPTH` links, never in a circle. The profile is the same maker's.
+/// `from` is the file that writes the block.
+fn profile_chain(maker: &str, key: &str, block: &Value, from: &str, files: &dyn Files, read: &mut Vec<String>) -> Result<Vec<ProfileLink>, Fault> {
+    let mut chain: Vec<ProfileLink> = Vec::new();
+    let (mut block, mut from) = (block.clone(), from.to_string());
+    while let Some(pid) = block.get("profile").cloned() {
+        let link = |kind: FaultKind, why: String| Fault { kind, file: Some(from.clone()), pointer: format!("/{key}/profile"), rule: format!("profile {pid}: {why}") };
+        let name = pid.as_str().ok_or_else(|| link(FaultKind::BadValue, "not a profile id".into()))?.to_string();
+        let file = profile_file(&name).ok_or_else(|| link(FaultKind::BadValue, "not a profile id (<maker> or <maker>/<name>)".into()))?;
+        if file.split('/').next() != Some(maker) { return Err(link(FaultKind::BadValue, "another maker's".into())); }
+        if chain.iter().any(|l| l.name == name) { return Err(link(FaultKind::LinkCycle, "the links come back to it (a circle)".into())); }
+        if chain.len() >= PROFILE_DEPTH { return Err(link(FaultKind::LinkTooDeep, format!("more than {PROFILE_DEPTH} profile links"))); }
+        let (doc, typed) = fetch(&file, files, Kind::Profile, read)?.ok_or_else(|| link(FaultKind::LinkMissing, format!("no file {file}")))?;
+        block = doc.get(key).cloned().ok_or_else(|| link(FaultKind::LinkMissing, format!("the profile has no {key}")))?;
+        from = file.clone();
+        chain.push(ProfileLink { name, file, doc, version: typed.schema().unwrap_or(Version::V0_4) });
+    }
+    Ok(chain)
+}
+
+/// Rules 23.23 to 23.32 of the section Resolution of `spec/0.6.md`, on each block of the joined
+/// device `doc`. What a maker's models share is written once, in a profile kept in the maker's
+/// folder (`profile_file`): `"identity": {"profile": "roland", "family": [89, 1], "member": [0,
+/// 0]}` takes the Roland identity request, reply pattern and firmware rule, the model giving its
+/// bytes. A block naming a profile is that profile's block (itself completed from the profile it
+/// names) with the block's own keys in place of the profile's; a key set to null drops the
+/// profile's.
+///
+/// When the joined device or one of the profiles is of 0.7, every older text is first carried to
+/// the most recent version among them, so that one form is merged (proposal 0004); the answer says
+/// whether the device was carried.
+fn complete_from_profiles(doc: &mut Value, id: &str, files: &dyn Files, read: &mut Vec<String>) -> Result<bool, Fault> {
+    let maker = maker_of(id).unwrap_or_default();
+    let mut chains = Vec::new();
+    for key in OWN_BLOCKS {
+        if let Some(block) = doc.get(key) {
+            chains.push((key, profile_chain(maker, key, block, id, files, read)?));
         }
     }
-    obj.insert("profile".into(), Value::String(pid));
+    let device_version = version_of(doc);
+    let to = chains.iter().flat_map(|(_, c)| c).map(|l| l.version).fold(device_version, Version::max);
+    let joins_0_7 = to >= Version::V0_7;
+    let converted = joins_0_7 && device_version < to;
+    if converted {
+        *doc = upgrade_joined(doc, to, id)?;
+    }
+    for (key, mut chain) in chains {
+        if joins_0_7 {
+            for l in chain.iter_mut().filter(|l| l.version < to) {
+                l.doc = upgrade(&l.doc, Kind::Profile, to, &l.file)?;
+            }
+        }
+        let Some(deepest) = chain.last() else { continue };
+        let mut out = deepest.doc[key].clone();
+        for n in (0..chain.len()).rev() {
+            let (block, from) = match n.checked_sub(1) {
+                Some(above) => (&chain[above].doc[key], chain[above].file.as_str()),
+                None => (&doc[key], id),
+            };
+            let name = &chain[n].name;
+            let obj = out.as_object_mut().ok_or_else(|| Fault {
+                kind: FaultKind::BadValue,
+                file: Some(from.to_string()),
+                pointer: format!("/{key}/profile"),
+                rule: format!("profile {name}: its {key} is not an object"),
+            })?;
+            for (k, v) in block.as_object().into_iter().flatten() {
+                match v {
+                    Value::Null => { obj.remove(k); }
+                    v => { obj.insert(k.clone(), v.clone()); }
+                }
+            }
+            obj.insert("profile".into(), Value::String(name.clone()));
+        }
+        doc[key] = out;
+    }
+    Ok(converted)
+}
+
+/// The joined device carried to `to`. Its links are followed, so `midi_of` is set aside while it
+/// is converted. The converter reads a device alone, whose `capabilities` are those its fields
+/// require: it is given that list, and the caller puts back what the driver declared.
+fn upgrade_joined(doc: &Value, to: Version, id: &str) -> Result<Value, Fault> {
+    let mut alone = doc.clone();
+    let link = alone.as_object_mut().and_then(|o| {
+        o.remove("capabilities");
+        o.remove("midi_of")
+    });
+    let required = crate::device::read_device(&alone, &At::Root).map_err(|f| f.in_file(id))?.derived_capabilities();
+    if crate::is_05_form(Some(version_of(&alone))) && !required.is_empty() {
+        alone["capabilities"] = required.iter().map(|c| Value::from(c.word())).collect();
+    }
+    let mut out = upgrade(&alone, Kind::Device, to, id)?;
+    if let (Some(o), Some(link)) = (out.as_object_mut(), link) {
+        o.insert("midi_of".into(), link);
+    }
     Ok(out)
 }

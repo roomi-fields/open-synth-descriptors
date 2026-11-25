@@ -1,0 +1,8 @@
+{
+  "_about": "A `title` is a field from 0.7: a 0.6 trigger that carries one is refused as UnknownField, at the key.",
+  "read": "device",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/triggers/entries/0/title"
+  }
+}

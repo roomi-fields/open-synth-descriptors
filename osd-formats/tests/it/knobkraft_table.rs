@@ -57,9 +57,13 @@ fn the_document_does_not_list_a_function_the_export_neither_writes_nor_names_los
 fn every_function_the_export_names_lost_is_a_line_of_the_document() {
     let doc = read("docs/knobkraft.md");
     let (_, lost) = exported(&device(json!({"programs": null})));
-    for l in lost.iter().filter(|l| WRITTEN.contains(&l.place.as_str()) || LEFT_TO_HAND.contains(&l.place.as_str())) {
-        line_of(&doc, &l.place);
+    for f in WRITTEN.iter().chain(LEFT_TO_HAND.iter()) {
+        if let Some(l) = lost.iter().find(|l| l.reason.starts_with(&format!("{f}: "))) {
+            assert!(l.place.starts_with('/'), "{l:?}");
+            line_of(&doc, f);
+        }
     }
+    assert!(lost.iter().any(|l| l.reason.starts_with("numberOfBanks: ")), "{lost:?}");
 }
 
 #[test]

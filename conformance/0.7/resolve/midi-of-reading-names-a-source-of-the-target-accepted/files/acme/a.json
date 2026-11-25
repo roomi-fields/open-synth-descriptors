@@ -1,0 +1,26 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "midi_of": "acme/b",
+  "sources": [
+    {
+      "type": "vendor-doc",
+      "id": "mine"
+    }
+  ],
+  "commands": [
+    {
+      "osc": "/dump",
+      "readings": [
+        {
+          "state": "valid",
+          "firmware": "1.2",
+          "source": "manual"
+        }
+      ]
+    }
+  ]
+}

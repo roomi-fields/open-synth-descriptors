@@ -1,0 +1,9 @@
+{
+  "_about": "`slice` is `[low, high]` with low at most high: [64, 63] is refused.",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/0/ways/0/slice"
+  }
+}

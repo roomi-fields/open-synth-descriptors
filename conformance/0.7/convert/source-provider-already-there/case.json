@@ -1,0 +1,28 @@
+{
+  "_about": "A source of 0.6 has no `provider` field, but may carry the key: a well-formed string is kept and wins over the partner's identifier; any other value stays under `_provider`, and the partner's identifier takes its place.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "contributed",
+        "provider": "acme-synths",
+        "notes": "type in 0.6: knobkraft"
+      },
+      {
+        "type": "contributed",
+        "provider": "electra-one",
+        "_provider": "Electra One",
+        "notes": "type in 0.6: electra-preset"
+      },
+      {
+        "type": "vendor-doc",
+        "_provider": 7
+      }
+    ]
+  }
+}

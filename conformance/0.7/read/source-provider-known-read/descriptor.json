@@ -1,0 +1,27 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "sources": [
+    {
+      "type": "contributed",
+      "provider": "electra-one"
+    },
+    {
+      "type": "vendor-doc",
+      "title": "MIDI implementation"
+    }
+  ],
+  "midi_of_sources": [
+    {
+      "type": "contributed",
+      "provider": "pencilresearch"
+    },
+    {
+      "type": "contributed",
+      "provider": "knobkraft"
+    }
+  ]
+}

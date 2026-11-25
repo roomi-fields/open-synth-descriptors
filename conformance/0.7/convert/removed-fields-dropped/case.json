@@ -1,0 +1,21 @@
+{
+  "_about": "The converter drops the seven fields 0.7 removes: `transform_reverse` (on a `cc_params` and a `params` entry), `device.revision`, `device.transport.rate_limit_hz`, `sysex.footer`, `midi_out.note_offset`, `identity.sends` and `sources[].imported_at`. `device.rate_limit_hz`, `capabilities` and `_coverage` stay.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "T", "osc_prefix": "/t", "rate_limit_hz": 50, "transport": { "kind": "midi" } },
+    "capabilities": ["lua"],
+    "_coverage": { "controls": 3 },
+    "sources": [{ "type": "vendor-doc", "notes": "A test device." }],
+    "sysex": { "header": [240, 67] },
+    "midi_out": { "default_channel": 1 },
+    "identity": { "reply": [240, 126, "any", 6, 2] },
+    "cc_params": { "entries": [{ "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }], "transform": "x * 2" }] },
+    "params": {
+      "get_frame": [240, 247],
+      "set_frame": [240, 247],
+      "value_type": "u7",
+      "entries": [{ "osc": "/b", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [3] }], "transform": "x * 2" }]
+    }
+  }
+}

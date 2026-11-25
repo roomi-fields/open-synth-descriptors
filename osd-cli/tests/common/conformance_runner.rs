@@ -11,8 +11,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Keys of `case.json` that expect nothing: the kind selectors and the inputs a case states.
-const NOT_EXPECTATIONS: [&str; 9] =
-    ["read", "convert", "resolve", "resolve_assembly", "coding", "bytes", "judge_needs", "device", "schema_pointer"];
+const NOT_EXPECTATIONS: [&str; 11] = [
+    "read", "convert", "resolve", "resolve_assembly", "coding", "bytes", "judge_needs", "match_identity",
+    "same_product_instance_id", "device", "schema_pointer",
+];
 /// Keys of `case.json` about the schema, not the reader.
 const ABOUT_THE_SCHEMA: [&str; 2] = ["schema_accepts", "schema_refused"];
 

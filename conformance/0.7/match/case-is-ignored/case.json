@@ -1,0 +1,10 @@
+{
+  "_about": "A value in mixed case matches the lower-case name of a fingerprint.",
+  "match_identity": true,
+  "result": [
+    {
+      "pointer": "/identity/ports/0",
+      "verdict": "matched"
+    }
+  ]
+}

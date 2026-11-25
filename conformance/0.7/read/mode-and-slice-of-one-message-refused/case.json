@@ -1,0 +1,9 @@
+{
+  "_about": "A mode and a slice of one message share no coordinate: a value of the mode may fall in the slice, refused (pair a-e).",
+  "read": "device",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/cc_params/entries/1/ways/0"
+  }
+}

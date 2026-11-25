@@ -1,0 +1,8 @@
+{
+  "_about": "An empty value would hold for every name: it is refused at the value.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/identity/ports/0/value"
+  }
+}

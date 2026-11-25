@@ -174,10 +174,21 @@ fn the_adapter_passes_every_case_of_every_published_version_with_the_comparison_
         }
     }
     assert!(count > 400, "{count} cases found");
-    for kind in ["read", "convert", "resolve", "resolve_assembly", "coding", "judge_needs", "vocabulary"] {
+    for kind in ["read", "convert", "resolve", "resolve_assembly", "coding", "judge_needs", "vocabulary", "match", "same_product_instance_id"] {
         assert!(kinds.contains(kind), "no case of kind {kind} run: {kinds:?}");
     }
     crate::common::report("cases the adapter does not pass", failures);
+}
+
+#[test]
+fn the_adapter_answers_a_match_case_with_the_verdict_of_each_rule_and_an_instance_id_case_with_one_word() {
+    for name in ["0.7/match/endpoint-rule-not-matched", "0.7/same_product_instance_id/other-case-is-different"] {
+        let dir = suite().join(name);
+        let run = osd(&["conformance", dir.to_str().unwrap()]);
+        assert_eq!(run.code, 0, "{name}: {}", run.stderr);
+        let got: Value = serde_json::from_str(&run.stdout).unwrap();
+        assert_eq!(got["result"], case_json(&dir)["result"], "{name}");
+    }
 }
 
 #[test]
@@ -238,6 +249,9 @@ fn the_interface_writes_the_adapter_word_with_its_exit_code_2_and_the_help_says_
     let text = std::fs::read_to_string(repo().join("osd-cli/docs/INTERFACE.md")).unwrap();
     let row = text.lines().find(|l| l.starts_with("| `conformance`")).expect("a row for the word conformance in INTERFACE.md");
     assert!(row.contains("exit 2"), "{row}");
+    for kind in ["match_identity", "same_product_instance_id"] {
+        assert!(row.contains(kind), "the row names no case of kind {kind}: {row}");
+    }
     let help = osd(&["conformance", "--help"]);
     assert_eq!(help.code, 0, "{}", help.stderr);
     assert!(help.stdout.contains("conformance"), "{}", help.stdout);

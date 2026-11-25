@@ -4,6 +4,16 @@ The changes of the `osd` command. The changes of the reader it is built on are i
 
 ## Unreleased
 
+- A control or a `params` entry with no message is no longer refused (see `osd/CHANGELOG.md`). `validate`, `convert`, `resolve`, `import` and `export` print on the error output, for each, `<file or id asked>: warning at "<pointer>": the control gives no message: it is to be completed`; the standard output and the exit codes do not change. `export midi-csv` writes its row with no CC nor NRPN and `export oscquery` its node, each naming in the losses what it cannot carry. `osd conformance` writes `warnings` for a reading case that states it.
+
+- `osd import --into` converts a base before 0.7 to 0.7; a base that does not convert is exit 1, its fault printed under the name of the `--into` file, and no descriptor is written.
+
+- `osd import` takes `--source-provider <id>`, who supplies the file (an identifier that is not well formed is a misuse, exit 2). `validate`, `convert`, `resolve`, `import` and `export` print on the error output one line per `provider` the table of providers does not hold; the standard output and the exit codes do not change.
+
+- `osd import` writes a 0.7 descriptor with its credit under `sources`, and `osd export` names `/sources` in the losses it prints; the descriptors it reads before 0.7 keep `_sources` and are read as before.
+
+- 0.7 (candidate): `osd validate`, `convert` and `resolve` take the rules on port names and the signs of MIDI 2.0 of proposal 0004, and `osd conformance` answers the cases `match_identity` and `same_product_instance_id`. The published version stays 0.6.
+
 ## 0.6.0 - 2026-11-23
 
 - `osd convert` writes 0.6 by default (it wrote 0.5), and `--to <version>` names another; the templates of `osd init` are 0.6.

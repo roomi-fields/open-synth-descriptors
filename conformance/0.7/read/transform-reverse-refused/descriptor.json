@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "capabilities": ["lua"],
+  "device": { "name": "S", "osc_prefix": "/s" },
+  "cc_params": { "entries": [{ "osc": "/a", "ways": [{ "ctrlType": "cc", "ctrlIndex": [1] }], "transform": "x * 2", "transform_reverse": "x // 2" }] }
+}

@@ -1,0 +1,9 @@
+{
+  "_about": "The `id` of the sources of a file with `midi_of` and of its target form one set where each is unique: an `id` of the file that the target already has is refused as BadValue, in the file of the duplicate.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/sources/0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "_about": "A file with `midi_of` and no `identity` block gets none (it would replace the target's whole block): the value stays as the note `device._manufacturer_id`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t",
+      "_manufacturer_id": [
+        66
+      ],
+      "device_id": [
+        0
+      ]
+    },
+    "midi_of": "acme/b"
+  }
+}
