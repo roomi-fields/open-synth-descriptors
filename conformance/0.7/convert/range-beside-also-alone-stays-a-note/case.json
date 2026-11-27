@@ -1,0 +1,111 @@
+{
+  "_about": "A control of 0.6 with a `range`, no flat message and a non-empty `also`, which no way takes: the converter keeps the `range`, unchanged, on the entry as the note `_range` (`_range_2` when `_range` is taken) and converts the rest. A way has a `range` only when its element of `also` gave one, and no `scale` is written for a control without `default`, `values` or `step_count`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/first",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ],
+          "_range": [
+            0,
+            127
+          ]
+        },
+        {
+          "osc": "/b",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                75
+              ],
+              "range": [
+                0,
+                99
+              ]
+            }
+          ],
+          "_range": "mine",
+          "_range_2": [
+            0,
+            500
+          ]
+        },
+        {
+          "osc": "/c",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                3,
+                0
+              ],
+              "value_bits": 14,
+              "transmit": "absolute",
+              "nrpn_lsb_range": [
+                0,
+                7
+              ]
+            }
+          ],
+          "_range": [
+            0,
+            127
+          ]
+        },
+        {
+          "osc": "/d",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                76
+              ]
+            },
+            {
+              "ctrlType": "rpn",
+              "ctrlIndex": [
+                0,
+                1
+              ],
+              "value_bits": 7
+            }
+          ],
+          "_range": [
+            0,
+            127
+          ],
+          "_nrpn_lsb_range": [
+            0,
+            7
+          ]
+        }
+      ]
+    }
+  }
+}

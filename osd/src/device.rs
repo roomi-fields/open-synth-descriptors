@@ -90,6 +90,8 @@ object! {
         "$schema" schema: Option<Version> = Opt(SchemaUrlFrom05("profile")),
         "identity" identity: Option<Identity> = Opt(obj()),
         "programs" programs: Option<Programs> = Opt(obj()),
+        /// Where the data comes from, with its credit, licence and the firmware it documents (0.7).
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
     }
     check check_profile
 }
@@ -425,13 +427,45 @@ fn check_vocabularies(d: &Device) -> Result<(), Fault> {
             }
         }
     }
-    for (key, list) in [("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)] {
+    check_source_words(d.schema, &credit_of(d))
+}
+
+/// A list of sources of a descriptor, under its key.
+type Credit<'a> = (&'static str, &'a Option<Vec<Source>>);
+
+/// The lists of sources of a device, in the order their `id` and warnings are read.
+fn credit_of(d: &Device) -> [Credit<'_>; 2] {
+    [("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)]
+}
+
+/// The sources of a file that is no device, each list under the pointer of the object that holds
+/// it (empty for the file's own, `/made_on` for the assembly of a sound): their words, then their
+/// `id`, written once in the whole file; the fault is at the pointer in that file.
+pub(crate) fn check_credit(schema: Option<Version>, lists: &[(String, &Option<Vec<Source>>)]) -> Result<(), Fault> {
+    let mut seen = std::collections::HashSet::new();
+    for (holder, list) in lists {
+        let credit = [("sources", *list)];
+        check_source_words(schema, &credit)
+            .and_then(|()| check_source_ids(&credit, &mut seen))
+            .map_err(|mut f| {
+                f.pointer.insert_str(0, holder);
+                f
+            })?;
+    }
+    Ok(())
+}
+
+/// The words of each source of `lists`: its `type` and `license`, and from 0.7 its `provider` and
+/// its `profile`.
+fn check_source_words(schema: Option<Version>, lists: &[Credit]) -> Result<(), Fault> {
+    let from_0_7 = schema >= Some(Version::V0_7);
+    for (key, list) in lists {
         for (n, s) in list.iter().flatten().enumerate() {
             let at = format!("/{key}/{n}");
-            let from_0_7 = d.schema >= Some(Version::V0_7);
             vocabulary::check_source(&s.kind, s.license.as_deref(), from_0_7, &at)?;
             if from_0_7 {
                 check_provider(s, &at)?;
+                check_profile_of_source(s, &at)?;
             }
         }
     }
@@ -444,6 +478,16 @@ fn check_provider(s: &Source, at: &str) -> Result<(), Fault> {
     if s.extra.contains_key("provider") || s.provider.as_deref().is_some_and(|p| !is_provider(p)) {
         let rule = "a provider is lowercase letters and digits in groups joined by single hyphens, at most 64 characters";
         return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/provider"), rule: rule.into() });
+    }
+    Ok(())
+}
+
+/// The `profile` of a source of 0.7, the maker profile it comes from, is a text; that the profile
+/// exists is never checked.
+fn check_profile_of_source(s: &Source, at: &str) -> Result<(), Fault> {
+    if s.extra.get(PROFILE_OF_SOURCE).is_some_and(|p| !p.is_string()) {
+        let rule = "the profile a source comes from is a text";
+        return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/{PROFILE_OF_SOURCE}"), rule: rule.into() });
     }
     Ok(())
 }
@@ -666,7 +710,7 @@ fn check_device(d: &Device, _: &At) -> Result<(), Fault> {
     check_stands_for(d)?;
     if d.schema >= Some(Version::V0_7) {
         check_controls_0_7(d)?;
-        check_source_ids(d)?;
+        check_source_ids(&credit_of(d), &mut Default::default())?;
         if d.midi_of.is_none() {
             check_reading_sources(d)?;
         }
@@ -777,7 +821,8 @@ fn check_profile(p: &Profile, _: &At) -> Result<(), Fault> {
     for (pointer, place, tokens) in frames {
         check_frame(tokens, place, &pointer, v05)?;
     }
-    Ok(())
+    // `sources` is a field of a profile from 0.7 alone ([`read_profile`]).
+    check_credit(p.schema, &[(String::new(), &p.sources)])
 }
 
 fn convert_frame(tokens: &mut [FrameToken], place: Place, at: &At) -> Result<(), Fault> {
@@ -1485,10 +1530,13 @@ object! {
 /// (`spec/0.7.md`, `ctrlIndex` and `value_bits`).
 fn check_way(w: &Way, at: &At) -> Result<(), Fault> {
     let index_at = At::Key(at, "ctrlIndex");
+    // A `sysex` way of one number gives the parameter's own number, which is not limited to a byte.
+    let alone = w.ctrl_type == "sysex" && w.ctrl_index.as_ref().is_some_and(|i| i.len() == 1);
     let (count, top): (&[usize], i64) = match w.ctrl_type.as_str() {
         "cc" => (&[1, 2], 127),
         "nrpn" | "rpn" => (&[2], 127),
         "pPress" | "note" => (&[1], 127),
+        "sysex" if alone => (&[1], i64::MAX),
         "sysex" => (&[1, 2, 3, 4], 255),
         _ => (&[], 0),
     };
@@ -1496,7 +1544,12 @@ fn check_way(w: &Way, at: &At) -> Result<(), Fault> {
         (Some(_), true) => return Err(index_at.bad("absent: this kind has no numbers")),
         (None, false) => return Err(index_at.fault(FaultKind::Missing, "ctrlIndex is required: the numbers of the message")),
         (Some(i), false) if !count.contains(&i.len()) || i.iter().any(|n| *n < 0 || *n > top) => {
-            return Err(index_at.bad(format!("{} integers from 0 to {top}", count.iter().map(usize::to_string).collect::<Vec<_>>().join(" or "))));
+            let rule = if w.ctrl_type == "sysex" {
+                "1 integer of 0 or more, or 2 to 4 integers from 0 to 255".to_string()
+            } else {
+                format!("{} integers from 0 to {top}", count.iter().map(usize::to_string).collect::<Vec<_>>().join(" or "))
+            };
+            return Err(index_at.bad(rule));
         }
         _ => {}
     }
@@ -1604,7 +1657,7 @@ fn convert_between(v: i64, from: [i64; 2], to: [i64; 2]) -> i64 {
 
 /// The reference scale of the ways of a control: the scale it gives, else the one of its most precise
 /// way (the highest maximum, the first on a tie); `None` when neither says it.
-fn known_scale(scale: Option<[i64; 2]>, ways: &[Way]) -> Option<[i64; 2]> {
+pub(crate) fn known_scale(scale: Option<[i64; 2]>, ways: &[Way]) -> Option<[i64; 2]> {
     scale.or_else(|| {
         let mut best: Option<(&Way, [i64; 2])> = None;
         for w in ways {
@@ -1687,6 +1740,13 @@ object! {
         /// The messages that address the parameter, `sysex` ways (0.7); empty when the message is
         /// not known yet: the entry is partial, to be completed.
         "ways" ways: Vec<Way> = list(obj()),
+    }
+    kept {
+        /// The key of the note that holds the `id` of a text before 0.7 no way can carry (a negative
+        /// `id`, the one number of its entry). No key of any version: only the writing of an older
+        /// version reads it.
+        #[doc(hidden)]
+        flat_id: Option<String>
     }
 }
 
@@ -2074,7 +2134,33 @@ object! {
 }
 
 /// The key the credit is written under before 0.7.
-const LEGACY_SOURCES: &str = "_sources";
+pub(crate) const LEGACY_SOURCES: &str = "_sources";
+
+/// The key of a source that names the maker profile it comes from (0.7).
+pub(crate) const PROFILE_OF_SOURCE: &str = "profile";
+
+/// Whether `source` reads as a source of 0.7, taken alone; its `id`, if it has one.
+pub(crate) fn source_of_0_7(source: &Value) -> Option<Option<String>> {
+    let list = Some(vec![Source::read(source, &At::Root).ok()?]);
+    let dated = source.get("imported_at").is_some();
+    check_credit(Some(Version::V0_7), &[(String::new(), &list)]).ok().filter(|()| !dated)?;
+    Some(list.into_iter().flatten().next().and_then(|s| s.id))
+}
+
+/// The keys of the credit of a maker profile, a sound, a fingerprint, a firmware or an assembly
+/// `v` of version `schema`, judged before it is read: from 0.7 `_sources` is refused, and the date of
+/// a source of `sources`, which is no field; before 0.7 `sources` is no field.
+pub(crate) fn check_credit_keys(v: &Value, at: &At, schema: Option<Version>) -> Result<(), Fault> {
+    let Some(o) = v.as_object() else { return Ok(()) };
+    if schema >= Some(Version::V0_7) {
+        refuse_legacy_sources(o, at)?;
+        return refuse_paths(v, at, &[&["sources", "*", "imported_at"]], "is not a field from 0.7");
+    }
+    match o.contains_key("sources") {
+        true => Err(At::Key(at, "sources").fault(FaultKind::UnknownField, "sources is not a field before 0.7")),
+        false => Ok(()),
+    }
+}
 
 /// `o` with the key `from` named `to`, at the same place.
 pub(crate) fn rename_key(o: &serde_json::Map<String, Value>, from: &str, to: &str) -> serde_json::Map<String, Value> {
@@ -2082,9 +2168,10 @@ pub(crate) fn rename_key(o: &serde_json::Map<String, Value>, from: &str, to: &st
 }
 
 /// The keys 0.7 removes from the objects the format closes, as paths from the root of a device or
-/// a profile (`*` is every entry of a list). The converter 0.6 to 0.7 drops them and a reader of
-/// 0.7 refuses them as unknown fields, `sources[].imported_at` too, though a source is an open
-/// object.
+/// a profile (`*` is every entry of a list). A reader of 0.7 refuses them as unknown fields,
+/// the date of a source of `sources` and of `midi_of_sources` too, though a source is an open
+/// object. The converter 0.6 to 0.7 drops them, but for that date, which it keeps as a note
+/// ([`drop_removed_in_0_7`]).
 const REMOVED_IN_0_7: &[&[&str]] = &[
     &["cc_params", "entries", "*", "transform_reverse"],
     &["params", "entries", "*", "transform_reverse"],
@@ -2094,6 +2181,7 @@ const REMOVED_IN_0_7: &[&[&str]] = &[
     &["midi_out", "note_offset"],
     &["identity", "sends"],
     &["sources", "*", "imported_at"],
+    &["midi_of_sources", "*", "imported_at"],
 ];
 
 /// The keys defined only from 0.7, as paths from the root of a device (`*` is every entry of a
@@ -2147,11 +2235,10 @@ pub(crate) fn refuse_removed_in_0_7(v: &Value, at: &At) -> Result<(), Fault> {
     refuse_paths(v, at, REMOVED_IN_0_7, "is not a field from 0.7")
 }
 
-/// The `id` of the sources of a file (`sources` then `midi_of_sources`): each is a text that is not
-/// empty, and written once; the later entry is refused.
-fn check_source_ids(d: &Device) -> Result<(), Fault> {
-    let mut seen = std::collections::HashSet::new();
-    for (key, list) in [("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)] {
+/// The `id` of the sources of a file (those of `lists`, in order): each is a text that is not empty,
+/// and written once, `seen` holding those of the file met before; the later entry is refused.
+fn check_source_ids<'a>(lists: &[Credit<'a>], seen: &mut std::collections::HashSet<&'a str>) -> Result<(), Fault> {
+    for (key, list) in lists {
         for (n, s) in list.iter().flatten().enumerate() {
             let at = format!("/{key}/{n}");
             if s.extra.contains_key("id") || s.id.as_deref() == Some("") {
@@ -2193,8 +2280,9 @@ pub(crate) fn check_reading_sources(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
-/// `v` without the keys 0.7 removes, and without `imported_at` in each of `sources` and
-/// `midi_of_sources`.
+/// `v` without the keys 0.7 removes from the objects it closes. The keys of a source are not
+/// dropped here: the converter carries each source ([`crate::convert::carry_source`]), its date
+/// included.
 pub(crate) fn drop_removed_in_0_7(v: &mut Value) {
     fn walk(v: &mut Value, path: &[&str]) {
         let Some((key, rest)) = path.split_first() else { return };
@@ -2211,13 +2299,15 @@ pub(crate) fn drop_removed_in_0_7(v: &mut Value) {
             _ => {}
         }
     }
-    REMOVED_IN_0_7.iter().for_each(|path| walk(v, path));
-    for list in ["sources", "midi_of_sources"] {
-        if let Some(Value::Array(sources)) = v.get_mut(list) {
-            sources.iter_mut().filter_map(Value::as_object_mut).for_each(|s| {
-                s.remove("imported_at");
-            });
-        }
+    let of_a_source = |path: &[&str]| matches!(path.first(), Some(&("sources" | "midi_of_sources")));
+    REMOVED_IN_0_7.iter().filter(|path| !of_a_source(path)).for_each(|path| walk(v, path));
+}
+
+/// A descriptor of 0.7 that names its credit `sources` carries no `_sources`, whatever its value.
+fn refuse_legacy_sources(o: &serde_json::Map<String, Value>, at: &At) -> Result<(), Fault> {
+    match o.contains_key(LEGACY_SOURCES) {
+        true => Err(At::Key(at, LEGACY_SOURCES).fault(FaultKind::BadValue, "`_sources` is not read from 0.7: the credit is `sources`")),
+        false => Ok(()),
     }
 }
 
@@ -2228,9 +2318,7 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     let schema = crate::json::field(o, "$schema", at, Opt(SchemaUrlFrom05("device"))).ok().flatten();
     if schema >= Some(Version::V0_7) {
         refuse_removed_in_0_7(v, at)?;
-        if o.contains_key(LEGACY_SOURCES) {
-            return Err(At::Key(at, LEGACY_SOURCES).fault(FaultKind::BadValue, "`_sources` is not read from 0.7: the credit is `sources`"));
-        }
+        refuse_legacy_sources(o, at)?;
         return Device::read(v, at);
     }
     refuse_paths(v, at, FROM_0_7, "is not a field before 0.7")?;
@@ -2241,7 +2329,7 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     }
     // The reader models the form of 0.7: the controls of an older text are read in their own form,
     // with its checks, and lifted to ways.
-    let (mut lifted, kept) = crate::flat::lift(o, schema, at)?;
+    let (mut lifted, kept, kept_ids) = crate::flat::lift(o, schema, at)?;
     move_manufacturer_id(&mut lifted);
     let rules = take_port_names(&mut lifted, at)?;
     let renamed = Value::Object(rename_key(&lifted, LEGACY_SOURCES, "sources"));
@@ -2255,6 +2343,9 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     for (entry, flat) in device.cc_params.iter_mut().flat_map(|t| &mut t.entries).zip(kept) {
         entry.flat = flat;
     }
+    for (entry, id) in device.params.iter_mut().flat_map(|t| &mut t.entries).zip(kept_ids) {
+        entry.flat_id = id;
+    }
     // `provider` is a field from 0.7: before, it is a key of the source like another.
     for source in device.sources.iter_mut().flatten() {
         if let Some(p) = source.provider.take() {
@@ -2264,15 +2355,19 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     Ok(device)
 }
 
-/// The profile of `v`, read in the form of 0.7 as [`read_device`] reads a device.
+/// The profile of `v`, read in the form of 0.7 as [`read_device`] reads a device. The credit is
+/// `sources` from 0.7, where `_sources` is refused; before 0.7 `sources` is no field and `_sources`
+/// is a note.
 pub(crate) fn read_profile(v: &Value, at: &At) -> Result<Profile, Fault> {
     let Some(o) = v.as_object() else { return Profile::read(v, at) };
     let schema = crate::json::field(o, "$schema", at, Opt(SchemaUrlFrom05("profile"))).ok().flatten();
     if schema >= Some(Version::V0_7) {
         refuse_removed_in_0_7(v, at)?;
+        check_credit_keys(v, at, schema)?;
         return Profile::read(v, at);
     }
     refuse_from_0_7(v, at)?;
+    check_credit_keys(v, at, schema)?;
     let mut older = o.clone();
     let rules = take_port_names(&mut older, at)?;
     let mut profile = Profile::read(&Value::Object(older), at)?;
@@ -2388,7 +2483,8 @@ pub(crate) fn write_device(d: &Device) -> Value {
         Value::Object(o) if d.schema < Some(Version::V0_7) => {
             let mut v = Value::Object(rename_key(&o, "sources", LEGACY_SOURCES));
             let kept = d.cc_params.iter().flat_map(|t| &t.entries).map(|e| e.flat.as_deref()).collect::<Vec<_>>();
-            crate::flat::flatten(&mut v, d.schema, &kept);
+            let kept_ids = d.params.iter().flat_map(|t| &t.entries).map(|e| e.flat_id.as_deref()).collect::<Vec<_>>();
+            crate::flat::flatten(&mut v, d.schema, &kept, &kept_ids);
             manufacturer_id_to_device(&mut v);
             port_rules_to_names(&mut v);
             v

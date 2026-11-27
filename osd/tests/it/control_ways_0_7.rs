@@ -330,14 +330,6 @@ fn a_params_entry_has_sysex_ways_with_the_numbers_of_its_frame_range_width_and_d
     assert_eq!(ways, vec![vec![("sysex".to_string(), vec![16, 2, 0, 0])], vec![("sysex".to_string(), vec![5])]]);
 }
 
-#[test]
-fn the_numbers_of_a_sysex_way_are_bytes() {
-    for index in [json!([256]), json!([-1]), json!([]), json!([1, 2, 3, 4, 5])] {
-        assert!(read(&params_doc(vec![json!({"osc": "/a", "ways": [way("sysex", index.clone())]})])).is_err(), "{index}");
-    }
-    ok(&params_doc(vec![json!({"osc": "/a", "ways": [way("sysex", json!([255, 0]))]})]));
-}
-
 // ---- the message claimed once, by side
 
 #[test]

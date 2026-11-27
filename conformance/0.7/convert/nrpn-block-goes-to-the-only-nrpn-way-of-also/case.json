@@ -1,0 +1,39 @@
+{
+  "_about": "With no flat NRPN, the `nrpn_lsb_range` of a control of 0.6 goes to the single NRPN way of its `also`, and to it alone.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            },
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                3,
+                0
+              ],
+              "value_bits": 14,
+              "nrpn_lsb_range": [
+                0,
+                7
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

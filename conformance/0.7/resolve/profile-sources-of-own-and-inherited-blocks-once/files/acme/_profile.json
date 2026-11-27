@@ -1,0 +1,20 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+  "identity": {
+    "reply_text": "acme"
+  },
+  "programs": {
+    "banks": [
+      {
+        "name": "A",
+        "size": 128
+      }
+    ]
+  },
+  "sources": [
+    {
+      "type": "vendor-doc",
+      "title": "P"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "_about": "A `profile` of a 0.6 source that is not a string is kept under `_profile`, the next free number when taken; a string stays.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "_profile": 5
+      },
+      {
+        "type": "vendor-doc",
+        "_profile_2": [
+          1
+        ],
+        "_profile": "taken"
+      },
+      {
+        "type": "vendor-doc",
+        "profile": "acme"
+      }
+    ]
+  }
+}

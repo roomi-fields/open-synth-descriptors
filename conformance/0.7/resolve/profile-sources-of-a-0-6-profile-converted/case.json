@@ -1,0 +1,29 @@
+{
+  "_about": "A 0.6 profile joined into a 0.7 result gives the sources its `_sources` converts to; an entry not carried adds nothing.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "sources": [
+      {
+        "type": "contributed",
+        "provider": "knobkraft",
+        "notes": "type in 0.6: knobkraft",
+        "profile": "acme"
+      },
+      {
+        "type": "contributed",
+        "url": "https://example.org",
+        "notes": "no type in 0.6",
+        "profile": "acme"
+      }
+    ]
+  }
+}

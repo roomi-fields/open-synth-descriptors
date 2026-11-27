@@ -1956,14 +1956,16 @@
     },
     "sysex_way": {
       "type": "object",
-      "description": "One message that addresses a parameter of a params entry in the maker's frame: ctrlType sysex, ctrlIndex the numbers [pr, p, c, r] (each a byte, only those the entry gives) or [id], with the range, the width and the direction of its value.",
+      "description": "One message that addresses a parameter of a params entry in the maker's frame: ctrlType sysex, ctrlIndex one number of 0 or more, not limited to a byte (the id, or the pr of an entry that gives it alone), or 2 to 4 numbers, each a byte (pr, p, c, r, only those the entry gives), with the range, the width and the direction of its value.",
       "properties": {
         "ctrlType": { "const": "sysex" },
         "ctrlIndex": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "items": { "type": "integer", "minimum": 0 },
           "minItems": 1,
-          "maxItems": 4
+          "maxItems": 4,
+          "if": { "minItems": 2 },
+          "then": { "items": { "maximum": 255 } }
         },
         "value_bits": { "enum": [7, 14] },
         "range": {
@@ -2072,7 +2074,7 @@
           "items": {
             "$ref": "#/$defs/sysex_way"
           },
-          "description": "The messages that address the parameter in the maker's frame, in the order of preference: ways of kind sysex, by `ctrlIndex` ([pr, p, c, r] or [id]). An empty list says the message is not known yet: the entry is partial, to be completed, and the reader warns of it."
+          "description": "The messages that address the parameter in the maker's frame, in the order of preference: ways of kind sysex, by `ctrlIndex` ([id], or [pr, p, c, r]). An empty list says the message is not known yet: the entry is partial, to be completed, and the reader warns of it."
         },
         "readings": {
           "type": "array",
@@ -2524,6 +2526,10 @@
         },
         "commit": {
           "type": "string"
+        },
+        "profile": {
+          "type": "string",
+          "description": "The maker profile the source comes from, by its id (maker or maker/family): a resolving reader writes it; a reader keeps one an author wrote and never checks that the profile exists."
         },
         "imported_at": false,
         "notes": {

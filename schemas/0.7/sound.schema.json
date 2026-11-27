@@ -13,12 +13,20 @@
   "patternProperties": {
     "^_": {
       "description": "A note for people; never read by a program."
-    }
+    },
+    "^_sources$": false
   },
   "additionalProperties": false,
   "properties": {
     "$schema": {
       "const": "https://w3id.org/osd/0.7/sound.schema.json"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "device.schema.json#/$defs/source"
+      },
+      "description": "Where the data comes from, with its credit, licence and the firmware it documents."
     },
     "name": {
       "type": "string",

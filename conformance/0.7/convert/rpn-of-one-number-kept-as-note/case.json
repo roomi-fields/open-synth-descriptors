@@ -1,0 +1,53 @@
+{
+  "_about": "An RPN of one number, on the entry or in `also`, gets no way: its numbers, width, `range` and notes are kept in the note `_incomplete`, beside the ways of the complete messages; a key `_incomplete` the text already writes stays as it is and the note takes `_incomplete_2`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/volume",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                7
+              ],
+              "range": [
+                0,
+                127
+              ]
+            }
+          ],
+          "_incomplete": [
+            {
+              "rpn_lsb": 2,
+              "value_bits": 7,
+              "range": [
+                0,
+                100
+              ],
+              "_why": "seen once"
+            }
+          ]
+        },
+        {
+          "osc": "/tune",
+          "ways": [],
+          "_incomplete": "to check",
+          "_incomplete_2": [
+            {
+              "rpn_msb": 0,
+              "value_bits": 14
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

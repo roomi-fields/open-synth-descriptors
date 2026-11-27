@@ -537,6 +537,250 @@ fn without_mdbook_or_with_it_empty_the_book_build_uses_the_default_folder_under_
     }
 }
 
+// ---- The binary in the cache: held for installed only as the pinned archive gives it ----
+
+/// A cache folder as a successful install leaves it, its address cut, and the binary in it.
+#[cfg(unix)]
+fn filled() -> (Tool, PathBuf, PathBuf) {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_installed_under(&run, &folder);
+    tool.offline();
+    let binary = PathBuf::from(run.stdout.lines().last().unwrap().trim());
+    (tool, folder, binary)
+}
+
+#[cfg(unix)]
+fn mode_of(path: &Path) -> u32 {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+}
+
+#[cfg(unix)]
+fn inode_of(path: &Path) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata(path).unwrap().ino()
+}
+
+/// Leaves the binary of the cache holding these bytes under this mode.
+#[cfg(unix)]
+fn leave(binary: &Path, bytes: &[u8], mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::write(binary, bytes).unwrap();
+    std::fs::set_permissions(binary, std::fs::Permissions::from_mode(mode)).unwrap();
+}
+
+/// The binaries that are not the installed tool, each with what it is, its bytes and its mode.
+#[cfg(unix)]
+fn damaged_binaries() -> Vec<(&'static str, Vec<u8>, u32)> {
+    let whole = FAKE_MDBOOK.as_bytes();
+    let mut altered = whole.to_vec();
+    *altered.iter_mut().rev().nth(1).unwrap() ^= 1;
+    let mut longer = whole.to_vec();
+    longer.extend_from_slice(b"exit 1\n");
+    vec![
+        ("truncated", whole[..whole.len() / 2].to_vec(), 0o755),
+        ("short of its last byte", whole[..whole.len() - 1].to_vec(), 0o755),
+        ("empty", Vec::new(), 0o755),
+        ("of the same length with one byte changed", altered, 0o755),
+        ("followed by more bytes", longer, 0o755),
+        ("complete and not executable", whole.to_vec(), 0o644),
+        ("truncated and not executable", whole[..whole.len() / 2].to_vec(), 0o600),
+    ]
+}
+
+/// The install gives the pinned binary, executable, at the path it had.
+#[cfg(unix)]
+fn assert_pinned_binary(run: &Run, folder: &Path, binary: &Path, case: &str) {
+    assert_eq!(run.code, Some(0), "a binary {case}: {}", run.out);
+    assert_installed_under(run, folder);
+    assert_eq!(Path::new(run.stdout.lines().last().unwrap().trim()), binary, "a binary {case}");
+    assert_eq!(
+        String::from_utf8_lossy(&std::fs::read(binary).unwrap()),
+        FAKE_MDBOOK,
+        "a binary {case} is taken as installed"
+    );
+    assert_eq!(mode_of(binary) & 0o111, 0o111, "a binary {case}: the installed binary is not executable");
+}
+
+#[test]
+fn the_pin_holds_no_checksum_but_that_of_the_archive() {
+    let keys: BTreeSet<String> = read(PIN)
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .filter_map(|line| line.split_once('=').map(|(key, _)| key.trim().to_string()))
+        .collect();
+    assert_eq!(keys, ["sha256", "url", "version"].map(String::from).into());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_binary_that_is_not_the_member_of_the_pinned_archive_or_not_executable_is_replaced_by_it() {
+    for (case, bytes, mode) in damaged_binaries() {
+        let (tool, folder, binary) = filled();
+        leave(&binary, &bytes, mode);
+        let before = files_under(&folder);
+        let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+        assert_pinned_binary(&run, &folder, &binary, case);
+        assert_eq!(files_under(&folder), before, "a binary {case}: the install leaves a temporary file");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_damaged_binary_is_replaced_by_renaming_a_new_file_over_it() {
+    for (case, bytes, mode) in damaged_binaries() {
+        let (tool, folder, binary) = filled();
+        leave(&binary, &bytes, mode);
+        let link = tool.path("link-taken-before");
+        std::fs::hard_link(&binary, &link).unwrap();
+        let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+        assert_pinned_binary(&run, &folder, &binary, case);
+        assert_eq!(std::fs::read(&link).unwrap(), bytes, "a binary {case}: the old file is written in place");
+        assert_eq!(mode_of(&link), mode, "a binary {case}: the mode of the old file is changed");
+        assert_ne!(inode_of(&binary), inode_of(&link), "a binary {case}: the old file stays in place");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_first_install_leaves_the_archive_and_the_executable_binary_and_nothing_else() {
+    let (_tool, folder, binary) = filled();
+    let rel = binary.strip_prefix(&folder).unwrap().to_string_lossy().to_string();
+    assert_eq!(files_under(&folder), [ARCHIVE.to_string(), rel].into());
+    assert_eq!(std::fs::read(&binary).unwrap(), FAKE_MDBOOK.as_bytes());
+    assert_eq!(mode_of(&binary) & 0o111, 0o111);
+}
+
+/// What killed installs may leave beside the archive and beside the binary: files that another
+/// install may still be writing.
+#[cfg(unix)]
+fn leftovers(folder: &Path, binary: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let beside = binary.parent().unwrap();
+    let paths = [
+        folder.join("tmpk1ll3d00.part"),
+        beside.join("tmpk1ll3d01.part"),
+        beside.join("tmpk1ll3d02"),
+        beside.join("mdbook.part"),
+        beside.join("mdbook.tmp"),
+        beside.join(".mdbook.part"),
+    ];
+    paths
+        .into_iter()
+        .map(|path| {
+            let bytes = FAKE_MDBOOK.as_bytes()[..FAKE_MDBOOK.len() / 3].to_vec();
+            leave(&path, &bytes, 0o755);
+            (path, bytes)
+        })
+        .collect()
+}
+
+#[cfg(unix)]
+#[test]
+fn the_temporary_files_of_a_killed_install_are_kept_and_do_not_stop_the_replacement_of_the_binary() {
+    for (case, bytes, mode) in damaged_binaries() {
+        let (tool, folder, binary) = filled();
+        leave(&binary, &bytes, mode);
+        let left = leftovers(&folder, &binary);
+        let before = files_under(&folder);
+        let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+        assert_pinned_binary(&run, &folder, &binary, case);
+        for (path, bytes) in left {
+            assert_eq!(std::fs::read(&path).ok(), Some(bytes), "a binary {case}: {path:?} is touched");
+        }
+        assert_eq!(files_under(&folder), before, "a binary {case}: the files of the folder changed");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_temporary_files_of_a_killed_install_are_never_taken_for_the_missing_binary() {
+    let (tool, folder, binary) = filled();
+    std::fs::remove_file(&binary).unwrap();
+    let left = leftovers(&folder, &binary);
+    let mut expected = files_under(&folder);
+    expected.insert(binary.strip_prefix(&folder).unwrap().to_string_lossy().to_string());
+    let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_pinned_binary(&run, &folder, &binary, "missing");
+    for (path, bytes) in left {
+        assert_eq!(std::fs::read(&path).ok(), Some(bytes), "{path:?} is touched");
+    }
+    assert_eq!(files_under(&folder), expected);
+}
+
+#[cfg(unix)]
+#[test]
+fn the_book_build_replaces_a_truncated_binary_and_writes_the_book() {
+    let (tool, folder, binary) = filled();
+    leave(&binary, &FAKE_MDBOOK.as_bytes()[..FAKE_MDBOOK.find("&&").unwrap()], 0o755);
+    let book = tool.path("book");
+    let run = tool.build(&book, &tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_eq!(run.code, Some(0), "{}", run.out);
+    assert!(book.join("index.html").is_file(), "no book written: {}", run.out);
+    assert_eq!(std::fs::read(&binary).unwrap(), FAKE_MDBOOK.as_bytes());
+}
+
+#[cfg(unix)]
+#[test]
+fn an_intact_executable_binary_is_not_rewritten_by_a_new_install() {
+    for mode in [0o755, 0o700] {
+        let (tool, folder, binary) = filled();
+        leave(&binary, FAKE_MDBOOK.as_bytes(), mode);
+        let then = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        std::fs::File::options().write(true).open(&binary).unwrap().set_modified(then).unwrap();
+        let inode = inode_of(&binary);
+        let before = files_under(&folder);
+        for _ in 0..2 {
+            let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+            assert_installed_under(&run, &folder);
+        }
+        assert_eq!(inode_of(&binary), inode, "mode {mode:o}: another file is at the path of the binary");
+        assert_eq!(std::fs::metadata(&binary).unwrap().modified().unwrap(), then, "mode {mode:o}: rewritten");
+        assert_eq!(files_under(&folder), before, "mode {mode:o}");
+    }
+}
+
+#[test]
+fn an_intact_binary_beside_an_archive_that_differs_from_the_pin_is_not_taken_as_installed() {
+    let tool = Tool::new();
+    let folder = tool.path("shared-tools");
+    tool.fill(&folder);
+    tool.offline();
+    write(&folder, ARCHIVE, "another archive");
+    let run = tool.install(&tool.sealed_home(), Some(text(&folder)), &[]);
+    assert_eq!(run.code, Some(1), "{}", run.out);
+    assert!(!run.stdout.lines().any(|l| l.trim().ends_with("mdbook")), "a binary path is printed: {}", run.stdout);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_read_only_folder_whose_binary_is_truncated_or_altered_is_refused_with_the_command_that_fills_it() {
+    for (case, bytes, mode) in damaged_binaries() {
+        if mode & 0o111 == 0 {
+            continue;
+        }
+        println!("a binary {case}");
+        let (tool, folder, binary) = filled();
+        leave(&binary, &bytes, mode);
+        assert_read_only_folder_refused(&tool, &folder);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_read_only_folder_whose_binary_is_not_executable_is_refused_with_the_command_that_fills_it() {
+    for (case, bytes, mode) in damaged_binaries() {
+        if mode & 0o111 != 0 {
+            continue;
+        }
+        println!("a binary {case}");
+        let (tool, folder, binary) = filled();
+        leave(&binary, &bytes, mode);
+        assert_read_only_folder_refused(&tool, &folder);
+    }
+}
+
 // ---- The link check, on fixtures ----
 
 const GOOD_LIST: &str = "# a fixture list\nCONTRIBUTING.md\nexamples/\nschemas/\nspec/\n";

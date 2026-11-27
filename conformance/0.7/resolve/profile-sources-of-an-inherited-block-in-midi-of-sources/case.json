@@ -1,0 +1,48 @@
+{
+  "_about": "The profile of a block taken from the `midi_of` target is credited in `midi_of_sources`, after the target's credit; the file's `sources` gain nothing.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of": "acme/b",
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "A"
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "title": "B"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "profile": "acme"
+      }
+    ]
+  }
+}

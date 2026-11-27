@@ -1,8 +1,0 @@
-{
-  "_about": "A control that mixes a `cc_lsb` without its `cc` with an NRPN has a number no way can say: the converter refuses at the control and returns no text.",
-  "convert": "device",
-  "fault": {
-    "kind": "NotConvertible",
-    "pointer": "/cc_params/entries/1"
-  }
-}

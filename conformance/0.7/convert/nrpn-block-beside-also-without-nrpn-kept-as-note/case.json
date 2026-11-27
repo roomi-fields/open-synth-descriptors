@@ -1,0 +1,31 @@
+{
+  "_about": "A control of 0.6 whose `also` holds no NRPN, and with no flat NRPN, keeps its `nrpn_lsb_range` on the entry as `_nrpn_lsb_range`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ],
+          "_nrpn_lsb_range": [
+            0,
+            7
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "_about": "A `profile` an author writes in a source is kept; the reader never checks that the profile exists.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "profile": "nobody/nothing"
+      }
+    ]
+  }
+}

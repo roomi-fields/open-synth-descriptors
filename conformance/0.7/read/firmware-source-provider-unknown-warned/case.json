@@ -1,0 +1,35 @@
+{
+  "_about": "A provider the table does not hold is accepted in a firmware and warned of at its field.",
+  "read": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "korg/minilogue",
+          "vendor": "KORG",
+          "model": "minilogue"
+        }
+      }
+    ],
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "provider": "electra-one"
+      },
+      {
+        "type": "vendor-doc",
+        "provider": "a-new-firmware"
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "kind": "UnknownProvider",
+      "pointer": "/sources/1/provider"
+    }
+  ]
+}

@@ -79,6 +79,7 @@ fn warned(d: &Descriptor) -> Vec<(&'static str, Option<String>, String)> {
         .map(|w| match w.kind {
             WarningKind::PartialControl => ("PartialControl", None, w.pointer),
             WarningKind::UnknownProvider(id) => ("UnknownProvider", Some(id), w.pointer),
+            WarningKind::UncreditedSource => ("UncreditedSource", None, w.pointer),
         })
         .collect()
 }
@@ -191,13 +192,22 @@ fn a_device_whose_controls_all_have_a_way_gives_no_warning() {
 }
 
 #[test]
-fn an_entry_that_gives_one_number_of_a_message_is_not_partial() {
+fn a_control_that_gives_only_an_incomplete_message_is_partial() {
     let doc = device(Version::V0_6, json!({
         "cc_params": {"entries": [
             {"osc": "/lsb", "cc_lsb": 33},
             {"osc": "/nrpn", "nrpn_lsb": 1, "value_bits": 14},
             {"osc": "/also", "also": [{"cc": 3}]},
+            {"osc": "/beside", "rpn_msb": 1, "value_bits": 14, "also": [{"cc": 4}]},
+            {"osc": "/both", "also": [{"cc_lsb": 40}, {"nrpn_msb": 2, "value_bits": 7}]},
         ]},
+    }));
+    assert_eq!(warned(&read(&doc)), partials(&["/cc_params/entries/0", "/cc_params/entries/1", "/cc_params/entries/4"]));
+}
+
+#[test]
+fn a_params_entry_that_gives_one_of_its_numbers_is_not_partial() {
+    let doc = device(Version::V0_6, json!({
         "params": params(Version::V0_6, vec![json!({"osc": "/r", "r": 1}), json!({"osc": "/c", "c": 1})]),
     }));
     assert!(warned(&read(&doc)).is_empty());

@@ -377,6 +377,61 @@ fn an_electra_of_another_shape_stays_a_note_with_no_id_and_the_command_converts(
     }
 }
 
+/// A `sysex` form with one key more than `{"parameter": {"type", "number"}}`: beside `parameter`,
+/// inside it, or both.
+fn sysex_with_more_keys(number: i64) -> Vec<Value> {
+    vec![
+        json!({"parameter": {"type": "sysex", "number": number}, "label": "x"}),
+        json!({"parameter": {"type": "sysex", "number": number, "deviceId": 2}}),
+        json!({"parameter": {"type": "sysex", "number": number, "deviceId": 2}, "label": "x"}),
+        json!({"parameter": {"type": "sysex", "number": number}, "label": null}),
+        json!({"parameter": {"type": "sysex", "number": number, "min": 0, "max": 127}}),
+        json!({"parameter": {"type": "sysex", "number": number}, "preset": {"id": 9}}),
+    ]
+}
+
+#[test]
+fn a_sysex_electra_with_one_more_key_gives_the_id_and_stays_whole_as_a_note() {
+    for n in [0i64, 1, 405, 70000] {
+        for shape in sysex_with_more_keys(n) {
+            let out = converted(&commands_06(vec![command("/x", shape.clone())]));
+            let c = &out["commands"][0];
+            assert_eq!(c["id"], json!(n), "{shape}: {c}");
+            assert_eq!(c.get("_electra"), Some(&shape), "no value of the note is changed: {c}");
+            assert_eq!((c["osc"].as_str(), &c["frame"]), (Some("/x"), &json!([240, 125, 247])));
+            let back = written(&out);
+            assert_eq!((&back["commands"][0]["id"], back["commands"][0].get("_electra")), (&json!(n), Some(&shape)), "kept and written back");
+            assert!(schema_errors(&out).is_empty(), "{:?}", schema_errors(&out));
+            assert_eq!(converted(&out), out, "a converted command converts to itself");
+        }
+    }
+}
+
+#[test]
+fn only_the_commands_whose_sysex_electra_says_nothing_more_lose_it_to_their_id() {
+    let more = json!({"parameter": {"type": "sysex", "number": 5}, "label": "x"});
+    let out = converted(&commands_06(vec![command("/exact", sysex(json!(5))), command("/more", more.clone()), command("/exact_again", sysex(json!(5)))]));
+    let got: Vec<(Option<&Value>, Option<&Value>)> = out["commands"].as_array().unwrap().iter().map(|c| (c.get("id"), c.get("_electra"))).collect();
+    let five = json!(5);
+    assert_eq!(got, [(Some(&five), None), (Some(&five), Some(&more)), (Some(&five), None)]);
+}
+
+#[test]
+fn one_more_key_gives_no_id_to_an_electra_that_is_not_a_sysex_form_with_an_integer_number() {
+    let shapes = [
+        json!({"parameter": {"type": "virtual", "number": 3}, "label": "x"}),
+        json!({"parameter": {"type": "sysex", "number": "3", "deviceId": 2}}),
+        json!({"parameter": {"type": "sysex", "number": 1.5}, "label": "x"}),
+        json!({"parameter": {"type": "sysex", "deviceId": 2}, "number": 3}),
+    ];
+    for shape in shapes {
+        let out = converted(&commands_06(vec![command("/x", shape.clone())]));
+        let c = &out["commands"][0];
+        assert_eq!(c["_electra"], shape);
+        assert!(c.get("id").is_none(), "{c}");
+    }
+}
+
 #[test]
 fn a_command_of_0_7_reads_its_id_as_an_integer_and_refuses_another_value() {
     let ok = doc(S7, json!({"commands": [{"osc": "/a", "id": 405, "frame": [240, 125, 247]}, {"osc": "/b", "id": 405, "frame": [240, 125, 247]}]}));

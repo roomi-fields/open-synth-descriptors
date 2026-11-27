@@ -5,7 +5,7 @@
 
 use crate::credit::source_text;
 use crate::xml::escape;
-use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Descriptor, Device, Resolved, Source};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -82,6 +82,9 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         for (n, e) in b.get("entries").and_then(Value::as_array).into_iter().flatten().enumerate() {
             let Some(e) = e.as_object() else { continue };
             let ptr = format!("/cc_params/entries/{n}");
+            if let Some(typed) = d.cc_params.as_ref().and_then(|c| c.entries.get(n)) {
+                lose_what_no_way_says(typed, n, &mut losses);
+            }
             let ways = e.get("ways").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
             // The first way that is a Control Change is the one written; each other way is named lost.
             let first_cc = ways.iter().position(|w| w.get("ctrlType").and_then(Value::as_str) == Some("cc"));

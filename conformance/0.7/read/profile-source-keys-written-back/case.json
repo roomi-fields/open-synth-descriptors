@@ -1,0 +1,28 @@
+{
+  "_about": "A source of a 0.7 maker profile keeps every key it carries, a `provider`, a `profile` and a key of another reader among them, written back as read.",
+  "read": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+    "identity": {
+      "reply_text": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "manual",
+        "provider": "electra-one",
+        "title": "Manual",
+        "url": "https://example.org/manual",
+        "license": "CC-BY-4.0",
+        "profile": "acme",
+        "x-other": [
+          1
+        ]
+      },
+      {
+        "type": "contributed",
+        "author": "Dee"
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@
 
 use crate::credit::{credit_text, uncarried_source_fields};
 use crate::importer::check_source;
-use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Address, ArgType, Command, Device, Resolved, Segment, Source};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -648,6 +648,7 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
         }
         for (n, e) in cc.entries.iter().enumerate() {
             let at = format!("/cc_params/entries/{n}");
+            lose_what_no_way_says(e, n, &mut losses);
             for (field, present) in [
                 ("title", e.title.is_some()),
                 ("description", e.description.is_some()),

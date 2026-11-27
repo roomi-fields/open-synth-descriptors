@@ -1,26 +1,14 @@
 //! The trial of 0.7, proved without the SyntHub catalogue: the function the
 //! catalogue test plays, on small catalogues written here.
 
+use crate::catalogue_trial_reference::{new_text, texts};
 use crate::common::trial::{judge, trial, Check, Failure, Trial};
-use crate::common::{Folder, Schemas};
-use osd::{FaultKind, Kind, Version};
+use crate::common::{catalogue_of, Schemas};
+use osd::{FaultKind, Kind};
 use serde_json::{json, Value};
 
 const D06: &str = "https://w3id.org/osd/0.6/device.schema.json";
 const P06: &str = "https://w3id.org/osd/0.6/profile.schema.json";
-
-/// A catalogue of these files, by catalogue id, in a folder removed with the
-/// guard returned.
-fn catalogue_of(files: &[(&str, Value)]) -> (tempfile::TempDir, Folder) {
-    let tmp = tempfile::tempdir().unwrap();
-    for (id, doc) in files {
-        let path = tmp.path().join(format!("{id}.json"));
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, serde_json::to_string_pretty(doc).unwrap()).unwrap();
-    }
-    let dir = Folder(tmp.path().to_path_buf());
-    (tmp, dir)
-}
 
 /// A driver with every route table, a control reached by two messages and
 /// every text for people, its identity completed from a profile.
@@ -174,7 +162,8 @@ fn a_field_an_entry_without_a_message_loses_in_0_7_is_a_loss_at_its_pointer() {
     }
 }
 
-fn run(files: &[(&str, Value)]) -> Trial {
+/// A catalogue of these files, tried.
+pub(crate) fn run(files: &[(&str, Value)]) -> Trial {
     let (_tmp, dir) = catalogue_of(files);
     trial(&dir)
 }
@@ -200,22 +189,15 @@ fn only_a_refusal_the_0_6_reading_does_not_have_fails_the_trial_named_by_file_po
     let found = run(&files);
     assert_eq!(found.files, 7);
     assert_eq!(found.refused_in_0_6, [(FaultKind::UnknownField, 1)].into(), "{found}");
-    assert_eq!(found.refused_in_0_7, [(FaultKind::UnknownField, 1), (FaultKind::BadValue, 1)].into(), "{found}");
-    // The file refused converts, so the trial resolves it too, and says so again.
-    assert_eq!(
-        named(&found),
-        [
-            (Check::Refusal, "acme/mute", "/sources/1", Some(FaultKind::BadValue)),
-            (Check::Resolution, "acme/mute", "/sources/1", Some(FaultKind::BadValue)),
-        ],
-        "{found}"
-    );
+    assert_eq!(found.refused_in_0_7, [(FaultKind::UnknownField, 1), (FaultKind::NotConvertible, 1)].into(), "{found}");
+    // The file the converter refuses has no 0.7 text to resolve: it is named once.
+    assert_eq!(named(&found), [(Check::Refusal, "acme/mute", "/_sources/1", Some(FaultKind::NotConvertible))], "{found}");
 }
 
 #[test]
 fn the_printed_trial_gives_the_counts_by_kind_of_fault_and_names_each_failure() {
     let printed = run(&[("acme/bad", refused_by_both()), ("acme/mute", twice_identified())]).to_string();
-    for part in ["refused in 0.6: 1", "refused in 0.7: 2", "BadValue", "UnknownField", "acme/mute", "/sources/1"] {
+    for part in ["refused in 0.6: 1", "refused in 0.7: 2", "NotConvertible", "UnknownField", "acme/mute", "/_sources/1"] {
         assert!(printed.contains(part), "no {part:?} in:\n{printed}");
     }
 }
@@ -247,18 +229,17 @@ fn a_resolution_only_the_0_7_junction_refuses_fails_the_trial_in_the_file_of_the
 }
 
 #[test]
-fn a_driver_whose_midi_of_target_0_7_refuses_fails_to_resolve_too() {
+fn a_driver_whose_midi_of_target_0_7_cannot_convert_no_longer_finds_it() {
     let mut variant = variant_driver();
     variant["device"] = json!({ "name": "Mute", "osc_prefix": "/mute" });
     variant["midi_of"] = json!("acme/mute");
     let found = run(&[("acme/mute", twice_identified()), ("acme/variant", variant)]);
-    // The fault of the variant's resolution is in the target's file.
+    // The target refused is left out of the converted catalogue.
     assert_eq!(
         named(&found),
         [
-            (Check::Refusal, "acme/mute", "/sources/1", Some(FaultKind::BadValue)),
-            (Check::Resolution, "acme/mute", "/sources/1", Some(FaultKind::BadValue)),
-            (Check::Resolution, "acme/mute", "/sources/1", Some(FaultKind::BadValue)),
+            (Check::Refusal, "acme/mute", "/_sources/1", Some(FaultKind::NotConvertible)),
+            (Check::Resolution, "acme/variant", "/midi_of", Some(FaultKind::LinkMissing)),
         ],
         "{found}"
     );
@@ -270,21 +251,11 @@ fn a_driver_0_6_does_not_resolve_either_is_no_failure() {
     assert!(found.failures.is_empty(), "{found}");
 }
 
-/// The 0.6 text and the 0.7 text of the full driver.
-fn texts() -> (String, String) {
-    let stored = full_driver().to_string();
-    let in_version = |v| osd::convert_to(&stored, Kind::Device, v).unwrap();
-    (in_version(Version::V0_6), in_version(Version::V0_7))
-}
-
 /// What the trial says of the converted full driver once `tamper` has changed it.
 fn judged(tamper: impl FnOnce(&mut Value)) -> Vec<Failure> {
-    let (old, new) = texts();
-    let mut doc: Value = serde_json::from_str(&new).unwrap();
+    let (old, mut doc) = texts(Kind::Device, &full_driver());
     tamper(&mut doc);
-    let mut text = serde_json::to_string_pretty(&doc).unwrap();
-    text.push('\n');
-    judge(&Schemas::load("0.7"), "acme/full", Kind::Device, &old, &text)
+    judge(&Schemas::load("0.7"), "acme/full", Kind::Device, &old, &new_text(&doc))
 }
 
 /// The tampered text is named: a failure of `check` in the file, at `pointer`.

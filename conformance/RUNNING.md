@@ -19,8 +19,9 @@ The object holds, by the names `case.json` uses, each key the case expects:
   they are ignored.
 - A fault is `{kind, pointer}` and, for a resolve case, `file` too.
 - `warnings`, which a reading case may state, is the ordered list of `{kind, pointer}` of what the
-  reader reports without refusing: `PartialControl` (an entry that reaches no message) and
-  `UnknownProvider` (a `provider` the table of providers does not hold).
+  reader reports without refusing: `PartialControl` (an entry that reaches no message),
+  `UnknownProvider` (a `provider` the table of providers does not hold) and `UncreditedSource`
+  (an entry of a note of sources that is not carried as credit).
 
 A folder that is not a case, or a case of a kind the reader does not know, is answered with
 exit code 2 and a message on the standard error, never with a result. Any other exit code than 0

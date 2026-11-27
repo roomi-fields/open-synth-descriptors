@@ -1,0 +1,45 @@
+{
+  "_about": "A `cc_lsb` without its `cc` never becomes a CC way of its number: no way is written for it and it is kept in the note `_incomplete`; a control with no other message keeps its `range` and has no way.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/low",
+          "ways": [],
+          "range": [
+            0,
+            127
+          ],
+          "_incomplete": [
+            {
+              "cc_lsb": 38
+            }
+          ]
+        },
+        {
+          "osc": "/also",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                2
+              ]
+            }
+          ],
+          "_incomplete": [
+            {
+              "cc_lsb": 40
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -2,11 +2,13 @@
 
 ## Status
 
-- State: `candidate`
-- Candidate since: 2026-11-24
+- State: `draft`
+- Candidate since: —
 - Under the trial: —
 
-This draft is amended with the owner's decisions on its three questions (section "Objections"); the content of 0.7 stays the owner's. The names of the fields and the examples below are the way the draft writes the decisions. The form of the two MIDI 2.0 signs (section 5) is likewise decided by the owner (2026-11-24). This proposal is a candidate since 2026-11-24, waiting at least 14 days, open to objections.
+Amended on 2026-11-25 with the precisions the building of 0.7 brought to the rules on port names (sections 1, 4 and 5, "What a 0.6 descriptor becomes" and the cases). This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
+
+This draft is amended with the owner's decisions on its three questions (section "Objections"); the content of 0.7 stays the owner's. The names of the fields and the examples below are the way the draft writes the decisions. The form of the two MIDI 2.0 signs (section 5) is likewise decided by the owner (2026-11-24).
 
 ## What it changes
 
@@ -38,7 +40,7 @@ In the identity block of a device descriptor, an entry of `identity.ports` becom
 
 - `operator`: one of `equals`, `contains`, `starts_with`, `ends_with` (the four operators of Cubase's predicates);
 - `value`: the text compared;
-- `direction`: `input` or `output`;
+- `direction`: optional, `input` or `output`; when absent, the rule holds for both directions, and a name of either direction is enough (section 4);
 - `platform`: optional, one of `windows`, `linux`, `macos`; when present, the rule holds for ports named on that platform only; when absent, it holds everywhere;
 - `stack`: optional, one value of the closed list of section 3; when present, the rule holds for ports named by that stack only.
 
@@ -50,7 +52,7 @@ No pattern language lives in a string: the operator is a field, so one field has
 
 **Case.** Every operator ignores case: the comparison applies Unicode simple case folding, without normalisation, to both the `value` of the rule and the name of the fingerprint at the moment of comparison. A fingerprint's lower-case names and a rule's mixed-case value therefore compare equal. Reason: a port name's case varies by system for the same port (in Bitwig's own scripts, bitwig/bitwig-extensions, AkaiApcMiniDefinition, "APC Mini mk2 Control" on Linux and "APC mini mk2 Control" on Mac); a rule that kept case would need two rules for one port. The names of a fingerprint stay "lower case, words only" as in 0.6 (`schemas/0.6/fingerprint.schema.json:37-60`): 0.7 changes nothing there.
 
-**An empty value matches nothing and is refused.** A rule whose `value` is empty would hold for every name under `contains`, `starts_with` and `ends_with`, and would say nothing under `equals`; the schema refuses it, at `/value`. This is the reading of osc-bridge's maintainer for the names of 0.6 too (2026-11-24): an empty pattern matches nothing.
+**An empty value matches nothing and is refused.** A rule whose `value` is empty would hold for every name under `contains`, `starts_with` and `ends_with`, and would say nothing under `equals`; the schema refuses it, at `/value`. This is the reading of osc-bridge's maintainer for the names of 0.6 too (2026-11-24): an empty pattern matches nothing. An empty port name of 0.6 therefore recognises nothing: the converter drops it, so no recognition changes and every valid 0.6 descriptor converts; a list that held no other name stays, empty. In memory, where a reader gives the names of an older text as rules, an empty value never matches.
 
 **Evidence for `contains`: what a machine adds to a port name.** A rule aims at the word of the port, without the decorations a system puts around it, and `contains` allows that. Two kinds of evidence are kept apart, and none is a guarantee: a system may change its decorations.
 
@@ -94,7 +96,7 @@ The lists are closed, as any closed list: a platform or a stack outside them ent
 
 ### 4 How a rule is matched against a fingerprint
 
-A rule is applied to a fingerprint, or not applied: "not applied" is not an error, the rule simply says nothing about that fingerprint. Four statements decide it:
+A rule is applied to a fingerprint, or not applied: "not applied" is not an error, the rule simply says nothing about that fingerprint. Four statements decide whether a rule holds for the system of a fingerprint:
 
 1. A rule with no `platform` applies to every fingerprint, including one with no `platform`.
 2. A rule that names a `platform` and no `stack` applies only to a fingerprint that names the same platform, whatever its stack, or none.
@@ -110,7 +112,9 @@ So the four cases of a rule against a fingerprint, with or without a stack on ea
 | a platform and a stack | a platform and the same stack | applied |
 | a platform and a stack | a platform, no stack, same platform | not applied |
 
-Once a rule is applied, its operator compares its `value` with the fingerprint's names of the rule's `direction`, with case ignored as in section 1.
+The names decide too. A rule is not applied to a fingerprint that has no list of names for the rule's `direction`, or, for a rule without `direction`, no list of names at all.
+
+Once a rule is applied, its operator compares its `value` with the fingerprint's names of the rule's `direction`, or, without `direction`, with the names of every list present, with case ignored as in section 1. One name that suits it is enough: the rule is matched. A list that is present with no name that suits it, empty or not, gives not matched.
 
 ### 5 Two signs of MIDI 2.0 beside the port names
 
@@ -121,7 +125,7 @@ MIDI 2.0 gives a device two signs of identity that a port name does not (read at
 
 A rule on the endpoint name is applied to a fingerprint that carries an `endpoint_name`, and says nothing about one that has none, as for the other rules (section 4). A 0.6 descriptor or fingerprint carries neither sign, so the converter 0.6 → 0.7 writes nothing for them.
 
-What the instance id settles of "two identical devices": a tool that reads it on two fingerprints knows whether they come from one unit or two. What it does not settle stays in "What it leaves out".
+The comparison of the product instance ids of two fingerprints says only whether the two ids are equal: the same, different, or unknown when one of the two fingerprints holds none or an empty one. It reads no other field and never says that two fingerprints are one unit: the detection engine decides that, from the `device`, the `usb` identity and the identity reply. What the ids do not settle of "two identical devices" stays in "What it leaves out".
 
 Decided by the owner (2026-11-24): the identity block gains both, as written, because the one known detection of the reference reader reads both signs already, and because a device that answers over MIDI 2.0 is then recognised by what it says of itself, not only by what a system calls its ports.
 
@@ -131,7 +135,9 @@ A rule on a port name is the sign for a device that does not answer: it is the w
 
 ### What a 0.6 descriptor becomes
 
-Read as it stands in 0.7 after its converter: a plain name becomes a `contains` rule with no platform and no stack (section 1); a fingerprint keeps its fields, with no `platform`, no `stack`, no `endpoint_name` and no `product_instance_id`. Nothing is invented.
+Read as it stands in 0.7 after its converter: a plain name becomes a `contains` rule with no platform and no stack, and an empty name is dropped (section 1); a fingerprint keeps its fields, with no `platform`, no `stack`, no `endpoint_name` and no `product_instance_id`. Nothing is invented.
+
+**A resolution that joins versions.** Rule 23.22 of the text, which joins two versions in the more recent one, extends to profiles: when a device, its `midi_of` target or one of its profiles is of 0.7, each older text is converted to 0.7 before any join, the `midi_of` links first, then the profiles, and the result states 0.7.
 
 ## What it leaves out
 
@@ -139,7 +145,7 @@ The condition that this draft wait for what a base of device identities needs is
 
 - a score across several signs;
 - the ranking when two descriptors match, and the order in which a detection reads its signs (section 6);
-- two identical devices, beyond what the product instance id settles (section 5): a device that gives no instance id, or an id that is not unique or not stable, stays unsettled; the prefixes of DrivenByMoss show that the problem is real;
+- two identical devices: the format compares two product instance ids (section 5) and judges no unit; a device that gives no instance id, or an id that is not unique or not stable, stays unsettled; the prefixes of DrivenByMoss show that the problem is real;
 - a base of identities.
 
 These are the matter of the detection software and of the catalogue.
@@ -154,6 +160,14 @@ Not written here.
 | a rule with a `platform` | accepted |
 | a rule with a `platform` and a `stack` of that platform | accepted |
 | a plain name of 0.6, converted | a `contains` rule with no platform and no stack, nothing else added |
+| an empty port name of 0.6, converted | dropped; a list of empty names stays, empty |
+| an empty port name of 0.6, read without conversion, against a fingerprint | never matched |
+| a rule without `direction`, against a fingerprint with a suiting name in either list | matched |
+| a rule without `direction`, against a fingerprint with no list of names | not applied |
+| a rule with a `direction`, against a fingerprint with no list for that direction | not applied |
+| a rule against a present list with no name that suits it | not matched |
+| two empty product instance ids, or one empty, compared | unknown |
+| a 0.6 device under a 0.7 profile, or a 0.7 device with a 0.6 profile, resolved | each older text converted to 0.7 before any join; the result states 0.7 |
 | an operator outside the list | refused at that operator |
 | a rule with a `stack` and no `platform` | refused at `/stack` |
 | a rule with `platform` `windows` and `stack` `alsa-seq` | refused at `/stack` |
@@ -178,6 +192,8 @@ Not written here.
 | a rule on the endpoint name, against a fingerprint with none | not applied |
 | a product instance id compared with the same text in another case | different: compared exactly |
 | a 0.6 descriptor or fingerprint, converted | neither `endpoint_name` nor `product_instance_id` written |
+
+The cases of the suite that prove these precisions: under `conformance/0.7/match/`, `rule-without-direction-takes-a-name-of-either-list`, `rule-without-direction-with-one-list-present`, `fingerprint-without-names-is-not-applied`, `empty-list-of-names-is-not-matched` and `empty-name-of-0-6-is-never-matched`; under `conformance/0.7/convert/`, `empty-port-name-is-removed`, `profile-empty-port-name-is-removed` and `only-empty-port-names-leave-an-empty-list`; under `conformance/0.7/same_product_instance_id/`, `same-text-is-same`, `other-case-is-different`, `empty-on-one-side-is-unknown` and `empty-on-both-sides-is-unknown`; under `conformance/0.7/resolve/`, `profile-0-6-port-names-under-a-0-7-device`, `profile-0-7-under-a-0-6-device`, `profile-0-6-extending-a-0-7-profile` and `identity-from-a-0-7-profile-programs-from-a-0-6-one`.
 
 ## What a reference does
 

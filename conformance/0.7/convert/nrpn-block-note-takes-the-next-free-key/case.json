@@ -1,0 +1,36 @@
+{
+  "_about": "When the entry already holds `_nrpn_lsb_range`, it stays as it is and the block goes under the first free key of `_nrpn_lsb_range_2`, `_nrpn_lsb_range_3`…",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ],
+          "_nrpn_lsb_range": "mine",
+          "_nrpn_lsb_range_2": [
+            1,
+            2
+          ],
+          "_nrpn_lsb_range_3": [
+            0,
+            7
+          ]
+        }
+      ]
+    }
+  }
+}

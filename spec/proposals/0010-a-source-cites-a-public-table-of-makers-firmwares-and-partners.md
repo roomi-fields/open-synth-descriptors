@@ -2,17 +2,19 @@
 
 ## Status
 
-- State: `candidate`
-- Candidate since: 2026-11-24
+- State: `draft`
+- Candidate since: —
 - Under the trial: —
+
+Amended on 2026-11-25 with the precisions the building of 0.7 brought to `provider` at an import and at the conversion, and to the table. This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
 
 ## What it changes
 
-0.7: a source of `sources` gains one field, `provider`, that cites by identifier an entry of a public table (the table of providers) saying who supplies the source; the table is a data file of OSD, grown by contribution. It amends proposal 0008 (the single source type `partner-data`) and the text of 0.6, section 6.6 (the four source types named after a product).
+0.7: a source of `sources` gains one field, `provider`, that cites by identifier an entry of a public table (the table of providers) saying who supplies the source; the table is a data file of OSD, grown by contribution. It amends the text of 0.6, section 6.6 (the four source types named after a product). The single source type `partner-data`, which an earlier draft of proposal 0008 had for them, has been withdrawn: 0008 refers to this proposal, and the example of proposal 0009 already writes `contributed` with `provider`.
 
 ## Why
 
-A descriptor must say where its facts come from: a maker, a community firmware, a partner's data. Today the only way to say it is a word of the closed list of `type`, and four of those words are the names of products. A standard that names products is not neutral: each new firmware or partner would need a new version of the format, and no reader could tell who supplied a source without knowing the word. Proposal 0008 removes the product names by folding the four into one term, `partner-data`, and that loses who the partner is, kept only as a line of free text.
+A descriptor must say where its facts come from: a maker, a community firmware, a partner's data. Today the only way to say it is a word of the closed list of `type`, and four of those words are the names of products. A standard that names products is not neutral: each new firmware or partner would need a new version of the format, and no reader could tell who supplied a source without knowing the word. An earlier draft of proposal 0008 removed the product names by folding the four into one term, `partner-data`, which lost who the partner is, kept only as a line of free text; that type has been withdrawn, and 0008 refers to this proposal.
 
 With a table, the source cites an identifier, every tool reads the same provenance, the standard holds no name, and a new firmware or partner is a pull request on a data file, not a new version. This brings to the sharing of sounds on devices that anyone can say, in a form a program reads, who made what it relies on.
 
@@ -48,7 +50,7 @@ The reason for accepting an unknown well-formed identifier is compatibility: the
 | `kind` | one of a closed list: `maker`, `community-firmware`, `partner` |
 | `midi_manufacturer_id` | the MIDI manufacturer id (one byte as two hexadecimal digits, or three bytes `00 xx xx` as six), when one exists; absent otherwise |
 | `url` | the web address of the provider |
-| `credit` | on a seeded entry, the source of the id and its licence (section 4) |
+| `credit` | on a seeded entry, where the identifier, the name and the address were read, and the licence read there (section 4) |
 
 The three kinds say who an entry is: a `maker` made the device or its software; a `community-firmware` is an alternative firmware made by people other than the maker; a `partner` is a project whose data formats or catalogues OSD carries. An entry never says how far to trust it (section 6). The list of kinds is closed; a new kind is a proposal.
 
@@ -74,11 +76,11 @@ Departures from the models, each with its reason:
 
 ### 4 How the MIDI manufacturer ids seed the table
 
-The table is seeded with the makers that the MIDI Association's manufacturer ID table lists, for the devices that OSD describes. The numeric id of a maker and its name are facts about the world, restated in the table's own entries; the table does not copy the MIDI Association's table, its text or its layout, and a MIDI norm is never copied. The table credits the MIDI Association as the source of the ids, with the licence it publishes, read at its source and cited with its address (https://midi.org/manufacturer-id-numbers) at the time of the seeding, in the `credit` of each seeded entry and once in the table's header. An entry is added when a descriptor needs it, not in bulk. The review of a request for addition (section 3) checks the entry at that source.
+The table starts with the three partners the converter names (`electra-one`, `pencilresearch`, `knobkraft`, section 5), and with no maker. A maker is seeded from the MIDI Association's manufacturer ID table, for the devices that OSD describes, when a descriptor needs it. The numeric id of a maker and its name are facts about the world, restated in the table's own entries; the table does not copy the MIDI Association's table, its text or its layout, and a MIDI norm is never copied. The table credits the MIDI Association as the source of the ids, with the licence it publishes, read at its source and cited with its address (https://midi.org/manufacturer-id-numbers) at the time of the seeding, in the `credit` of each seeded maker. The table has no header and no maker entry until a descriptor needs one: the form of a header, the credit of the MIDI Association for the whole table, is decided before the first maker entry. An entry is added when a descriptor needs it, not in bulk. The review of a request for addition (section 3) checks the entry at that source.
 
 ### 5 What the converter 0.6 → 0.7 writes
 
-A source of 0.6 has no provider. For each type, the converter writes the line below; `_sources` becomes `sources` as proposal 0008 decides.
+A source of 0.6 has no field `provider`. For each type, the converter writes the line below (a source that already carries the key is said after the table); `_sources` becomes `sources` as proposal 0008 decides.
 
 | `type` in 0.6 | `type` in 0.7 | `provider` | `notes` |
 |---|---|---|---|
@@ -86,9 +88,15 @@ A source of 0.6 has no provider. For each type, the converter writes the line be
 | `electra-preset` | `contributed` | `electra-one` | first line `type in 0.6: electra-preset`, then the existing text unchanged |
 | `pencilresearch` | `contributed` | `pencilresearch` | first line `type in 0.6: pencilresearch`, then the existing text unchanged |
 | `knobkraft` | `contributed` | `knobkraft` | first line `type in 0.6: knobkraft`, then the existing text unchanged |
-| `midnam` | `contributed` | `midnam` | first line `type in 0.6: midnam`, then the existing text unchanged |
+| `midnam` | `contributed` | none written: MIDNAM is a format, not a supplier; the source's `author` stays what the source says | first line `type in 0.6: midnam`, then the existing text unchanged |
 
-The four product-named types lose their name in `type` and keep it in two places: the identifier of the partner in `provider`, and the old word in `notes`. `contributed` is written for them because the data is a third party's, supplied by a partner's format and not checked by OSD; it is the 0.6 term for that ("contributed by a person or an agent, unchecked"). The nature of the data (a preset, a map, an adaptation, a name document) stays in the free text of `notes`, which the table does not carry and no field holds. The converter writes an identifier whether or not its table has the entry; the four above are seeded.
+The four product-named types lose their name in `type`. Each keeps the old word in `notes`, and the three that name a partner also give its identifier in `provider`; `midnam` gives none, and the table has no entry for it. `contributed` is written for the four because the data is a third party's, supplied by a partner's format and not checked by OSD; it is the 0.6 term for that ("contributed by a person or an agent, unchecked"). The nature of the data (a preset, a map, an adaptation, a name document) stays in the free text of `notes`, which the table does not carry and no field holds. The converter writes an identifier whether or not its table has the entry; the three above are seeded.
+
+**A 0.6 source that already carries `provider`.** A well-formed identifier is kept, and wins over the one the type would give. Any other value stays under `_provider` (when that key is taken, `_provider_2`, then the next number), and the identifier the type gives, when it gives one, takes its place. So nothing is lost and the result is valid, the rule 0.7 already applies to texts.
+
+Cases of the suite, under `conformance/0.7/convert/`: `source-product-types-become-contributed`, `source-evidence-type-unchanged` and `source-provider-already-there`.
+
+**What an import writes.** An import writes `provider` only when its caller gives it: the format read does not say who supplied the file (a MIDNAM document or a CSV may come from a maker). `osd import` takes the provider as an option. No provider is guessed.
 
 ### 6 Trust is out of scope
 
@@ -119,7 +127,7 @@ An entry of the table:
   "url": "https://electra.one" }
 ```
 
-and a seeded maker:
+and, as it would be seeded when a descriptor needs it, a maker:
 
 ```json
 { "id": "acme-synths", "name": "Acme Synths", "kind": "maker",
@@ -131,11 +139,19 @@ A source with `provider: "Electra One"` is refused as `BadValue` (not of the for
 
 ### 8 What it changes in the other proposals
 
-**In proposal 0008.** This proposal amends it: the single type `partner-data` (section 2, the row of the table of changes and the paragraph on source types), the lines of the table of changes that mention it, the example that writes it, the case of conformance 6 (which says a source of type `electra-preset` becomes `partner-data`), the sentence of "The tensions" that names it, and decision 9 on that name, whose alternative (an extension term per partner) is also set aside. 0008 keeps the other changes of form. The four types become `contributed` with a `provider`, as section 5 says; 0.7 section 6.6 loses the four rows and gains no row for a partner.
+**In proposal 0008.** The single type `partner-data` has been withdrawn from it (its decision 9), and the alternative of that decision, an extension term per partner, is also set aside. For the four source types, 0008 refers to this proposal: in its table of changes (section 2), its paragraph on source types, its case of conformance 6 and its tension "No reader privileged". 0008 keeps the other changes of form. The four types become `contributed`, three of them with a `provider`, as section 5 says; 0.7 section 6.6 loses the four rows and gains no row for a partner.
 
-**In proposal 0009.** Its example of a source of type `partner-data` cites the table instead: the `type` is `contributed` and the partner is named by `provider`.
+**In proposal 0009.** Its example no longer has a source of type `partner-data`: it already cites the table, the `type` being `contributed` and the partner named by `provider`.
 
 **In the text of 0.6.** Section 6.6 keeps its ten terms of evidence in 0.7; its four rows named after a product (`electra-preset`, `pencilresearch`, `knobkraft`, `midnam`) leave the closed list and are written by the converter as section 5 says. No version published changes.
+
+### 9 Every kind of descriptor keeps its credit
+
+The field `provider` stands in a source, so every descriptor that has sources can say who supplies them. In 0.7 a maker profile, a sound, a fingerprint, a firmware and an assembly (the `made_on` of a sound included) carry `sources`, with the definition and the rules of a device's: the same terms of `type`, the same `provider`, the same refusals, the same warning of a provider the table does not hold. Their `_sources` is refused, as a device's. So the charter's credit (every descriptor names its sources and their licence) has one field and one meaning in every kind.
+
+Before 0.7 their `_sources` was a free note. The converter therefore judges it entry by entry and refuses nothing for it: an entry that is a source of 0.7 once carried (section 5 and proposal 0008) goes to `sources`; an object without `type` is carried as `contributed`, `no type in 0.6` first in `notes`, so that its address and licence stay credited; every other entry, and a note that is no list, is kept under `_sources_2` (or the next free number), which a reader warns of as a source not carried as credit, so that it is never silent.
+
+A source also says the maker profile it comes from, in the key `profile`, a string. A resolving reader writes it when it keeps the credit of the profiles a resolved device takes blocks from: a field with one meaning, and not a line in `notes`. The rules of that resolution are those of the text (23.42 and 23.43). A `profile` that is no string is refused, and the converter keeps such a value under `_profile`.
 
 ## What a reference does
 

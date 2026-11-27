@@ -4,6 +4,10 @@ The changes of the `osd` command. The changes of the reader it is built on are i
 
 ## Unreleased
 
+- 0.7 (candidate): `validate` and `convert` print on the error output, for each source a maker profile, a sound, a fingerprint, a firmware or an assembly keeps in a note `_sources_<n>`, `<file>: warning at "<pointer>": the source is kept as a note and not carried as credit`; the standard output and the exit codes do not change. `osd conformance` writes it as `UncreditedSource`.
+
+- `osd import` of a source the 0.7 reader refuses (a `--license` that is not well formed, or with `--into` a fault of the source added) writes no descriptor, prints the place `source/<field>` and the rule on the error output and exits 2.
+
 - A control or a `params` entry with no message is no longer refused (see `osd/CHANGELOG.md`). `validate`, `convert`, `resolve`, `import` and `export` print on the error output, for each, `<file or id asked>: warning at "<pointer>": the control gives no message: it is to be completed`; the standard output and the exit codes do not change. `export midi-csv` writes its row with no CC nor NRPN and `export oscquery` its node, each naming in the losses what it cannot carry. `osd conformance` writes `warnings` for a reading case that states it.
 
 - `osd import --into` converts a base before 0.7 to 0.7; a base that does not convert is exit 1, its fault printed under the name of the `--into` file, and no descriptor is written.

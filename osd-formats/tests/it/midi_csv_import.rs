@@ -336,12 +336,12 @@ fn a_default_value_of_the_row_becomes_the_default_of_the_control_of_its_address(
 
 #[test]
 fn a_default_without_a_range_is_carried_and_one_equal_to_a_bound_too() {
-    let alone = row(&[("parameter_name", "Alone"), ("cc_msb", "1"), ("cc_default_value", "300")]);
+    let alone = row(&[("parameter_name", "Alone"), ("cc_msb", "1"), ("cc_default_value", "100")]);
     let bound = row(&[("parameter_name", "Bound"), ("cc_msb", "2"), ("cc_min_value", "0"), ("cc_max_value", "127"), ("cc_default_value", "127")]);
     let t = ok(&csv(&[alone, bound]));
     assert!(t.lost.is_empty(), "{:?}", t.lost);
     let list = entries(&t.value);
-    assert_eq!((list[0].default, list[1].default), (Some(300), Some(127)));
+    assert_eq!((list[0].default, list[1].default), (Some(100), Some(127)));
 }
 
 #[test]
@@ -475,3 +475,177 @@ fn a_row_with_a_cc_and_an_nrpn_of_one_range_or_a_default_in_the_cc_cell_keeps_th
     assert_eq!((list[1].ways()[0].ctrl_index.clone(), list[1].default, list[1].ways()[0].range), (Some(vec![1]), Some(64), Some([0, 127])));
     assert_eq!((list[2].ways()[0].ctrl_index.clone(), list[2].default, list[2].ways()[0].range), (Some(vec![4]), Some(10), Some([0, 127])));
 }
+
+// ---- a CC LSB equal to its CC, and a default outside the scale of a row without a range ------
+
+/// A device of 0.7 whose one control is the CC 100.
+fn base_07() -> osd::Device {
+    crate::common::device_from(
+        r#"{"$schema": "https://w3id.org/osd/0.7/device.schema.json", "sources": [{"type": "community-re", "url": "u", "license": "CC0-1.0"}],
+        "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"},
+        "cc_params": {"entries": [{"osc": "/base", "ways": [{"ctrlType": "cc", "ctrlIndex": [100]}]}]}}"#,
+    )
+}
+
+/// The descriptor an import returned reads back with the reader of osd, as it is.
+fn reads(d: &osd::Device, context: &str) {
+    let text = osd::write(&osd::Descriptor::Device(Box::new(d.clone())));
+    match osd::read(&text, osd::Kind::Device) {
+        Ok(osd::Descriptor::Device(back)) => assert_eq!(&*back, d, "{context}"),
+        other => panic!("{context}: not read back: {other:?}\n{text}"),
+    }
+}
+
+/// The controls and the losses of `rows`, by `import` then by `import_into` a base of one control:
+/// each descriptor reads back, and the controls are those the file added.
+fn by_both(rows: &[Vec<String>]) -> [(&'static str, Vec<osd::CcEntry>, Vec<osd_formats::Loss>); 2] {
+    let text = csv(rows);
+    let first = ok(&text);
+    reads(&first.value, "import");
+    let into = osd_formats::import_into(base_07(), &text, Format::MidiCsv, &source()).unwrap_or_else(|f| panic!("refused: {f:?}"));
+    reads(&into.value, "import_into");
+    let added = entries(&into.value).split_off(1);
+    [("import", entries(&first.value), first.lost), ("import_into", added, into.lost)]
+}
+
+fn places(lost: &[osd_formats::Loss]) -> Vec<&str> {
+    lost.iter().map(|l| l.place.as_str()).collect()
+}
+
+#[test]
+fn a_cc_lsb_equal_to_its_cc_gives_a_cc_way_of_one_number_and_a_loss_at_cc_lsb() {
+    for n in ["0", "5", "127"] {
+        let r = row(&[("parameter_name", "Twin"), ("cc_msb", n), ("cc_lsb", n)]);
+        for (by, list, lost) in by_both(&[r]) {
+            assert_eq!(list.len(), 1, "{by} {n}");
+            assert_eq!(list[0].ways().len(), 1, "{by} {n}");
+            assert_eq!(shape(&list[0].ways()[0]), ("cc".to_string(), vec![n.parse().unwrap()], None, None), "{by} {n}");
+            assert_eq!(places(&lost), ["line 2, column cc_lsb"], "{by} {n}");
+            let reason = &lost[0].reason;
+            assert!(reason.contains("14") && reason.contains("distinct"), "{by}: the reason says a 14-bit pair takes two distinct numbers: {reason:?}");
+        }
+    }
+}
+
+#[test]
+fn a_row_whose_cc_lsb_equals_its_cc_keeps_its_texts_range_default_and_nrpn() {
+    let r = row(&[
+        ("section", "Filter"),
+        ("parameter_name", "Twin"),
+        ("parameter_description", "d"),
+        ("cc_msb", "5"),
+        ("cc_lsb", "5"),
+        ("cc_min_value", "0"),
+        ("cc_max_value", "100"),
+        ("cc_default_value", "64"),
+        ("nrpn_msb", "1"),
+        ("nrpn_lsb", "2"),
+        ("nrpn_min_value", "0"),
+        ("nrpn_max_value", "16383"),
+        ("orientation", "centered"),
+        ("notes", "n"),
+        ("usage", "u"),
+    ]);
+    for (by, list, lost) in by_both(&[r]) {
+        assert_eq!(places(&lost), ["line 2, column cc_lsb"], "{by}");
+        let e = &list[0];
+        let ways: Vec<_> = e.ways().iter().map(shape).collect();
+        assert_eq!(ways, [("cc".to_string(), vec![5], None, Some([0, 100])), ("nrpn".to_string(), vec![1, 2], Some(14), Some([0, 16383]))], "{by}");
+        assert_eq!(e.default, Some(64), "{by}");
+        assert_eq!((e.title.as_deref(), e.section.as_deref(), e.description.as_deref()), (Some("Twin"), Some("Filter"), Some("d")), "{by}");
+        assert_eq!((e.notes.as_deref(), e.value_description.as_deref(), e.polarity), (Some("n"), Some("u"), Some(osd::Polarity::Bipolar)), "{by}");
+    }
+}
+
+#[test]
+fn the_default_of_a_row_whose_cc_lsb_equals_its_cc_is_judged_on_the_scale_of_the_one_number() {
+    let r = |default: &str| row(&[("parameter_name", "Twin"), ("cc_msb", "5"), ("cc_lsb", "5"), ("cc_default_value", default)]);
+    for (by, list, lost) in by_both(&[r("127")]) {
+        assert_eq!((list[0].default, places(&lost)), (Some(127), vec!["line 2, column cc_lsb"]), "{by}");
+    }
+    for (by, list, lost) in by_both(&[r("8192")]) {
+        assert_eq!((list[0].default, places(&lost)), (None, vec!["line 2, column cc_lsb", "line 2, column cc_default_value"]), "{by}");
+    }
+}
+
+#[test]
+fn the_cc_of_a_row_whose_cc_lsb_equals_it_is_claimed_once_for_the_rows_after_it() {
+    let twin = row(&[("parameter_name", "Twin"), ("cc_msb", "5"), ("cc_lsb", "5")]);
+    let again = row(&[("parameter_name", "Again"), ("cc_msb", "5")]);
+    let as_lsb = row(&[("parameter_name", "Pair"), ("cc_msb", "6"), ("cc_lsb", "5")]);
+    let other = row(&[("parameter_name", "Other"), ("cc_msb", "6")]);
+    for (by, list, lost) in by_both(&[twin, again, as_lsb, other]) {
+        let titles: Vec<_> = list.iter().filter_map(|e| e.title.as_deref()).collect();
+        assert_eq!(titles, ["Twin", "Other"], "{by}");
+        assert_eq!(places(&lost), ["line 2, column cc_lsb", "line 3, column cc_msb", "line 4, column cc_msb"], "{by}");
+    }
+}
+
+/// The cells of a row without a range, the default it keeps, the columns it loses and the kind of
+/// its first way.
+type DefaultCase = (&'static [(&'static str, &'static str)], Option<i64>, &'static [&'static str], &'static str);
+
+fn judge_defaults(cases: &[DefaultCase]) {
+    for (cells, default, columns, first) in cases {
+        let mut all = vec![("parameter_name", "Bare")];
+        all.extend_from_slice(cells);
+        let ways = usize::from(cells.iter().any(|(c, _)| *c == "cc_msb")) + usize::from(cells.iter().any(|(c, _)| *c == "nrpn_msb"));
+        for (by, list, lost) in by_both(&[row(&all)]) {
+            assert_eq!(list.len(), 1, "{by} {cells:?}");
+            let expected: Vec<String> = columns.iter().map(|c| format!("line 2, column {c}")).collect();
+            assert_eq!(places(&lost), expected, "{by} {cells:?}");
+            assert!(lost.iter().all(|l| !l.reason.is_empty()), "{by} {cells:?}");
+            let e = &list[0];
+            assert_eq!((e.default, e.ways().len(), e.ways()[0].ctrl_type.as_str()), (*default, ways, *first), "{by} {cells:?}");
+            assert_eq!(e.title.as_deref(), Some("Bare"), "{by} {cells:?}");
+        }
+    }
+}
+
+#[test]
+fn a_default_outside_0_to_127_of_a_cc_of_one_number_without_a_range_is_a_loss_at_its_column() {
+    judge_defaults(&[
+        (&[("cc_msb", "5"), ("cc_default_value", "200")], None, &["cc_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "128")], None, &["cc_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "-1")], None, &["cc_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "0")], Some(0), &[], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "127")], Some(127), &[], "cc"),
+    ]);
+}
+
+#[test]
+fn a_default_of_a_14_bit_pair_or_of_an_nrpn_without_a_range_is_carried_only_within_0_to_16383() {
+    judge_defaults(&[
+        (&[("cc_msb", "5"), ("cc_lsb", "37"), ("cc_default_value", "8192")], Some(8192), &[], "cc"),
+        (&[("cc_msb", "5"), ("cc_lsb", "37"), ("cc_default_value", "16383")], Some(16383), &[], "cc"),
+        (&[("cc_msb", "5"), ("cc_lsb", "37"), ("cc_default_value", "16384")], None, &["cc_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_lsb", "37"), ("cc_default_value", "-1")], None, &["cc_default_value"], "cc"),
+        (&[("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "16383")], Some(16383), &[], "nrpn"),
+        (&[("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "16384")], None, &["nrpn_default_value"], "nrpn"),
+        (&[("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "-1")], None, &["nrpn_default_value"], "nrpn"),
+    ]);
+}
+
+#[test]
+fn an_nrpn_default_above_127_beside_a_cc_without_a_range_or_default_is_carried_with_the_nrpn_first() {
+    judge_defaults(&[
+        (&[("cc_msb", "5"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "128")], Some(128), &[], "nrpn"),
+        (&[("cc_msb", "5"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "16383")], Some(16383), &[], "nrpn"),
+        (&[("cc_msb", "5"), ("cc_lsb", "37"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "8192")], Some(8192), &[], "nrpn"),
+    ]);
+}
+
+#[test]
+fn a_default_outside_the_scale_of_a_row_with_a_cc_and_an_nrpn_without_a_range_is_lost_at_its_column() {
+    judge_defaults(&[
+        (&[("cc_msb", "5"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "16384")], None, &["nrpn_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "200"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")], None, &["cc_default_value"], "cc"),
+        (&[("cc_msb", "5"), ("cc_default_value", "200"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "8192")], Some(8192), &["cc_default_value"], "nrpn"),
+    ]);
+}
+
+#[test]
+fn an_nrpn_default_within_127_beside_a_cc_without_a_range_keeps_the_cc_first() {
+    judge_defaults(&[(&[("cc_msb", "5"), ("nrpn_msb", "1"), ("nrpn_lsb", "2"), ("nrpn_default_value", "127")], Some(127), &[], "cc")]);
+}
+

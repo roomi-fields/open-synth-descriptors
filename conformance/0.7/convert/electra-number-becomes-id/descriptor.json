@@ -60,6 +60,36 @@
         125,
         247
       ]
+    },
+    {
+      "osc": "/level_label",
+      "_electra": {
+        "parameter": {
+          "type": "sysex",
+          "number": 7
+        },
+        "label": "x"
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
+    },
+    {
+      "osc": "/level_device",
+      "_electra": {
+        "parameter": {
+          "type": "sysex",
+          "number": 8,
+          "deviceId": 2
+        }
+      },
+      "frame": [
+        240,
+        125,
+        247
+      ]
     }
   ]
 }

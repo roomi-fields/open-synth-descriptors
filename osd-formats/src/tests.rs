@@ -4,6 +4,8 @@
 use crate::Format as Listed;
 use osd::{Resolved, Source};
 
+mod read_back;
+
 formats! {
     TestOnly => test_only: "A format that exists in this test only.",
 }

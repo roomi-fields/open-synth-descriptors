@@ -2,10 +2,10 @@
 //! detection observed of one device plugged in, and the device the person
 //! confirmed it is.
 
-use crate::device::{check_stack, refuse_paths, Platform, Sends, Stack, UsbId};
+use crate::device::{check_credit, check_stack, refuse_paths, Platform, Sends, Stack, UsbId};
 use crate::firmware::FirmwareKind;
 use crate::json::{at_most, closed, field, int, list, list_of, matching, obj, object, words, At, Nullable, Object, Opt, STRING};
-use crate::{Fault, FaultKind, SchemaUrl, Version};
+use crate::{Fault, FaultKind, SchemaUrl, Source, Version};
 use serde_json::Value;
 
 words! {
@@ -44,6 +44,8 @@ object! {
         "program" program: Option<Program> = Opt(obj()),
         /// Controls the person named while teaching it.
         "names" names: Option<Vec<Named>> = Opt(list_of(obj(), 0, 32)),
+        /// Where the data comes from, with its credit, licence and the firmware it documents (0.7).
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
     }
     check check_controls
 }
@@ -103,6 +105,7 @@ object! {
 /// it, `UnknownField`), and a control carries one message kind only.
 fn check_controls(f: &Fingerprint, at: &At) -> Result<(), Fault> {
     check_stack(f.platform, f.stack, at)?;
+    check_credit(f.schema, &[(at.pointer(), &f.sources)])?;
     let v06 = f.schema >= Some(Version::V0_6);
     if v06 {
         check_subject(f, at)?;
@@ -125,7 +128,6 @@ fn check_controls(f: &Fingerprint, at: &At) -> Result<(), Fault> {
             return Err(Fault { kind: FaultKind::BadValue, file: None, pointer, rule: "a control carries one message kind only: a cc, an nrpn or an rpn".into() });
         }
     }
-    let _ = at;
     Ok(())
 }
 

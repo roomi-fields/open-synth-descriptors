@@ -2,15 +2,17 @@
 
 ## Status
 
-- State: `candidate`
-- Candidate since: 2026-11-24
+- State: `draft`
+- Candidate since: —
 - Under the trial: —
 
-The owner answered the questions of the first draft on 2026-11-24; the answers are written into the text where they decide, and no question remains open (section "The owner's answers"). The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections.
+Amended on 2026-11-25 with the precisions the building of 0.7 brought to the scaling, the `sysex` way, the controls that mix kinds of message and the controls with no way, and the rewritten examples; the same day, the numbers of a `sysex` way are bounded by the length of their list, so that no `id` a published version admits is refused or lost. This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
+
+The owner answered the questions of the first draft on 2026-11-24; the answers are written into the text where they decide, and no question remains open (section "The owner's answers").
 
 ## What it changes
 
-The text and the schemas of 0.7: how an entry of `cc_params` (and of `params`) says the messages that reach it. The flat fields of an entry (`cc`, `cc_lsb`, `nrpn_msb`, `nrpn_lsb`, `rpn_msb`, `rpn_lsb`, `value_bits`, `range`), `also`, and the `transmit` and `recognize` of the entry give way to one list, `ways`. Sections 22.3 and 22.6 of `spec/0.6.md` are rewritten on it.
+The text and the schemas of 0.7: how an entry of `cc_params` (and of `params`) says the messages that reach it. The flat fields of an entry (`cc`, `cc_lsb`, `nrpn_msb`, `nrpn_lsb`, `rpn_msb`, `rpn_lsb`, `value_bits`, `range`), `also`, and the `transmit` and `recognize` of the entry give way to one list, `ways`; only an entry with no way keeps `range`, `transmit`, `recognize` and `nrpn_lsb_range` on itself. Sections 22.3 and 22.6 of `spec/0.6.md` are rewritten on it.
 
 ## Why
 
@@ -28,7 +30,7 @@ And `transmit` and `recognize`, on the entry, say the direction and the coding o
 
 ### The form
 
-A control (an entry of `cc_params`, of `params`) has `ways`, a list of one way or more. The flat fields, `also`, `transmit`, `recognize` and `in` are no longer fields of the entry: they live on the ways. The entry keeps what is the control's own: its `osc` address, `role`, `default`, `priority`, `step_count`, `values`, `expects`, `section`, `transform`, its title and description, its `channel`, and its `scale` (below).
+A control (an entry of `cc_params`, of `params`) has `ways`, a list of zero or more ways (a control with none is partial, below). The flat fields, `also` and `in` are no longer fields of the entry: they live on the ways, as `range`, `transmit`, `recognize` and `nrpn_lsb_range` do on an entry that has a way. A way of a `cc_params` entry may carry `in` and `slice`; a way of a `params` entry does not, and a reader refuses them there as `UnknownField` at `/params/entries/N/ways/M/in` or `/slice` (cases `conformance/0.7/read/in-on-a-params-way-refused` and `conformance/0.7/read/slice-on-a-params-way-refused`). The entry keeps what is the control's own: its `osc` address, `role`, `default`, `priority`, `step_count`, `values`, `expects`, `section`, `transform`, its title and description, its `channel`, and its `scale` (below).
 
 A way says one message and how it is reached:
 
@@ -40,9 +42,13 @@ A way says one message and how it is reached:
 | `range` | lowest and highest value of the message, where needed |
 | `transmit` | `absolute`, `relative`, `both`, `none` (the four words of M2-117-UM v1.0, tables 6 and 12) |
 | `recognize` | the same four words |
-| `in` | the context the way holds in (proposal 0003) |
-| `slice` | the slice of values the way holds in (proposal 0003) |
+| `in` | the context the way holds in (proposal 0003); on a way of a `cc_params` entry only: `UnknownField` on a way of a `params` entry (`0.7/read/in-on-a-params-way-refused`) |
+| `slice` | the slice of values the way holds in (proposal 0003); on a way of a `cc_params` entry only: `UnknownField` on a way of a `params` entry (`0.7/read/slice-on-a-params-way-refused`) |
 | `nrpn_lsb_range` | for an `nrpn` way only: `[lowest, highest]`, the parameter LSB numbers of the block the way stands for (section 22.4 of 0.6, unchanged); it is not the range of the value |
+
+**A control with no way** (the owner's decision of 2026-11-25). A control may have `ways: []`: a partial control, to be completed. Its description knows the control and not yet the message that reaches it; the empty list says that, and nothing else. Such a control claims no message. Only it carries `range`, `transmit`, `recognize` and, in `cc_params`, `nrpn_lsb_range` on the entry; beside a way, a reader refuses each of them as `UnknownField`. A reader accepts a control with no way and warns `PartialControl` at its pointer; it is never a fault. A parameter that sends no message, such as a virtual parameter of a controller, is not such a control and stays out of the controls (proposal 0008). Cases of the suite: `conformance/0.7/read/control-without-a-way-warned`, `conformance/0.7/read/params-entry-without-a-way-warned`, `conformance/0.7/read/transmit-beside-a-way-refused` and `conformance/0.7/convert/entries-without-a-message-keep-their-fields`.
+
+A departure from Property Exchange: it requires `ctrlType` on each controller (M2-117-UM), so it has no controller with no message. Reason: a description gathered from several sources can know a control before its message, and the owner decided that this partial knowledge is kept, to be completed.
 
 `values`, `expects`, `section`, `transform` and `role` are not on the way: each says the control (what its values mean, what it expects, where it is laid out, how it is computed, what it is), not one message that reaches it.
 
@@ -63,9 +69,11 @@ What the mature references do: Property Exchange has `numSigBits` on every contr
 
 A control may give `scale`, `[lowest, highest]`: the range its `default`, `values`, `step_count` and readings are written in, the **reference scale**. Without it, the reference scale is the range of the **most precise way** (the way whose maximum value is the highest; its `range`, else the range its kind and `value_bits` imply: 0 to 127 for 7 bits, 0 to 16383 for 14). When two ways have the same highest maximum, the first of the two in the written order is the reference.
 
-`default`, `values`, `step_count` and the readings of a control are written in the reference scale, and a tool converts them to the scale of each way when it needs the way's value. The conversion is a proportional scaling from the reference scale to the way's, rounded to the nearest (the half upward), never truncated: `round(v × (way_max − way_min) / (ref_max − ref_min))`, for scales that start at 0. The reference value stays the value of the control: the less precise way carries its nearest approximation, and the most precise way carries it without loss. Example, with a 14-bit reference (0 to 16383): a `default` of 8192 becomes 64 on a 7-bit way (8192 × 127 / 16383 ≈ 63.5, rounded up), and stays 8192 on the 14-bit way. So no information that a way can carry is lost.
+For a control with no way, the reference scale is its `scale`, else its `range`; with neither, it is not known.
 
-The same shape in the other direction: a value received on a way is scaled to the reference scale in the same manner.
+`default`, `values`, `step_count` and the readings of a control are written in the reference scale, and a tool converts them to the scale of each way when it needs the way's value. The conversion is the affine scaling of one range onto the other, rounded to the nearest, the half upward (away from `ref_min`), never truncated: `way = way_min + round((v − ref_min) × (way_max − way_min) / (ref_max − ref_min))`. For ranges that start at 0 it is `round(v × way_max / ref_max)`. With the reference `[-64, 63]` and a way `[0, 127]`: −64 gives 0, 0 gives 64, 63 gives 127. The reference value stays the value of the control: the less precise way carries its nearest approximation, and the most precise way carries it without loss. Example, with a 14-bit reference (0 to 16383): a `default` of 8192 becomes 64 on a 7-bit way (8192 × 127 / 16383 ≈ 63.5, rounded up), and stays 8192 on the 14-bit way. So no information that a way can carry is lost.
+
+The same formula holds in the other direction, the two ranges exchanged: a value received on a way is scaled to the reference scale in the same manner.
 
 `ctrlIndex` by `ctrlType`. When there are two integers, the order is always MSB then LSB.
 
@@ -77,15 +85,15 @@ The same shape in the other direction: a value received on a way is scaled to th
 | `pPress` | `[note]` | the note number, 0 to 127 |
 | `note` | `[note]` | the note number, 0 to 127 |
 | `chPress`, `pBend` | none: the field is absent, never an empty list | one message per channel |
-| `sysex` | `[pr, p, c, r]` or `[id]`: the numbers of the 0.6 params entry that it gives, in that order | a `params` entry only (below) |
+| `sysex` | one number, 0 or more, not bounded to a byte (`[id]`, or the `pr` of an entry that gives it alone); or two to four numbers, `[pr, p, c, r]`, each 0 to 255: the numbers of the 0.6 params entry that it gives, in that order | a `params` entry only (below) |
 
 `nrpn_lsb_range` claims, as in 0.6, only the message of its own `ctrlIndex`, not the whole block: a reader MUST NOT claim the LSB numbers of the block. A reader MUST keep it as written and write it back.
 
 ### The ways of a `params` entry
 
-A `params` entry (a parameter read and written by SysEx) has `ways` like a control. Its way is of kind `sysex`: its `ctrlIndex` carries the numbers that address the parameter in the maker's frame, from the fields of the 0.6 entry: `pr`, `p`, `c`, `r` (each one byte, 0 to 255, only those the entry gives) and `id` (one integer). A `sysex` way carries `range`, `value_bits` where the 0.6 entry gave it, `transmit` and `recognize`, and, with `in` and `slice`, the same context as any way. The entry keeps `osc`, `role`, `default`, `values`, `expects`, `section`, `transform`, `priority` and `step_count`. The kinds of MIDI (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`) are not those of a `params` way, and `sysex` is not that of a `cc_params` way.
+A `params` entry (a parameter read and written by SysEx) has `ways` like a control. Its way is of kind `sysex`: its `ctrlIndex` carries the numbers that address the parameter in the maker's frame, from the fields of the 0.6 entry: `pr`, `p`, `c`, `r` (each one byte, 0 to 255, only those the entry gives), or `id` (one integer, not limited to a byte). The length of the list says its bound, with no new field: a list of one number is 0 or more, whatever its size; a list of two to four numbers holds bytes; a reader refuses any other list, an empty one and one of five numbers too, as `BadValue` at `ctrlIndex`. The reason: 0.6 publishes an `id` not limited to a byte (`spec/0.6.md`, table of words). A `sysex` way carries `range`, `transmit` and `recognize`. It carries no context: a reader refuses `in` and `slice` on a way of a `params` entry as `UnknownField` at `/params/entries/N/ways/M/in` or `/slice` (cases `conformance/0.7/read/in-on-a-params-way-refused` and `conformance/0.7/read/slice-on-a-params-way-refused`). A 0.6 `params` entry has no `value_bits`, and the converter writes none on a `sysex` way. The entry keeps `osc`, `role`, `default`, `values`, `expects`, `section`, `transform`, `priority` and `step_count`. The kinds of MIDI (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`) are not those of a `params` way, and `sysex` is not that of a `cc_params` way.
 
-The converter writes, for a 0.6 `params` entry: one way, `ctrlType: sysex`, `ctrlIndex` the numbers `pr`, `p`, `c`, `r` that the entry gives (or `[id]`), the entry's `range` on the way, its `transmit` and `recognize` on the way; the rest stays on the entry.
+The converter writes, for a 0.6 `params` entry: one way, `ctrlType: sysex`, `ctrlIndex` the numbers `pr`, `p`, `c`, `r` that the entry gives (or `[id]`, an `id` of 0 or more), the entry's `range` on the way, its `transmit` and `recognize` on the way; the rest stays on the entry. Where the numbers do not say which fields the entry gave (an `id` beside `pr`, `p`, `c` or `r`, numbers other than the first ones in order, or `pr` alone, which reads as an `id`), the way keeps those fields in its note `_flat`. A 0.6 `params` entry with none of `pr`, `p`, `c`, `r` and `id` gets `ways: []` and keeps its `range`, `transmit` and `recognize` on the entry. A negative `id` that is the only number of an entry has no place in a way: the converter never refuses it nor loses it; it writes `ways: []`, keeps `{ "id": -1 }` in the note `_flat` of the entry (`_flat_2`, `_flat_3` and so on, the first free, when the key is taken) and leaves `range`, `transmit` and `recognize` on the entry. A 0.6 text read and written again in 0.6 is unchanged. Cases of the suite: `conformance/0.7/read/sysex-way-of-one-number-beyond-a-byte-accepted`, `conformance/0.7/read/sysex-way-of-one-negative-number-refused`, `conformance/0.7/read/sysex-way-of-several-numbers-beyond-a-byte-refused`, `conformance/0.7/convert/params-id-beyond-a-byte-becomes-the-number-of-the-way`, `conformance/0.7/convert/params-pr-alone-keeps-its-name-in-a-note` and `conformance/0.7/convert/params-negative-id-alone-stays-a-note`.
 
 What the mature references do: Property Exchange controller resources describe MIDI controller messages and have no kind for a SysEx parameter; MIDNAM neither. `sysex` is an OSD word, and the departure has its reason: a SysEx parameter is a control of the device, and putting it in a way lets one structure carry every control; the converter from 0.6 writes it without loss.
 
@@ -145,7 +153,7 @@ The order of the ways stays the sender's rule: it takes the first sendable way w
 
 ### What the converter writes
 
-For a 0.6 control the converter writes, without loss:
+For a 0.6 control the converter writes the following, losing no value: a block (`nrpn_lsb_range`) that no single `nrpn` way can receive, and a `range` that no way takes, are each kept as a note.
 
 | 0.6 | 0.7 |
 |---|---|
@@ -154,39 +162,50 @@ For a 0.6 control the converter writes, without loss:
 | `nrpn_msb`, `nrpn_lsb` | first way, `ctrlType: nrpn`, `ctrlIndex: [nrpn_msb, nrpn_lsb]` |
 | `rpn_msb`, `rpn_lsb` | first way, `ctrlType: rpn`, `ctrlIndex: [rpn_msb, rpn_lsb]` |
 | `value_bits` (NRPN, RPN) | the way's `value_bits`; a simple CC has none in 0.6 and the converter writes none |
-| `range` | the way's `range` |
-| `nrpn_lsb_range` | the NRPN way's `nrpn_lsb_range` |
+| `range`, on an entry that gives a flat message | the first way's `range` |
+| `range`, on an entry that gives no flat message and a non-empty `also` | the note `_range` of the entry (below); when the entry has no way, its `range` stays on it |
+| `nrpn_lsb_range`, on an entry that has a way | the `nrpn_lsb_range` of one `nrpn` way (below); when no single way can receive it, the note `_nrpn_lsb_range` of the entry |
 | each element of `also`, in order | the next ways, same rules, its own `range` and `value_bits` |
 | `transmit`, `recognize` of the entry | written on every way (0.6 has one value for the control) |
 | `values` (a dictionary label → integer) | the entry's `values`, a list of `{ "value": integer, "title": label }` in the order of the dictionary, as Property Exchange's `ctrlMapId` list gives `value` and `title`; the integers are in the reference scale (below) |
 | `expects`, `section`, `transform`, `role`, `default`, `priority`, `step_count` | the same fields of the entry, unchanged |
 | a `params` entry's `pr`, `p`, `c`, `r`, `id`, `range`, `transmit`, `recognize` | one way of kind `sysex` (above) |
-| the scale | the range of the first way, written as `scale` on the control only if the control has a `default`, `values` or `step_count` and its first way is not the most precise (below) |
-| `in` of a 0.7 draft of 0003 | `in` of the first way, and of each other |
+| the scale | the range of the first way, written as `scale` on the control only if the control has a `default`, `values` or `step_count` and its first way is not the most precise; for a `range` that no way takes, that `range` (below) |
+| an entry that gives no message fully known | `ways: []`; its `range`, `transmit`, `recognize` and `nrpn_lsb_range` stay on the entry, unchanged, with no `scale` |
+| an NRPN or an RPN given by one number, a `cc_lsb` without `cc` | no way: the note `_incomplete` of the entry (below) |
+| a `params` entry whose only number is a negative `id` | `ways: []`, the `id` in the note `_flat` of the entry; `range`, `transmit`, `recognize` stay on the entry (above) |
 
-**The scale the converter writes.** The scale of a 0.6 control is the range of its input, that is, of its first way (0.6 says `default` "in the space of `range`", section 22.1). The converter writes it as `scale` on the control only when the control has a `default`, `values` or `step_count` and its first way is not the most precise (another way has a higher maximum). Otherwise the first way is the reference already, and nothing is written. So each 0.6 value keeps its value. A simple CC without an explicit `value_bits` takes 7 bits and the range 0 to 127 that its kind implies.
+**The block the converter writes.** An entry of `cc_params` that gives `nrpn_lsb_range` and has a way in 0.7 has it written on one `nrpn` way and on no other: the way of the flat fields when they give both `nrpn_msb` and `nrpn_lsb`; else, when they give neither, the single `nrpn` way written from `also`. When no way can receive it (the flat fields give one number of an NRPN alone; or they give none, and `also` gives no `nrpn` way or several), the converter does not refuse the entry for it and chooses no way: it keeps the value, unchanged, on the entry under `_nrpn_lsb_range`, a note for people; when that key is taken, under `_nrpn_lsb_range_2`, `_nrpn_lsb_range_3` and so on, the first free. A control of 0.4 or 0.5 that mixes kinds of message follows its own rules (below). Cases of the suite, under `conformance/0.7/convert/`: `nrpn-block-goes-to-the-only-nrpn-way-of-also`, `nrpn-block-beside-a-cc-of-0-4-kept-as-note`, `nrpn-block-beside-a-cc-of-0-5-kept-as-note`, `nrpn-block-beside-a-cc-of-0-6-kept-as-note`, `nrpn-block-beside-also-without-nrpn-kept-as-note`, `nrpn-block-beside-two-nrpn-ways-of-also-kept-as-note` and `nrpn-block-note-takes-the-next-free-key`.
+
+**The range no way takes.** An entry of `cc_params` that gives `range`, no flat message field and a non-empty `also`, and has a way in 0.7, has a `range` that no way takes without its being moved, and an entry that has a way carries none. The converter does not refuse the entry for it and writes it on no way: it keeps the value, unchanged, on the entry under `_range`, a note for people; when that key is taken, under `_range_2`, `_range_3` and so on, the first free. A way of such an entry has a `range` only when its element of `also` gave one. When the entry has no way, because no element of its `also` is a message fully known, its `range` stays on it, with no `_range` and no `scale`. Cases of the suite, under `conformance/0.7/convert/`: `range-beside-also-alone-stays-a-note` and `range-beside-also-alone-gives-the-scale-of-a-default`.
+
+**The scale the converter writes.** The scale of a 0.6 control is the range of its input, that is, of its first way (0.6 says `default` "in the space of `range`", section 22.1). The converter writes it as `scale` on the control only when the control has a `default`, `values` or `step_count` and its first way is not the most precise (another way has a higher maximum). Otherwise the first way is the reference already, and nothing is written. For an entry whose `range` no way takes (above), the scale of its input is that `range`: when the control has a `default`, `values` or `step_count`, the converter writes `scale`, equal to the `range`, if the most precise way has another scale, whatever the scale of the first way, and no `scale` otherwise; without these three fields it writes no `scale`, and the reference scale is that of the ways. So each 0.6 value keeps its value. A simple CC without an explicit `value_bits` takes 7 bits and the range 0 to 127 that its kind implies.
 
 **Why the 0.6 `value_bits` rule and the `sysex` way depart from the references.** See "What a reference does": Property Exchange and MIDNAM have neither a `value_bits` on a CC nor a way of kind `sysex`. Both are OSD's words, kept for compatibility: the converter from 0.6 writes them without loss.
 
-A converter MUST keep the order. A converter MUST NOT join two controls. A converter writes no value that a later version adds, and no value its source lacks: a way gets `transmit` or `recognize` only if the control had it.
+A converter MUST keep the order the source says: the flat fields, then `also`. A converter MUST NOT join two controls. A converter writes no value that a later version adds, and no value its source lacks: a way gets `transmit` or `recognize` only if the control had it.
+
+**A message not fully known** (the owner's decision of 2026-11-25: partial information is kept, to be completed). An NRPN or an RPN given by one number, and a `cc_lsb` without its `cc`, have no way: `ctrlIndex` of an NRPN or an RPN holds two numbers, as in Property Exchange, and `[n]` of a `cc` is the CC n. The converter writes no way and no number for such a message and refuses nothing for it. It keeps it in the note `_incomplete` of the entry (`_incomplete_2`, `_incomplete_3`… when taken), a note for people: a list of one object per message, the flat fields then `also`, with the numbers given, `value_bits` when the text gives it, and for an element of `also` its `range` and its `_` notes. The `range` of the flat fields goes there only when the entry keeps a way; the `nrpn_lsb_range` beside an incomplete flat NRPN goes on no way (`_nrpn_lsb_range` when the entry has ways, else on the entry). When the first message is the incomplete one, a way remains and the control has a `default`, `values` or `step_count`, `scale` keeps the scale of that first message if the ways would give another. A control left with no way is partial, warned `PartialControl`.
 
 #### Worked example
 
 A control of 0.6, a CC and an NRPN for the same setting, in the order of preference, absolute to send and any coding to recognise:
 
 ```json
-{ "osc": "/filter/cutoff", "cc": 74, "range": [0, 127], "transmit": "absolute", "recognize": "both",
-  "also": [ { "nrpn_msb": 1, "nrpn_lsb": 8, "value_bits": 14, "range": [0, 16383] } ] }
+{ "cc_params": { "entries": [
+  { "osc": "/filter/cutoff", "cc": 74, "range": [0, 127], "transmit": "absolute", "recognize": "both",
+    "also": [ { "nrpn_msb": 1, "nrpn_lsb": 8, "value_bits": 14, "range": [0, 16383] } ] } ] } }
 ```
 
 becomes, with every field in its place (`cc` in way 1's `ctrlIndex`, `range` in way 1, `also` in way 2, `nrpn_msb` and `nrpn_lsb` in way 2's `ctrlIndex`, `value_bits` and `range` in way 2, `transmit` and `recognize` on both):
 
 ```json
-{ "osc": "/filter/cutoff", "ways": [
-  { "ctrlType": "cc",   "ctrlIndex": [74], "range": [0, 127],
-    "transmit": "absolute", "recognize": "both" },
-  { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14, "range": [0, 16383],
-    "transmit": "absolute", "recognize": "both" } ] }
+{ "cc_params": { "entries": [
+  { "osc": "/filter/cutoff", "ways": [
+    { "ctrlType": "cc",   "ctrlIndex": [74], "range": [0, 127],
+      "transmit": "absolute", "recognize": "both" },
+    { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14, "range": [0, 16383],
+      "transmit": "absolute", "recognize": "both" } ] } ] } }
 ```
 
 (A plain CC has no `value_bits`: 0.6 refuses it there, and the kind implies 7 bits. The control has no `default`, `values` or `step_count`, so no `scale` is written.)
@@ -205,37 +224,69 @@ becomes, with every field in its place (`cc` in way 1's `ctrlIndex`, `range` in 
 
 The receiver recognises the NRPN (way 1) and not the CC (way 2). The sender skips way 1 (`transmit: none`) and sends the CC. Each way kept its own two values; nothing was merged.
 
+#### A control of 0.4 or 0.5 that mixes kinds of message
+
+The flat fields of a control of 0.4 or 0.5 may mix a CC, an NRPN and an RPN, which 0.6 refuses. In 0.7 each message has its way, so the converter to 0.7 turns such a control of `cc_params` into one control with one way per message:
+
+- **One way per kind, in a fixed order**: the CC, the NRPN, the RPN, whatever the order of the text. "A converter MUST keep the order" is about the order the source says (the flat fields, then `also`); the flat fields of a mix say none.
+- **Numbers and width.** The CC way has `ctrlIndex` `[cc]`, or `[cc, cc_lsb]` with `value_bits: 14`; an NRPN or an RPN way has `ctrlIndex` `[msb, lsb]` and `value_bits: 14`, the only coding of 0.4 and 0.5. A number 0 is a number of the source and is kept. A message of the mix not fully known goes into the note `_incomplete` (above), with the control's `range` when the control keeps a way.
+- **The other fields.** The control's `range` is written on every way, its `nrpn_lsb_range` on the NRPN way alone. The converter writes no `transmit`, no `recognize`, no `scale` and no note key for the mix, but for `_incomplete` and `_nrpn_lsb_range`; the other fields of the control convert as those of any control.
+
+The converter refuses, as `NotConvertible`, and returns no text for:
+
+- at the control (`/cc_params/entries/N`), a mix with an `nrpn_lsb_range` and no NRPN, neither `nrpn_msb` nor `nrpn_lsb`: no way holds it;
+- a message claimed twice, by a control that mixes kinds and another control, on the same channel (a 14-bit CC claiming its CC number and its LSB number): at the later control, the rule naming the first one;
+- a control of a fingerprint (`controls`, `names[].control`) that mixes kinds of message, at the control (`/controls/N`, `/names/N/control`): it is reached by no way.
+
+The conversion to 0.6 still refuses a control that mixes kinds of message: 0.6 does not change.
+
+Cases of the suite, under `conformance/0.7/convert/`: `mixed-cc-and-nrpn-control-of-0-4-becomes-two-ways`, `mixed-cc-and-nrpn-control-of-0-5-becomes-two-ways`, `mixed-cc-and-rpn-control-becomes-two-ways`, `mixed-nrpn-and-rpn-control-becomes-two-ways`, `mixed-three-kinds-control-becomes-three-ways`, `mixed-control-with-nrpn-of-one-number-kept-as-note`, `mixed-control-with-cc-lsb-without-cc-kept-as-note`, `mixed-control-with-block-without-nrpn-refused`, `mixed-control-message-claimed-twice-refused`, `fingerprint-control-mixing-cc-and-nrpn-refused` and `fingerprint-name-control-mixing-cc-and-nrpn-refused`.
+
 ### The round trip with the partners' data: no count is needed
 
-A field or a form that disappears with its information would call for a count of what the partners' data (Electra One, midi.guide, KnobKraft Orm) holds in it. None disappears here: the flat fields, `also`, `transmit` and `recognize` change form without loss, the converter carrying each value into a way (table above). So no count is needed, and the examples below show that the round trip stays exact.
+A field or a form that disappears with its information would call for a count of what the partners' data (Electra One, midi.guide, KnobKraft Orm) holds in it. None disappears here: the flat fields, `also`, `transmit` and `recognize` change form without loss, the converter carrying each value into a way (table above), but for a block (`nrpn_lsb_range`) that no single `nrpn` way can receive, which it keeps, unchanged, on the entry in the note `_nrpn_lsb_range` ("The block the converter writes"), and for a `range` that no way takes, which it keeps, unchanged, on the entry in the note `_range` ("The range no way takes"). So no count is needed, and the examples below show that the round trip stays exact.
 
-**A midi.guide line with a CC and an NRPN.** midi.guide carries no direction: a line gives a name, a CC and an NRPN. In the flat form of 0.6 it is:
+**A midi.guide line with a CC and an NRPN.** midi.guide carries no direction: a line gives a name, a CC and an NRPN. In 0.6, whose flat fields never mix two kinds, it is a CC and an NRPN in `also`, the NRPN with its `value_bits`:
 
 ```json
-{ "osc": "/filter/cutoff", "cc": 74, "nrpn_msb": 1, "nrpn_lsb": 8 }
+{ "cc_params": { "entries": [
+  { "osc": "/filter/cutoff", "cc": 74,
+    "also": [ { "nrpn_msb": 1, "nrpn_lsb": 8, "value_bits": 14 } ] } ] } }
 ```
 
 The two ways written from it have no `transmit` and no `recognize`, since the source carries none and the converter writes no value the source lacks:
 
 ```json
-{ "osc": "/filter/cutoff", "ways": [
-  { "ctrlType": "cc",   "ctrlIndex": [74] },
-  { "ctrlType": "nrpn", "ctrlIndex": [1, 8] } ] }
+{ "cc_params": { "entries": [
+  { "osc": "/filter/cutoff", "ways": [
+    { "ctrlType": "cc",   "ctrlIndex": [74] },
+    { "ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14 } ] } ] } }
 ```
+
+The simple CC has no `value_bits`; the NRPN way keeps the one its entry gave. A 0.4 or 0.5 text may give the same line in its flat fields (`cc`, `nrpn_msb`, `nrpn_lsb`): the converter writes the same two ways, the NRPN way with `value_bits: 14`, the only coding of 0.4 and 0.5. Case of the suite: `conformance/0.7/convert/midi-guide-line-becomes-two-ways-without-direction`.
 
 Written back to a midi.guide line, way 1 gives `cc` 74 and way 2 gives the NRPN 1:8: the line is found again, with nothing added and nothing lost.
 
-**An Electra One control in the relative mode.** The mode is the coding of the way, as in 0.6, and is kept without loss. The control, with its source credited in `sources`: an entry of the closed list of types (`contributed`) and only the keys of a source (`type`, `notes`); no field has the product's name:
+**An Electra One control in the relative mode.** The mode is the coding of the way, as in 0.6, and is kept without loss. In 0.6, with its source:
 
 ```json
-{ "sources": [ { "type": "contributed", "notes": "control in the relative mode" } ],
-  "cc_params": [
-    { "osc": "/encoder/1", "ways": [
-      { "ctrlType": "cc", "ctrlIndex": [20], "value_bits": 7,
-        "transmit": "relative", "recognize": "relative" } ] } ] }
+{ "_sources": [ { "type": "electra-preset", "notes": "control in the relative mode" } ],
+  "cc_params": { "entries": [
+    { "osc": "/encoder/1", "cc": 20, "transmit": "relative", "recognize": "relative" } ] } }
 ```
 
-One way, with `transmit: relative` and `recognize: relative`. Written back to a control of the source, the way gives its CC and its relative mode, and read again it is found unchanged.
+The converter writes the source as proposal 0010 says (`contributed`, the partner named by `provider`; no field has the product's name) and the control with one way:
+
+```json
+{ "sources": [ { "type": "contributed", "provider": "electra-one",
+    "notes": "type in 0.6: electra-preset\ncontrol in the relative mode" } ],
+  "cc_params": { "entries": [
+    { "osc": "/encoder/1", "ways": [
+      { "ctrlType": "cc", "ctrlIndex": [20],
+        "transmit": "relative", "recognize": "relative" } ] } ] } }
+```
+
+One way, with `transmit: relative` and `recognize: relative`, and no `value_bits`, since the simple CC had none. Written back to a control of the source, the way gives its CC and its relative mode, and read again it is found unchanged. Case of the suite: `conformance/0.7/convert/relative-control-keeps-its-coding-on-its-way`.
 
 ### The cases, as they would be written
 
@@ -256,11 +307,12 @@ Each with its input and its verdict.
 13. **A pressure way with an empty `ctrlIndex`.** `{ "ctrlType": "chPress", "ctrlIndex": [] }`. Verdict: refused as `BadValue` at `ctrlIndex`: the field is absent for `chPress` and `pBend`.
 14. **A way with neither direction.** Two ways of the CC `[7]` with no `transmit` and no `recognize`. Verdict: refused as `BadValue` at the later way: each claims both sides.
 15. **A reference scale.** A control with `default: 8192`, a 14-bit NRPN way and a 7-bit CC way. Verdict: valid; the reference is the NRPN (the most precise); the default is 8192 on the NRPN and 64 on the CC.
-16. **A `params` entry.** `ways: [ { "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0] } ]`. Verdict: valid; the same way on a `cc_params` entry is `BadValue`.
+16. **A `params` entry.** `ways: [ { "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0] } ]`. Verdict: valid; the same way on a `cc_params` entry is `BadValue`. In the suite: the conversion of a 0.6 `params` entry is `conformance/0.7/convert/params-entry-becomes-a-sysex-way`.
+17. **A control with no way.** `ways: []`. Verdict: valid, with the warning `PartialControl` at the entry (`conformance/0.7/read/control-without-a-way-warned`).
 
 ### The flat fields and `also` do not exist in 0.7
 
-One form only. A 0.7 descriptor with `cc`, `nrpn_msb`, `also` and the others on an entry is refused at its field. In the same way `_sources` becomes `sources`, and a key with `_` stays a note for people only.
+One form only. A 0.7 descriptor with `cc`, `nrpn_msb`, `also` and the others on an entry is refused at its field, as are `range`, `transmit`, `recognize` and `nrpn_lsb_range` on an entry that has a way. In the same way `_sources` becomes `sources`, and a key with `_` stays a note for people only.
 
 ## What a reference does
 
@@ -271,6 +323,7 @@ One form only. A 0.7 descriptor with `cc`, `nrpn_msb`, `also` and the others on 
 - **PE's words.** Kept for the kinds, for `ctrlType`, `ctrlIndex` (a list of integers, as in PE) and for `transmit` and `recognize`. `note` is OSD's, since PE has none (see "Why `note`").
 - **The direction on a way.** PE ties direction to an entry, so two entries for one message that is both sent and recognised. This proposal keeps `transmit` and `recognize` on the way and departs from PE: a way that works both ways is one way, not two. The reason: one structure, where a way says its message, its direction and its context; two entries for one message would make two ways claim the same message. A tool that wants PE's form splits a way in two entries without loss; the reverse (merging two PE entries) is also exact when they have the same message.
 - **One meaning per field.** `ways` holds structure in JSON objects the schema checks; no string is parsed. `ctrlIndex` is a list of integers whose order is fixed by the kind (MSB then LSB), as in PE. `slice` and `in` stay objects.
+- **A control with no way.** Property Exchange requires `ctrlType` on each controller; here a control may have `ways: []`, for the reason written in "The form".
 - **MIDNAM.** One message per control; here a control has several ways. The reason: a midi.guide line carries a CC and an NRPN for one control (0.6 already says it).
 
 ## Objections
@@ -291,3 +344,8 @@ The owner decided two more points on 2026-11-24:
 
 6. **The ways of a `params` entry.** A way of kind `sysex`: a `params` entry has ways like a control (section "The ways of a `params` entry").
 7. **The reference scale.** A control may state its own scale; without it, the scale of its most precise way is the reference; `default`, `values`, `step_count` and readings are written in it and converted to each way's (section "The scale of a control").
+
+The owner decided one more point on 2026-11-25:
+
+8. **A control with no message** is kept, with `ways: []`, partial and to be completed (section "The form").
+9. **A message not fully known** has no way and is kept in the note `_incomplete` (section "What the converter writes").

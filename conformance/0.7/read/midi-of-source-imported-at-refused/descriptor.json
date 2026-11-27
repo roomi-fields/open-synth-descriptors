@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": { "name": "S", "osc_prefix": "/s" },
+  "midi_of": "acme/b",
+  "midi_of_sources": [{ "type": "vendor-doc" }, { "type": "vendor-doc", "imported_at": "2026-01-01" }]
+}

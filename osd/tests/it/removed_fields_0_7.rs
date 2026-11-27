@@ -1,8 +1,11 @@
 //! The fields 0.7 removes (`transform_reverse`, `device.revision`, `transport.rate_limit_hz`,
 //! `sysex.footer`, `midi_out.note_offset`, `identity.sends`, `sources[].imported_at`): a 0.7 text
 //! that carries one is refused as an unknown field at its pointer (a source too, though it is
-//! an open object), the converter 0.6 to 0.7 drops each, a 0.6 text reads as 0.6 and the
-//! identity rule of `midi_of` follows the version of the pair.
+//! an open object), the converter 0.6 to 0.7 drops each but the date of a source, which it keeps
+//! as the note `_imported_at`, a 0.6 text reads as 0.6 and the identity rule of `midi_of` follows
+//! the version of the pair.
+
+use crate::common;
 
 use osd::{Capability, FaultKind, Kind, Version};
 use serde_json::{json, Value};
@@ -100,6 +103,64 @@ fn a_0_7_source_refuses_imported_at_though_a_source_is_an_open_object() {
 }
 
 #[test]
+fn a_0_7_device_refuses_imported_at_in_midi_of_sources_at_any_rank_and_whatever_its_value() {
+    let values = [json!("2026-01-01"), json!(""), json!(null), json!(0), json!(false), json!([]), json!({"on": "2026-01-01"})];
+    for value in &values {
+        for rank in 0..3 {
+            for linked in [true, false] {
+                let mut list = json!([{"type": "vendor-doc"}, {"type": "community-re", "_imported_at": "a"}, {"type": "test-fixture"}]);
+                list[rank]["imported_at"] = value.clone();
+                let mut doc = device(D07, json!({"midi_of_sources": list}));
+                if linked {
+                    doc["midi_of"] = json!("acme/b");
+                }
+                let want = (FaultKind::UnknownField, format!("/midi_of_sources/{rank}/imported_at"));
+                assert_eq!(refused(&doc), want, "{doc}");
+                let f = osd::read_as(&doc.to_string(), Kind::Device, Version::V0_7).expect_err("refused");
+                assert_eq!((f.kind, f.pointer), want, "{doc}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_0_7_source_of_midi_of_sources_keeps_its_other_unknown_keys_and_is_written_back_as_it_is() {
+    let list = json!([
+        {"type": "vendor-doc", "_imported_at": "2026-01-01", "_imported_at_2": null, "x-other": [1]},
+        {"type": "community-re", "imported_on": "2026-02-02", "_note": {"imported_at": "kept"}},
+    ]);
+    for linked in [true, false] {
+        let mut doc = device(D07, json!({"midi_of_sources": list}));
+        if linked {
+            doc["midi_of"] = json!("acme/b");
+        }
+        let d = osd::read(&doc.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{f}"));
+        let back: Value = serde_json::from_str(&osd::write(&d)).unwrap();
+        assert_eq!(back["midi_of_sources"], list, "{back}");
+    }
+}
+
+#[test]
+fn a_text_before_0_7_with_a_date_in_midi_of_sources_still_reads_and_converts_to_0_7() {
+    let list = json!([{"type": "vendor-doc", "imported_at": "2026-01-01"}]);
+    for schema in [None, Some("https://w3id.org/osd/0.5/device.schema.json"), Some(D06)] {
+        let mut doc = device(D06, json!({"midi_of": "acme/b", "_midi_of_sources": list}));
+        match schema {
+            Some(s) => doc["$schema"] = json!(s),
+            None => {
+                doc.as_object_mut().unwrap().remove("$schema");
+            }
+        }
+        let d = osd::read(&doc.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{f} in {doc}"));
+        let back: Value = serde_json::from_str(&osd::write(&d)).unwrap();
+        assert_eq!(back["_midi_of_sources"], list, "{back}");
+        let out = converted(&doc);
+        assert_eq!(out["midi_of_sources"], json!([{"type": "vendor-doc", "_imported_at": "2026-01-01"}]), "{out}");
+        osd::read(&out.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{f} in {out}"));
+    }
+}
+
+#[test]
 fn a_0_7_source_still_keeps_its_other_unknown_keys() {
     let doc = device(D07, json!({"sources": [{"type": "vendor-doc", "x-other": 1}]}));
     let d = osd::read(&doc.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{f}"));
@@ -108,7 +169,7 @@ fn a_0_7_source_still_keeps_its_other_unknown_keys() {
 }
 
 #[test]
-fn the_converter_drops_each_removed_field_and_keeps_the_neighbouring_ones() {
+fn the_converter_drops_each_removed_field_but_the_date_kept_as_a_note_and_keeps_the_neighbouring_ones() {
     let mut doc = device(D06, json!({
         "capabilities": ["lua"],
         "_coverage": {"controls": 3},
@@ -124,7 +185,7 @@ fn the_converter_drops_each_removed_field_and_keeps_the_neighbouring_ones() {
     doc["device"]["transport"] = json!({"kind": "midi", "rate_limit_hz": 100});
     let out = converted(&doc);
     assert_eq!(out["device"], json!({"name": "Synth", "osc_prefix": "/synth", "rate_limit_hz": 50, "transport": {"kind": "midi"}}));
-    assert_eq!(out["sources"], json!([{"type": "vendor-doc", "notes": "n"}]));
+    assert_eq!(out["sources"], json!([{"type": "vendor-doc", "notes": "n", "_imported_at": "2026-01-01"}]));
     assert_eq!(out["sysex"], json!({"header": [240, 67]}));
     assert_eq!(out["midi_out"], json!({"default_channel": 1}));
     assert_eq!(out["identity"], json!({"reply": [240, 126, "any", 6, 2]}));
@@ -136,23 +197,23 @@ fn the_converter_drops_each_removed_field_and_keeps_the_neighbouring_ones() {
 }
 
 #[test]
-fn the_converter_drops_imported_at_from_every_source_and_leaves_other_keys() {
+fn the_converter_renames_imported_at_in_every_source_that_has_one_and_leaves_other_keys() {
     let out = converted(&device(D06, json!({"_sources": [
         {"type": "vendor-doc", "imported_at": "2026-01-01"},
         {"type": "community-re", "url": "https://x.org/p", "imported_at": "2026-02-02", "x-other": [1]},
         {"type": "test-fixture"},
     ]})));
     assert_eq!(out["sources"], json!([
-        {"type": "vendor-doc"},
-        {"type": "community-re", "url": "https://x.org/p", "x-other": [1]},
+        {"type": "vendor-doc", "_imported_at": "2026-01-01"},
+        {"type": "community-re", "url": "https://x.org/p", "_imported_at": "2026-02-02", "x-other": [1]},
         {"type": "test-fixture"},
     ]));
 }
 
 #[test]
-fn the_converter_drops_midi_of_sources_imported_at_too() {
+fn the_converter_keeps_the_date_of_the_midi_of_sources_as_a_note_too() {
     let out = converted(&device(D06, json!({"midi_of": "acme/b", "_midi_of_sources": [{"type": "vendor-doc", "imported_at": "2026-01-01"}]})));
-    assert_eq!(out["midi_of_sources"], json!([{"type": "vendor-doc"}]));
+    assert_eq!(out["midi_of_sources"], json!([{"type": "vendor-doc", "_imported_at": "2026-01-01"}]));
 }
 
 #[test]
@@ -288,5 +349,69 @@ fn the_cases_of_the_removed_fields_exist_under_their_names() {
         "resolve/midi-of-0-6-file-revision-ignored",
     ] {
         assert!(root.join(case).join("case.json").is_file(), "{case}");
+    }
+}
+
+// ---- the resolver and midi_of_sources ----
+
+/// The refusal of the resolution of `acme/a`: its kind, its file and its pointer.
+fn resolution_refused(files: &[(&str, Value)]) -> (FaultKind, Option<String>, String) {
+    let files: BTreeMap<String, String> = files.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    let f = osd::resolve("acme/a", &files).expect_err("refused");
+    (f.kind, f.file, f.pointer)
+}
+
+/// A 0.7 device whose second source of `midi_of_sources` is dated by `value`.
+fn dated_07(extra: Value, value: Value) -> Value {
+    let mut doc = device(D07, extra);
+    doc["midi_of_sources"] = json!([{"type": "vendor-doc"}, {"type": "community-re", "imported_at": value}]);
+    doc
+}
+
+fn refused_in(file: &str) -> (FaultKind, Option<String>, String) {
+    (FaultKind::UnknownField, Some(file.to_string()), "/midi_of_sources/1/imported_at".to_string())
+}
+
+#[test]
+fn resolve_refuses_imported_at_in_midi_of_sources_of_the_0_7_file_asked_for() {
+    let target = device(D07, json!({}));
+    for value in [json!("2026-01-01"), json!(null)] {
+        let alone = [("acme/a", dated_07(json!({}), value.clone()))];
+        assert_eq!(resolution_refused(&alone), refused_in("acme/a"), "{value}");
+        let linked = [("acme/a", dated_07(json!({"midi_of": "acme/b"}), value.clone())), ("acme/b", target.clone())];
+        assert_eq!(resolution_refused(&linked), refused_in("acme/a"), "{value}");
+    }
+}
+
+#[test]
+fn resolve_refuses_imported_at_in_midi_of_sources_of_a_0_7_target_in_the_target() {
+    for schema in [D07, D06] {
+        for value in [json!("2026-01-01"), json!(null)] {
+            let files = [("acme/a", device(schema, json!({"midi_of": "acme/b"}))), ("acme/b", dated_07(json!({}), value.clone()))];
+            assert_eq!(resolution_refused(&files), refused_in("acme/b"), "{schema} {value}");
+        }
+    }
+    let chain = [
+        ("acme/a", device(D07, json!({"midi_of": "acme/b"}))),
+        ("acme/b", device(D07, json!({"midi_of": "acme/c"}))),
+        ("acme/c", dated_07(json!({}), json!("2026-01-01"))),
+    ];
+    assert_eq!(resolution_refused(&chain), refused_in("acme/c"));
+}
+
+// ---- the text ----
+
+#[test]
+fn the_text_of_0_7_says_the_reader_refuses_imported_at_in_both_lists_of_sources_and_names_its_cases() {
+    let spec = std::fs::read_to_string(common::repo().join("spec/0.7.md")).unwrap();
+    let section: Vec<&str> = spec.lines().skip_while(|l| !l.starts_with("### 5.3.2 ")).skip(1).take_while(|l| !l.starts_with('#')).collect();
+    assert!(
+        section.iter().any(|l| ["reader", "refuse", "`imported_at`", "`sources`", "`midi_of_sources`"].iter().all(|w| l.contains(w))),
+        "no paragraph of 5.3.2 says the reader refuses `imported_at` in `sources` and in `midi_of_sources`"
+    );
+    let cases = section.iter().find(|l| l.starts_with("Cases:")).expect("the Cases line of 5.3.2");
+    for case in ["0.7/read/midi-of-source-imported-at-refused", "0.7/convert/midi-of-source-imported-at-becomes-a-note"] {
+        assert!(cases.contains(&format!("`{case}`")), "the Cases line of 5.3.2 does not name {case}");
+        assert!(common::repo().join("conformance").join(case).join("case.json").is_file(), "{case}");
     }
 }

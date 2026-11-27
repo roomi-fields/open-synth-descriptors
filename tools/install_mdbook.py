@@ -5,12 +5,15 @@
 
 The cache folder is the one --cache names; without it, the one the variable MDBOOK names; with
 MDBOOK unset or empty, the default folder under the home. A cache folder this run cannot write is
-only read: it serves when it holds the pinned archive and its binary, and is refused otherwise.
+only read: it serves when it holds the pinned archive and its installed binary, and is refused
+otherwise.
 
 An archive already in the cache folder under its release name is used without any download; one
 whose checksum differs from the pin is refused and left as found. A missing archive is downloaded
-from the pin's address, checked, then kept. The last line printed is the path of the binary; any
-failure exits 1 and prints no path: the tool is installed or the build fails, never skipped.
+from the pin's address, checked, then kept. The binary is installed when it is executable and holds
+the bytes of the archive's mdbook file; otherwise it is written beside its path, made executable,
+then renamed into place. The last line printed is the path of the binary; any failure exits 1 and
+prints no path: the tool is installed or the build fails, never skipped.
 """
 import argparse
 import hashlib
@@ -81,6 +84,38 @@ def writable(folder):
         return False
 
 
+def pinned_member(archive):
+    """The bytes of the mdbook file of the archive."""
+    with tarfile.open(archive) as tar:
+        member = next((m for m in tar.getmembers() if m.isfile() and Path(m.name).name == "mdbook"), None)
+        if member is None:
+            fail(f"{archive} holds no mdbook file")
+        return tar.extractfile(member).read()
+
+
+def installed(binary, data):
+    """True when the binary is an executable file holding exactly these bytes."""
+    try:
+        return binary.is_file() and os.access(binary, os.X_OK) and binary.read_bytes() == data
+    except OSError:
+        return False
+
+
+def place(binary, data):
+    """Renames an executable file holding these bytes over the binary: no run sees it half written."""
+    fd, tmp = tempfile.mkstemp(dir=binary.parent, suffix=".part")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.chmod(tmp, 0o755)
+        os.replace(tmp, binary)
+    except OSError as error:
+        fail(f"cannot install {binary}: {error}")
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 def install(pin_path=DEFAULT_PIN, cache=None):
     """Returns the path of the pinned binary, or exits 1 naming why it cannot."""
     pin = read_pin(pin_path)
@@ -88,9 +123,9 @@ def install(pin_path=DEFAULT_PIN, cache=None):
     archive = cache / pin["url"].rsplit("/", 1)[-1]
     target = cache / f"mdbook-{pin['sha256'][:16]}"
     binary = target / "mdbook"
-    if not (archive.is_file() and binary.is_file()) and not writable(cache):
-        refuse_unwritable(pin_path, cache, binary if archive.is_file() else archive.name)
     if not archive.is_file():
+        if not writable(cache):
+            refuse_unwritable(pin_path, cache, archive.name)
         fd, tmp = tempfile.mkstemp(dir=cache, suffix=".part")
         try:
             with os.fdopen(fd, "wb") as out, urllib.request.urlopen(pin["url"], timeout=120) as response:
@@ -107,15 +142,11 @@ def install(pin_path=DEFAULT_PIN, cache=None):
     got = sha256(archive)
     if got != pin["sha256"]:
         fail(f"checksum of {archive} is {got}, the pin says {pin['sha256']}: refused, left as found")
-    if not binary.is_file():
-        target.mkdir(parents=True, exist_ok=True)
-        with tarfile.open(archive) as tar:
-            member = next((m for m in tar.getmembers() if m.isfile() and Path(m.name).name == "mdbook"), None)
-            if member is None:
-                fail(f"{archive} holds no mdbook file")
-            data = tar.extractfile(member).read()
-        binary.write_bytes(data)
-        binary.chmod(0o755)
+    data = pinned_member(archive)
+    if not installed(binary, data):
+        if not writable(target):
+            refuse_unwritable(pin_path, cache, f"installed {binary}")
+        place(binary, data)
     return binary
 
 

@@ -10,7 +10,8 @@
   "patternProperties": {
     "^_": {
       "description": "A note for people (provenance, caveats, usage); never read by a program."
-    }
+    },
+    "^_sources$": false
   },
   "additionalProperties": false,
   "properties": {
@@ -22,6 +23,13 @@
     },
     "programs": {
       "$ref": "device.schema.json#/properties/programs"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "device.schema.json#/$defs/source"
+      },
+      "description": "Where the data comes from, with its credit, licence and the firmware it documents."
     }
   }
 }

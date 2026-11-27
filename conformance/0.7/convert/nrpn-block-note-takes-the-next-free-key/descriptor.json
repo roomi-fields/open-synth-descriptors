@@ -1,0 +1,25 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/a",
+        "cc": 74,
+        "nrpn_lsb_range": [
+          0,
+          7
+        ],
+        "_nrpn_lsb_range": "mine",
+        "_nrpn_lsb_range_2": [
+          1,
+          2
+        ]
+      }
+    ]
+  }
+}

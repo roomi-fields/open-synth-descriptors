@@ -418,21 +418,18 @@ fn a_0_7_text_holds_nothing_kept_to_write_an_older_version_back() {
         json!({"osc": "/rpn", "rpn_lsb": 2, "value_bits": 14}),
         json!({"osc": "/low", "cc_lsb": 33}),
         json!({"osc": "/block", "cc": 93, "nrpn_lsb_range": [0, 15]}),
-        json!({"osc": "/also", "range": [0, 127], "also": [{"cc": 2}, {"nrpn_msb": 3, "value_bits": 7}, {"cc_lsb": 40}]}),
+        json!({"osc": "/also", "also": [{"cc": 2}, {"nrpn_msb": 3, "value_bits": 7}, {"cc_lsb": 40}]}),
     ]);
     assert_eq!(
         got,
         json!([
-            {"osc": "/msb", "ways": [{"ctrlType": "nrpn", "ctrlIndex": [1, 0], "value_bits": 14}]},
-            {"osc": "/lsb", "ways": [{"ctrlType": "nrpn", "ctrlIndex": [0, 5], "value_bits": 7, "range": [0, 9]}]},
-            {"osc": "/rpn", "ways": [{"ctrlType": "rpn", "ctrlIndex": [0, 2], "value_bits": 14}]},
-            {"osc": "/low", "ways": [{"ctrlType": "cc", "ctrlIndex": [33]}]},
-            {"osc": "/block", "ways": [{"ctrlType": "cc", "ctrlIndex": [93]}]},
-            {"osc": "/also", "ways": [
-                {"ctrlType": "cc", "ctrlIndex": [2]},
-                {"ctrlType": "nrpn", "ctrlIndex": [3, 0], "value_bits": 7},
-                {"ctrlType": "cc", "ctrlIndex": [40]}
-            ]}
+            {"osc": "/msb", "ways": [], "_incomplete": [{"nrpn_msb": 1, "value_bits": 14}]},
+            {"osc": "/lsb", "ways": [], "range": [0, 9], "_incomplete": [{"nrpn_lsb": 5, "value_bits": 7}]},
+            {"osc": "/rpn", "ways": [], "_incomplete": [{"rpn_lsb": 2, "value_bits": 14}]},
+            {"osc": "/low", "ways": [], "_incomplete": [{"cc_lsb": 33}]},
+            {"osc": "/block", "_nrpn_lsb_range": [0, 15], "ways": [{"ctrlType": "cc", "ctrlIndex": [93]}]},
+            {"osc": "/also", "ways": [{"ctrlType": "cc", "ctrlIndex": [2]}],
+                "_incomplete": [{"nrpn_msb": 3, "value_bits": 7}, {"cc_lsb": 40}]}
         ])
     );
 }

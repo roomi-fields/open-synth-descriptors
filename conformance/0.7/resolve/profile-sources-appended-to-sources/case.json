@@ -1,0 +1,45 @@
+{
+  "_about": "The sources of every profile of the chains follow the file's own, identity first then programs, the nearest first, each profile once, each marked with its profile.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "programs": {
+      "banks": [
+        {
+          "name": "A",
+          "size": 128
+        }
+      ],
+      "profile": "acme/pads"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme/keys"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "own"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "keys",
+        "profile": "acme/keys"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "maker",
+        "profile": "acme"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "pads",
+        "profile": "acme/pads"
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+  "identity": {
+    "reply_text": "acme"
+  },
+  "sources": [
+    {
+      "id": "manual",
+      "type": "vendor-doc",
+      "title": "Manual",
+      "license": "CC0-1.0"
+    }
+  ]
+}

@@ -348,7 +348,12 @@ fn an_older_device_whose_midi_of_target_brings_a_script_resolves_under_a_0_7_pro
 #[test]
 fn an_older_device_that_does_not_convert_under_a_0_7_profile_is_refused_in_its_file() {
     for (version, part, pointer) in [
-        ("0.5", json!({"cc_params": {"entries": [{"osc": "/x", "cc": 93, "nrpn_msb": 1}]}}), "/cc_params/entries/0"),
+        // A mix with an nrpn_lsb_range and no NRPN: no way holds it (spec/0.7.md 21.3).
+        (
+            "0.5",
+            json!({"cc_params": {"entries": [{"osc": "/x", "cc": 93, "rpn_msb": 0, "rpn_lsb": 2, "nrpn_lsb_range": [0, 15]}]}}),
+            "/cc_params/entries/0",
+        ),
         ("0.4", json!({"commands": [{"osc": "/x", "frame": [240, "{checksum}", 247]}]}), "/commands/0/frame/1"),
     ] {
         let mut d = doc(version, "device", part);

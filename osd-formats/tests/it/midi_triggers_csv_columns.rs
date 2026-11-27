@@ -1,8 +1,8 @@
 //! The table of the triggers CSV's columns, in docs/midi-triggers-csv.md: one line per column of
 //! the header the export writes, saying where it goes or why it is lost.
 
-use crate::common::{device_from, resolved, TRIGGER_HEADER};
-use osd_formats::{export, Format};
+use crate::common::{device_from, resolved, source, trigger_csv, trigger_row, TRIGGER_HEADER};
+use osd_formats::{export, import, Format};
 
 const TABLE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/midi-triggers-csv.md");
 
@@ -58,4 +58,14 @@ fn the_table_names_where_the_channel_the_range_and_the_default_go() {
     assert!(fate("sound_description").contains("description"));
     assert!(!fate("sound_description").contains("_description"));
     assert!(fate("velocity_usage").contains("velocity_usage"));
+}
+
+#[test]
+fn the_page_says_the_importer_produces_a_descriptor_of_the_version_the_import_writes() {
+    let file = trigger_csv(&[trigger_row(&[("sound_name", "Kick"), ("note_number_min_value", "36"), ("note_number_max_value", "36")])]);
+    let imported = import(&file, Format::MidiTriggersCsv, &source()).unwrap_or_else(|f| panic!("refused: {f:?}")).value;
+    let version = imported.schema.expect("an imported descriptor names its version").name();
+    let page = std::fs::read_to_string(TABLE).unwrap_or_else(|e| panic!("{TABLE}: {e}"));
+    let said: Vec<&str> = page.match_indices("The importer produces a ").map(|(at, start)| page[at + start.len()..].split(" descriptor").next().unwrap()).collect();
+    assert_eq!(said, [version], "{TABLE}");
 }

@@ -5,8 +5,9 @@
 //! each held by conformance cases.
 
 use crate::convert::drop_lua_capability_no_field_requires;
+use crate::device::PROFILE_OF_SOURCE;
 use crate::json::{At, Object};
-use crate::{convert_to, read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind, Version, VERSIONS};
+use crate::{convert_to, read_value, Capability, Descriptor, Device, Fault, FaultKind, Kind, Source, Version, VERSIONS};
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -100,6 +101,15 @@ const PROFILE_DEPTH: usize = 8;
 /// text older than 0.7 carried to 0.7 first when the joined device or one of
 /// those profiles is of 0.7.
 pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
+    let (mut resolved, credit) = resolve_uncredited(id, files)?;
+    credit_profiles(&mut resolved.device, credit);
+    Ok(resolved)
+}
+
+/// [`resolve`] before the credit of the profiles is appended, given beside the device for
+/// [`credit_profiles`]: the device holds the sources of its files alone, which are those a reading
+/// names and those whose `id` a file may not repeat.
+pub(crate) fn resolve_uncredited(id: &str, files: &dyn Files) -> Result<(Resolved, Vec<ProfileCredit>), Fault> {
     let mut read = Vec::new();
     let (doc, typed) = fetch(id, files, Kind::Device, &mut read)?
         .ok_or_else(|| At::Root.fault(FaultKind::LinkMissing, format!("no file {id}")).in_file(id))?;
@@ -109,14 +119,16 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
         Descriptor::Device(d) => d.derived_capabilities(),
         _ => Vec::new(),
     };
-    let device = match typed {
+    let (device, credit) = match typed {
         // A driver that names no other file is already read.
-        Descriptor::Device(d) if !linked => *d,
+        Descriptor::Device(d) if !linked => (*d, Vec::new()),
         _ => {
             let declared = doc.get("capabilities").cloned();
-            let text_version = version_of(&doc);
-            let mut doc = follow(id, doc, text_version, files, &mut Vec::new(), &mut read)?;
-            let converted = complete_from_profiles(&mut doc, id, files, &mut read)?;
+            let asked = version_of(&doc);
+            // The blocks the file asked for writes itself, before its target's join them.
+            let own_blocks: Vec<&str> = OWN_BLOCKS.into_iter().filter(|k| doc.get(*k).is_some()).collect();
+            let mut doc = follow(id, doc, asked, files, &mut Vec::new(), &mut read)?;
+            let (converted, credit) = complete_from_profiles(&mut doc, id, &own_blocks, files, &mut read)?;
             // The capabilities declared were checked on the driver's own text; the
             // merge keeps what the driver declared, not its target's.
             match declared {
@@ -135,7 +147,7 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
             if device.schema >= Some(Version::V0_7) {
                 crate::device::check_reading_sources(&device).map_err(|f| f.in_file(id))?;
             }
-            device
+            (device, credit)
         }
     };
     // The device a virtual instrument stands for is a file of the catalogue.
@@ -147,7 +159,7 @@ pub fn resolve(id: &str, files: &dyn Files) -> Result<Resolved, Fault> {
     }
     let capabilities = device.derived_capabilities();
     let inherited = capabilities.iter().copied().filter(|c| !own.contains(c)).collect();
-    Ok(Resolved { device, files: read, capabilities, inherited })
+    Ok((Resolved { device, files: read, capabilities, inherited }, credit))
 }
 
 /// The complete descriptor of a resolved device: the same device without its links, so that a
@@ -205,14 +217,19 @@ fn upgrade(doc: &Value, kind: Kind, to: Version, file: &str) -> Result<Value, Fa
 }
 
 /// The document of `id` joined to its `midi_of` target, followed to the end:
-/// rules 23.4 to 23.22 of the section Resolution of `spec/0.6.md`. What the
-/// file may add is judged by `text_version`, the version of its own text read
-/// before any conversion (23.5, 23.6, 23.9, 23.10, 23.14): from 0.6 `capabilities`, and
-/// a `params` table without its three shape keys when the target has one.
-fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
+/// rules 23.4 to 23.22 of the section Resolution of `spec/0.6.md`. `text` is the
+/// document as the file writes it and `asked` the version of the file that follows
+/// it (its own for the file asked for): an older text is converted to `asked`
+/// before it is joined. What the file may hold is judged on `text`, in its own
+/// version, before any conversion (23.5, 23.6, 23.9, 23.10, 23.14): from 0.6
+/// `capabilities`, and a `params` table without its three shape keys when the target
+/// has one.
+fn follow(id: &str, text: Value, asked: Version, files: &dyn Files, chain: &mut Vec<String>, read: &mut Vec<String>) -> Result<Value, Fault> {
+    let text_version = version_of(&text);
     let from_06 = text_version >= Version::V0_6;
-    let own_version_07 = text_version >= Version::V0_7;
-    let Some(target) = doc.get("midi_of") else { return Ok(doc) };
+    let text_07 = text_version >= Version::V0_7;
+    let carried = |doc: &Value| if text_version < asked { upgrade(doc, Kind::Device, asked, id) } else { Ok(doc.clone()) };
+    let Some(target) = text.get("midi_of") else { return carried(&text) };
     let fault = |kind: FaultKind, pointer: String, why: String| Fault { kind, file: Some(id.to_string()), pointer, rule: format!("midi_of {target}: {why}") };
     let link = |kind: FaultKind, why: &str| fault(kind, "/midi_of".into(), why.into());
     let tid = target.as_str().ok_or_else(|| link(FaultKind::BadValue, "not a catalogue id"))?;
@@ -223,11 +240,12 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     if maker_of(id) != Some(parts[0]) {
         return Err(link(FaultKind::BadValue, "names another maker's driver"));
     }
-    let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k) || (k == "sources" && own_version_07)
+    let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k) || (k == "sources" && text_07)
         || (from_06 && k == "capabilities") || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
-    if let Some(own) = doc.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
+    if let Some(own) = text.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
         return Err(fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)")));
     }
+    let doc = carried(&text)?;
     // The file's own routes: each address once.
     let osc = |e: &Value| e.get("osc").and_then(Value::as_str).map(str::to_string);
     let entries_of = |v: &Value, key: &str| -> Vec<Value> {
@@ -244,14 +262,11 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
             }
         }
     }
-    let (mut out, _) = fetch(tid, files, Kind::Device, read)?.ok_or_else(|| link(FaultKind::LinkMissing, &format!("no file {tid}")))?;
+    let (out, _) = fetch(tid, files, Kind::Device, read)?.ok_or_else(|| link(FaultKind::LinkMissing, &format!("no file {tid}")))?;
     // The older of the two texts is carried to the newer one's version before
-    // they are joined (the target here, the file after its target is followed).
+    // they are joined (the target as it is followed, the file after that).
     let own_version = version_of(&doc);
     let target_text_version = version_of(&out);
-    if target_text_version < own_version {
-        out = upgrade(&out, Kind::Device, own_version, tid)?;
-    }
     chain.push(id.to_string());
     if chain.iter().any(|p| p == tid) {
         return Err(link(FaultKind::LinkCycle, "the links come back to this file (a circle)"));
@@ -259,7 +274,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     if chain.len() > MIDI_OF_DEPTH {
         return Err(link(FaultKind::LinkTooDeep, &format!("more than {MIDI_OF_DEPTH} links")));
     }
-    let mut out = follow(tid, out, target_text_version, files, chain, read)?;
+    let mut out = follow(tid, out, own_version, files, chain, read)?;
     let target_version = version_of(&out);
     let doc = if own_version < target_version { upgrade(&doc, Kind::Device, target_version, id)? } else { doc.clone() };
     let name = |d: &Value| d.pointer("/device/name").and_then(Value::as_str).map(str::to_string);
@@ -275,18 +290,25 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
     // Credit for the MIDI taken from the target: its sources and those it took from.
     // From 0.7 the credit is `sources` and `midi_of_sources`; before, the `_` keys.
     let (sources_key, shared_key) = if target_version >= Version::V0_7 { ("sources", "midi_of_sources") } else { ("_sources", "_midi_of_sources") };
-    let shared: Vec<Value> = [sources_key, shared_key].iter()
+    let mut shared: Vec<Value> = [sources_key, shared_key].iter()
         .filter_map(|k| obj.get(*k).and_then(Value::as_array)).flatten().cloned().collect();
     // From 0.7 the `id` of the sources of the file and of its target are one set: each is unique.
     if target_version >= Version::V0_7 {
         let taken: HashSet<&str> = shared.iter().filter_map(|s| s.get("id").and_then(Value::as_str)).collect();
-        let own = doc.get("sources").and_then(Value::as_array).into_iter().flatten();
-        for (n, id) in own.enumerate().filter_map(|(n, s)| s.get("id").and_then(Value::as_str).map(|i| (n, i))) {
-            if taken.contains(id) {
-                return Err(fault(FaultKind::BadValue, format!("/sources/{n}"), format!("the id {id} is already a source id of the target")));
+        for key in [sources_key, shared_key] {
+            let own = doc.get(key).and_then(Value::as_array).into_iter().flatten();
+            for (n, id) in own.enumerate().filter_map(|(n, s)| s.get("id").and_then(Value::as_str).map(|i| (n, i))) {
+                if taken.contains(id) {
+                    // The key as the file's text writes it: before 0.7, under its `_`.
+                    let written = if text_07 { key.to_string() } else { format!("_{key}") };
+                    return Err(fault(FaultKind::BadValue, format!("/{written}/{n}"), format!("the id {id} is already a source id of the target")));
+                }
             }
         }
     }
+    // The credit the file itself says it took from others (before 0.7, `_midi_of_sources`)
+    // follows its target's.
+    let own_shared = doc.get(shared_key).and_then(Value::as_array).cloned().unwrap_or_default();
     obj.retain(|k, _| !k.starts_with('_') && !(k == "sources" || k == "midi_of_sources"));
     let mut device = obj.remove("device").unwrap_or_else(|| Value::Object(Default::default()));
     for (k, v) in doc.as_object().into_iter().flatten() {
@@ -314,7 +336,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
         } else if OWN_TABLES.contains(&k.as_str()) {
             match obj.get_mut(k).filter(|t| t.is_object()) {
                 Some(table) => {
-                    if let Some(extra) = v.as_object().and_then(|t| t.keys().find(|x| *x != "entries")) {
+                    if let Some(extra) = text.get(k).and_then(Value::as_object).and_then(|t| t.keys().find(|x| *x != "entries")) {
                         return Err(fault(FaultKind::UnknownField, format!("/{k}/{extra}"), format!("{k}.{extra} is the target's (a midi_of file adds entries only)")));
                     }
                     let base = match table.get_mut("entries").map(Value::take) { Some(Value::Array(a)) => a, _ => Vec::new() };
@@ -339,6 +361,7 @@ fn follow(id: &str, doc: Value, text_version: Version, files: &dyn Files, chain:
         }
     }
     if !shared.is_empty() {
+        shared.extend(own_shared);
         obj.insert(shared_key.into(), Value::Array(shared));
     }
     obj.insert("device".into(), device);
@@ -352,6 +375,71 @@ fn profile_file(id: &str) -> Option<String> {
     let ok = |s: &str| !s.is_empty() && !s.starts_with('.') && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.+".contains(&b));
     if !ok(maker) || family.is_some_and(|f| !ok(f) || f.contains('/')) { return None; }
     Some(match family { Some(f) => format!("{maker}/_profile.{f}"), None => format!("{maker}/_profile") })
+}
+
+/// The sources of one profile of a resolution of 0.7, each marked with the profile.
+pub(crate) struct ProfileCredit {
+    /// The profile file they come from.
+    file: String,
+    /// Whether the file asked for writes the block that names the chain: its sources are then the
+    /// result's own, else the credit of MIDI taken from a target.
+    own: bool,
+    sources: Vec<Source>,
+}
+
+/// The credit of each profile of `chains` (a block, then its chain, the nearest profile first), each
+/// profile file once, in the order met; a profile of an own block and of an inherited one is own.
+/// `chains` are of 0.7: a text is carried to it before.
+fn credit_of_profiles(chains: &[(&str, Vec<ProfileLink>)], own_blocks: &[&str]) -> Result<Vec<ProfileCredit>, Fault> {
+    let own: HashSet<&str> = chains.iter().filter(|(key, _)| own_blocks.contains(key)).flat_map(|(_, c)| c).map(|l| l.file.as_str()).collect();
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for link in chains.iter().flat_map(|(_, c)| c).filter(|l| seen.insert(l.file.as_str())) {
+        let list = link.doc.get("sources").and_then(Value::as_array).into_iter().flatten();
+        let sources = list
+            .map(|v| {
+                let mut source = Source::read(v, &At::Root).map_err(|f| f.in_file(&link.file))?;
+                source.extra.insert(PROFILE_OF_SOURCE.into(), Value::String(link.name.clone()));
+                Ok(source)
+            })
+            .collect::<Result<_, Fault>>()?;
+        out.push(ProfileCredit { file: link.file.clone(), own: own.contains(link.file.as_str()), sources });
+    }
+    Ok(out)
+}
+
+/// The credit of an assembly once a module's MIDI file, whose resolution gives `step`, is applied
+/// over the MIDI `earlier` credits: that credit is now the one of MIDI taken from a target, and a
+/// profile file it holds is not credited again.
+pub(crate) fn credit_over(earlier: &mut Vec<ProfileCredit>, step: Vec<ProfileCredit>) {
+    earlier.iter_mut().for_each(|c| c.own = false);
+    for credit in step {
+        if !earlier.iter().any(|c| c.file == credit.file) {
+            earlier.push(credit);
+        }
+    }
+}
+
+/// Appends the credit of the profiles to `device`, after its own: to `sources`, or to
+/// `midi_of_sources` for a profile of a target's block. A source the device already credits, equal in
+/// every key but `id`, is not added again; one whose `id` is taken is given without it.
+pub(crate) fn credit_profiles(device: &mut Device, credit: Vec<ProfileCredit>) {
+    let nameless = |s: &Source| Source { id: None, ..s.clone() };
+    let held: Vec<&Source> = [&device.sources, &device.midi_of_sources].into_iter().flatten().flatten().collect();
+    let mut ids: HashSet<String> = held.iter().filter_map(|s| s.id.clone()).collect();
+    let held: Vec<Source> = held.into_iter().map(nameless).collect();
+    for ProfileCredit { own, sources, .. } in credit {
+        for mut source in sources {
+            if held.contains(&nameless(&source)) {
+                continue;
+            }
+            if source.id.as_ref().is_some_and(|id| !ids.insert(id.clone())) {
+                source.id = None;
+            }
+            let list = if own { &mut device.sources } else { &mut device.midi_of_sources };
+            list.get_or_insert_with(Vec::new).push(source);
+        }
+    }
 }
 
 /// A profile of the chain of a block: the name that links it, its file, its text and its version.
@@ -393,8 +481,9 @@ fn profile_chain(maker: &str, key: &str, block: &Value, from: &str, files: &dyn 
 ///
 /// When the joined device or one of the profiles is of 0.7, every older text is first carried to
 /// the most recent version among them, so that one form is merged (proposal 0004); the answer says
-/// whether the device was carried.
-fn complete_from_profiles(doc: &mut Value, id: &str, files: &dyn Files, read: &mut Vec<String>) -> Result<bool, Fault> {
+/// whether the device was carried, and gives the credit of the profiles of a result of 0.7
+/// ([`credit_of_profiles`], `own_blocks` being those the file asked for writes).
+fn complete_from_profiles(doc: &mut Value, id: &str, own_blocks: &[&str], files: &dyn Files, read: &mut Vec<String>) -> Result<(bool, Vec<ProfileCredit>), Fault> {
     let maker = maker_of(id).unwrap_or_default();
     let mut chains = Vec::new();
     for key in OWN_BLOCKS {
@@ -409,7 +498,8 @@ fn complete_from_profiles(doc: &mut Value, id: &str, files: &dyn Files, read: &m
     if converted {
         *doc = upgrade_joined(doc, to, id)?;
     }
-    for (key, mut chain) in chains {
+    for (key, chain) in &mut chains {
+        let key = *key;
         if joins_0_7 {
             for l in chain.iter_mut().filter(|l| l.version < to) {
                 l.doc = upgrade(&l.doc, Kind::Profile, to, &l.file)?;
@@ -439,7 +529,8 @@ fn complete_from_profiles(doc: &mut Value, id: &str, files: &dyn Files, read: &m
         }
         doc[key] = out;
     }
-    Ok(converted)
+    let credit = if joins_0_7 { credit_of_profiles(&chains, own_blocks)? } else { Vec::new() };
+    Ok((converted, credit))
 }
 
 /// The joined device carried to `to`. Its links are followed, so `midi_of` is set aside while it

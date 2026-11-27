@@ -1,0 +1,6 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": { "name": "Synth", "osc_prefix": "/synth" },
+  "midi_of": "acme/b",
+  "_midi_of_sources": [{ "type": "vendor-doc", "notes": "Acme manual B", "imported_at": "2026-01-01" }]
+}

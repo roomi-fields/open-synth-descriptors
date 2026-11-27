@@ -1,0 +1,52 @@
+{
+  "_about": "A module of an assembly applied over MIDI already credited adds no repeat of the profile's source.",
+  "resolve_assembly": "acme/build",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/y",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "title": "S"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "profile": "acme"
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "A 0.7 firmware that carries `_sources` is refused as BadValue at `/_sources`: its credit is `sources`.",
+  "read": "firmware",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/_sources"
+  }
+}

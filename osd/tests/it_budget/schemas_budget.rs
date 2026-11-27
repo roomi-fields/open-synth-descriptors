@@ -1,28 +1,21 @@
-//! docs/CADRE.md R13: the 0.5 schemas validate the converted SyntHub catalogue
-//! in under 10 s. A time budget: it is played by
-//! name, and a failure under load is to be replayed.
+//! Each text the reader converts of the SyntHub catalogue is valid against the schemas of the
+//! version it declares, the published one, and the whole is judged in under 10 s. A time budget:
+//! it is played by name, and a failure under load is to be replayed.
 
-use crate::common::{catalogue, Schemas};
-use osd::Kind;
+use crate::common::checks::{converted_catalogue, judge_converted, load_schemas};
+use crate::common::{catalogue, report};
 use std::time::{Duration, Instant};
 
 #[test]
-fn criterion_3_the_0_5_schemas_validate_the_converted_catalogue_in_under_10_s() {
+fn the_schemas_of_the_published_version_validate_the_converted_catalogue_in_under_10_s() {
     let Some(dir) = catalogue() else { return };
-    let schemas = Schemas::load("0.5");
-    let mut converted = Vec::new();
-    for (kind, ids) in [(Kind::Device, dir.drivers()), (Kind::Profile, dir.profiles())] {
-        for id in ids {
-            // the two expected faults refuse to convert and are left out
-            if let Ok(out) = osd::convert(&dir.text(&id), kind) {
-                converted.push((kind, serde_json::from_str::<serde_json::Value>(&out).unwrap()));
-            }
-        }
-    }
+    // The files the conversion refuses are left out.
+    let converted = converted_catalogue(&dir);
     assert!(converted.len() > 1000, "{} converted files", converted.len());
+    load_schemas();
     let start = Instant::now();
-    let bad = converted.iter().filter(|(k, doc)| schemas.check(*k, doc).is_some()).count();
+    let failures = judge_converted(&converted);
     let took = start.elapsed();
-    assert_eq!(bad, 0, "{bad} files not valid");
+    report("converted files not valid", failures);
     assert!(took < Duration::from_secs(10), "validation took {took:?}");
 }

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/fingerprint.schema.json",
+  "observed": "2026-11-22",
+  "device": {
+    "descriptor": "korg/minilogue",
+    "firmware": "2.01"
+  },
+  "_sources": [
+    {
+      "type": "vendor-doc",
+      "preset_name": "P",
+      "revision": "r7",
+      "content_sha256": "ff00"
+    },
+    {
+      "type": "knobkraft",
+      "name": "N",
+      "notes": "n"
+    },
+    {
+      "type": "vendor-doc",
+      "id": "manual",
+      "imported_at": "2026-01-01",
+      "provider": "acme-synths"
+    }
+  ]
+}

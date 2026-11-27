@@ -111,6 +111,7 @@ fn warnings_of(d: &osd::Descriptor) -> Value {
             let kind = match w.kind {
                 osd::WarningKind::PartialControl => "PartialControl",
                 osd::WarningKind::UnknownProvider(_) => "UnknownProvider",
+                osd::WarningKind::UncreditedSource => "UncreditedSource",
             };
             json!({"kind": kind, "pointer": w.pointer})
         })

@@ -1,0 +1,30 @@
+{
+  "_about": "A 0.7 fingerprint carries `sources` as a device does, each written back as read.",
+  "read": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+    "observed": "2026-11-22",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "firmware": "2.01"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "manual",
+        "provider": "electra-one",
+        "title": "Manual",
+        "url": "https://example.org/manual",
+        "license": "CC-BY-4.0",
+        "profile": "acme",
+        "x-other": [
+          1
+        ]
+      },
+      {
+        "type": "contributed",
+        "author": "Dee"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "_about": "Before 0.7 the `_sources` of a sound is a note of any value, kept as it is.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "vendor": "KORG",
+      "model": "minilogue"
+    },
+    "content": {
+      "settings": {
+        "/amp/attack": [
+          90
+        ]
+      }
+    },
+    "_sources": [
+      "a text",
+      {
+        "url": "https://example.org"
+      }
+    ]
+  }
+}

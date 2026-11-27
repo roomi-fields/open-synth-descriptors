@@ -1,0 +1,37 @@
+{
+  "_about": "Each entry of the note `_sources_2` is a source not carried as credit: the note is kept and each entry is warned of as `UncreditedSource` at its pointer.",
+  "read": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "vendor": "KORG",
+      "model": "minilogue"
+    },
+    "content": {
+      "settings": {
+        "/amp/attack": [
+          90
+        ]
+      }
+    },
+    "_sources_2": [
+      "see the manual",
+      {
+        "type": "guess"
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "kind": "UncreditedSource",
+      "pointer": "/_sources_2/0"
+    },
+    {
+      "kind": "UncreditedSource",
+      "pointer": "/_sources_2/1"
+    }
+  ]
+}

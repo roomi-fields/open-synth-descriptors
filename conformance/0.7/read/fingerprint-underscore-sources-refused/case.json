@@ -1,0 +1,8 @@
+{
+  "_about": "A 0.7 fingerprint that carries `_sources` is refused as BadValue at `/_sources`: its credit is `sources`.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/_sources"
+  }
+}

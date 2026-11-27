@@ -168,9 +168,10 @@ fn the_text_states_that_a_published_version_never_changes_and_that_a_later_0_x_m
 
 #[test]
 fn the_governance_names_the_three_readers_that_hold_1_0() {
-    let text = read("GOVERNANCE.md");
+    // The text is wrapped: a phrase may span a line break.
+    let text = read("GOVERNANCE.md").split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(text.contains("1.0"), "GOVERNANCE.md misses the condition of 1.0");
-    for needle in ["osc-bridge", "SyntHub", "round trip"] {
+    for needle in ["two readers written without `osd`", "in other languages", "round trip"] {
         assert!(text.contains(needle), "GOVERNANCE.md misses {needle}");
     }
 }

@@ -1,8 +1,9 @@
 //! The sound descriptor of OSD 0.4 (`schemas/0.4/sound.schema.json`): what a
 //! shared sound is and who made it, beside its data.
 
+use crate::device::check_credit;
 use crate::json::{at_least, at_most, list, matching, obj, object, Any, At, Codec, Dict, Opt, Num, Text, STRING};
-use crate::{Assembly, Fault, FaultKind, SchemaUrl, Version};
+use crate::{Assembly, Fault, FaultKind, SchemaUrl, Source, Version};
 use serde_json::{Number, Value};
 use std::collections::BTreeMap;
 
@@ -107,6 +108,8 @@ object! {
         "needs" needs: Option<Vec<ModuleNeed>> = Opt(list(obj())),
         /// The exact assembly its author made it on (0.6), as written; provenance only.
         "made_on" made_on: Option<Assembly> = Opt(obj()),
+        /// Where the data comes from, with its credit, licence and the firmware it documents (0.7).
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
     }
     check device_unless_clip
 }
@@ -233,6 +236,7 @@ fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
     check_content(s, at)?;
     check_external_ids(s, at)?;
     check_needs_and_made_on(s, at)?;
+    check_sound_credit(s, at)?;
     if crate::is_05_form(s.schema) {
         crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
     }
@@ -247,6 +251,14 @@ fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
         return Err(At::Key(at, "device").fault(FaultKind::Missing, "device is required unless the kind is clip"));
     }
     Ok(())
+}
+
+/// The sources of a sound and those of the assembly it was made on: one file, so one set of `id`.
+fn check_sound_credit(s: &Sound, at: &At) -> Result<(), Fault> {
+    let made_on = At::Key(at, "made_on").pointer();
+    let mut lists = vec![(at.pointer(), &s.sources)];
+    lists.extend(s.made_on.iter().map(|a| (made_on.clone(), &a.sources)));
+    check_credit(s.schema, &lists)
 }
 
 object! {

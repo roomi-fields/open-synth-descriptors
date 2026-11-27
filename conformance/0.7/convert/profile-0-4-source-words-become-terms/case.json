@@ -1,0 +1,16 @@
+{
+  "_about": "The words of a source of a 0.4 maker profile go through the tables of 0.4 to 0.5, as a device's, then its `_sources` becomes `sources`.",
+  "convert": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+    "identity": {
+      "reply_text": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "license": "NONE"
+      }
+    ]
+  }
+}

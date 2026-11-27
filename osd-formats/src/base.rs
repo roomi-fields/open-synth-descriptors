@@ -3,10 +3,13 @@
 use crate::{Fault, FaultKind};
 use osd::{Descriptor, Device, Kind, Version};
 
-/// `base` in 0.7. A base of an earlier version is written, converted by [`osd::convert_to`] and
-/// read back; a base of 0.7 comes back as it is.
+/// `base` in 0.7. A base of an earlier version is written and converted by [`osd::convert_to`],
+/// which judges the converted text by the reader; that text is read back to obtain the typed
+/// [`Device`]. A base of 0.7 is read back too, and comes back as it is.
 pub(crate) fn in_0_7(base: Device) -> Result<Device, Fault> {
     if base.schema >= Some(Version::V0_7) {
+        let text = osd::write(&Descriptor::Device(Box::new(base.clone())));
+        osd::read(&text, Kind::Device).map_err(|f| refused(f, "does not read in version 0.7"))?;
         return Ok(base);
     }
     let text = osd::write(&Descriptor::Device(Box::new(base)));
@@ -17,14 +20,16 @@ pub(crate) fn in_0_7(base: Device) -> Result<Device, Fault> {
     }
 }
 
-/// The refusal of `osd`, at the pointer it gives in the text it judged.
 fn not_convertible(f: osd::Fault) -> Fault {
+    refused(f, "does not convert to version 0.7")
+}
+
+/// The refusal of `osd`, at the pointer it gives in the base given, saying what the base does
+/// not do.
+fn refused(f: osd::Fault, why: &str) -> Fault {
     Fault {
         kind: FaultKind::NotConvertible,
         place: f.pointer,
-        rule: format!(
-            "the base descriptor does not convert to version 0.7 (the pointer may name a key of the version reached): {}",
-            f.rule
-        ),
+        rule: format!("the base descriptor {why}: {}", f.rule),
     }
 }

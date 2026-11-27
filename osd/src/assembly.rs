@@ -4,8 +4,8 @@
 //! MIDI followed by each module's own routes, in the listed order.
 
 use crate::json::{list, obj, object, At, Opt, STRING};
-use crate::resolve::{fetch, Files, Overlay, Resolved};
-use crate::{compare_versions, resolve, Descriptor, Fault, FaultKind, Firmware, FirmwareKind, Kind, SchemaUrl, Sound, Version};
+use crate::resolve::{credit_over, credit_profiles, fetch, resolve_uncredited, Files, Overlay, Resolved};
+use crate::{compare_versions, Descriptor, Fault, FaultKind, Firmware, FirmwareKind, Kind, SchemaUrl, Sound, Source, Version};
 use serde_json::Value;
 use std::cmp::Ordering;
 
@@ -17,6 +17,8 @@ object! {
         "stock" stock: PinnedFirmware = obj(),
         /// The modules applied, each by its catalogue id and its exact version, in the order applied.
         "modules" modules: Vec<PinnedModule> = list(obj()),
+        /// Where the data comes from, with its credit, licence and the firmware it documents (0.7).
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
     }
     check from_0_6
 }
@@ -92,7 +94,7 @@ fn from_0_6(a: &Assembly, at: &At) -> Result<(), Fault> {
     }
     let key = At::Key(at, "$schema");
     match a.schema {
-        Some(Version::V0_6 | Version::V0_7) => Ok(()),
+        Some(Version::V0_6 | Version::V0_7) => crate::device::check_credit(a.schema, &[(at.pointer(), &a.sources)]),
         None => Err(key.fault(FaultKind::Missing, "an assembly carries `$schema`")),
         Some(v) => Err(key.fault(FaultKind::BadValue, format!("an assembly is not a descriptor of {}: it exists from 0.6", v.name()))),
     }
@@ -155,7 +157,9 @@ pub fn resolve_assembly(id: &str, device: Option<&str>, files: &dyn Files) -> Re
     let (at, stock_midi, stock_same_as) = midi_of(stock_id, &stock, FirmwareKind::Firmware, device)?;
     let device = device.map(str::to_string).or_else(|| stock.targets.as_deref().and_then(|t| t[at].device.descriptor.clone()));
     let stock_midi = stock_midi.or(stock_same_as).ok_or_else(|| bad(stock_id, &format!("/targets/{at}/midi/descriptor"), "the stock firmware of an assembly names its MIDI descriptor"))?;
-    let base = resolve(&stock_midi, files)?;
+    // The credit of the profiles is kept apart until the last module: a module follows the sources
+    // of the files alone, as when its MIDI file is resolved alone.
+    let (base, mut credit) = resolve_uncredited(&stock_midi, files)?;
     let mut identity = serde_json::from_str::<Value>(&crate::write(&Descriptor::Device(Box::new(base.device.clone())))).unwrap_or_default();
     identity.as_object_mut().map(|o| o.remove("midi_of"));
     let mut acc = identity.clone();
@@ -174,7 +178,8 @@ pub fn resolve_assembly(id: &str, device: Option<&str>, files: &dyn Files) -> Re
                     return Err(bad(&d, "/midi_of", "the MIDI of a module follows the MIDI of the stock firmware"));
                 }
                 let overlay = Overlay { base: files, id: &stock_midi, text: acc.to_string() };
-                let r = resolve(&d, &overlay)?;
+                let (r, step) = resolve_uncredited(&d, &overlay)?;
+                credit_over(&mut credit, step);
                 acc = serde_json::from_str(&crate::write(&Descriptor::Device(Box::new(r.device)))).unwrap_or_default();
                 acc.as_object_mut().map(|o| o.remove("midi_of"));
                 // The module changes routes, not which device it is.
@@ -190,7 +195,8 @@ pub fn resolve_assembly(id: &str, device: Option<&str>, files: &dyn Files) -> Re
             _ => return Err(bad(module, &format!("/targets/{at}/midi"), "a module names its MIDI by `descriptor`, or `same_as` the stock's")),
         }
     }
-    let Descriptor::Device(device) = crate::read(&acc.to_string(), Kind::Device)? else { unreachable!("a device is read") };
+    let Descriptor::Device(mut device) = crate::read(&acc.to_string(), Kind::Device)? else { unreachable!("a device is read") };
+    credit_profiles(&mut device, credit);
     let mut files_read = vec![id.to_string()];
     files_read.extend(read.into_iter().filter(|f| f != id));
     for f in base.files {

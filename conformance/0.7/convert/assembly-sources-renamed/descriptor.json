@@ -1,0 +1,27 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/assembly.schema.json",
+  "stock": {
+    "firmware": "acme/stock",
+    "version": "1.0"
+  },
+  "modules": [],
+  "_sources": [
+    {
+      "type": "vendor-doc",
+      "preset_name": "P",
+      "revision": "r7",
+      "content_sha256": "ff00"
+    },
+    {
+      "type": "knobkraft",
+      "name": "N",
+      "notes": "n"
+    },
+    {
+      "type": "vendor-doc",
+      "id": "manual",
+      "imported_at": "2026-01-01",
+      "provider": "acme-synths"
+    }
+  ]
+}

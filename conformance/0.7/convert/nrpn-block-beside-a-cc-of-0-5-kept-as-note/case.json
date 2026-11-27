@@ -1,0 +1,31 @@
+{
+  "_about": "The `nrpn_lsb_range` of a control of 0.5 whose only message is a CC has no NRPN way to go to: the converter keeps it on the entry as the note `_nrpn_lsb_range`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ],
+          "_nrpn_lsb_range": [
+            0,
+            7
+          ]
+        }
+      ]
+    }
+  }
+}

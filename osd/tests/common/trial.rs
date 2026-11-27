@@ -4,9 +4,9 @@
 //! every driver resolved. The 0.6 reading of the same catalogue is the
 //! reference: what it already refuses is counted, not failed.
 
-use super::{Folder, Schemas};
+use super::{reference_0_6, Folder, Schemas};
 use osd::{Descriptor, Fault, FaultKind, Kind, Version};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 
 /// What a failure of the trial is.
@@ -18,8 +18,12 @@ pub enum Check {
     Resolution,
     /// A file the reader accepts in 0.7 and the schema of 0.7 refuses.
     Schema,
-    /// A file accepted in 0.7 that no longer says what its 0.6 text said.
+    /// A value or a source that a file accepted in 0.7 says otherwise than its
+    /// 0.6 text: lost, changed or added.
     Loss,
+    /// A text accepted in 0.7 that is written back as another JSON, or that a
+    /// conversion to 0.7 changes again.
+    Unstable,
 }
 
 /// One failure: the file, the JSON pointer in it, and why.
@@ -57,13 +61,16 @@ pub struct Trial {
 }
 
 impl std::fmt::Display for Trial {
-    /// The counts, by kind of fault, then every failure.
+    /// The counts, of refusals by kind of fault and of differences with the
+    /// 0.6 text, then every failure.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} descriptors tried", self.files)?;
         for (version, refused) in [("0.6", &self.refused_in_0_6), ("0.7", &self.refused_in_0_7)] {
             let sorted: BTreeMap<String, usize> = refused.iter().map(|(k, n)| (format!("{k:?}"), *n)).collect();
             writeln!(f, "refused in {version}: {} {sorted:?}", sorted.values().sum::<usize>())?;
         }
+        let differences = self.failures.iter().filter(|x| x.check == Check::Loss).count();
+        writeln!(f, "differences with the 0.6 text: {differences}")?;
         writeln!(f, "{} failures", self.failures.len())?;
         self.failures.iter().try_for_each(|x| writeln!(f, "{x}"))
     }
@@ -99,7 +106,7 @@ pub fn trial(dir: &Folder) -> Trial {
             Ok(_) => {
                 let new = new.as_deref().expect("a text read was converted");
                 match (&old_read, old.as_deref()) {
-                    (Ok(_), Some(old)) => out.failures.extend(judge(&schemas, &id, kind, old, new)),
+                    (Ok(_), Some(old)) => out.failures.extend(judge_from(&schemas, &id, kind, &text, old, new)),
                     // No 0.6 text to compare with: the schema still holds.
                     _ => out.failures.extend(schema_failure(&schemas, &id, kind, new)),
                 }
@@ -141,21 +148,29 @@ fn refusal(check: Check, file: &str, fault: &Fault) -> Failure {
     Failure { check, file: file.into(), pointer: fault.pointer.clone(), kind: Some(fault.kind), why: fault.rule.clone() }
 }
 
-/// What is wrong with `new`, the 0.7 text of the file `file` that the reader
-/// accepts, `old` being its 0.6 text: the schema of 0.7 refuses it, it loses
-/// what `old` said, it is written back as another JSON, or converting it again
-/// to 0.7 changes it.
+/// What is wrong with `new`, the 0.7 text converted from `old`, a text of 0.6 of
+/// the file `file`.
 pub fn judge(schemas: &Schemas, file: &str, kind: Kind, old: &str, new: &str) -> Vec<Failure> {
+    judge_from(schemas, file, kind, old, old, new)
+}
+
+/// What is wrong with `new`, the 0.7 text of the file `file` that the reader
+/// accepts, `given` being its text as the catalogue holds it and `old` its 0.6
+/// text: the schema of 0.7 refuses it, it differs
+/// from what `old` says, it is written back as another JSON, or converting it
+/// again to 0.7 changes it.
+pub fn judge_from(schemas: &Schemas, file: &str, kind: Kind, given: &str, old: &str, new: &str) -> Vec<Failure> {
     let mut out: Vec<Failure> = schema_failure(schemas, file, kind, new).into_iter().collect();
-    let loss = |pointer: String, why: String| Failure { check: Check::Loss, file: file.into(), pointer, kind: None, why };
+    let failure = |check, pointer: String, why: String| Failure { check, file: file.into(), pointer, kind: None, why };
     let (before, after) = (json(old), json(new));
-    out.extend(lost(&before, &after).into_iter().map(|(pointer, why)| loss(pointer, why)));
+    let lost = reference_0_6::document(kind, &json(given), &before, &after);
+    out.extend(lost.into_iter().map(|(pointer, why)| failure(Check::Loss, pointer, why)));
     match osd::read_as(new, kind, Version::V0_7) {
         Ok(d) => {
             let back = json(&osd::write(&d));
             if back != after {
                 let (pointer, why) = first_difference(&after, &back, "");
-                out.push(loss(pointer, format!("read then written: {why}")));
+                out.push(failure(Check::Unstable, pointer, format!("read then written: {why}")));
             }
         }
         Err(fault) => out.push(refusal(Check::Refusal, file, &fault)),
@@ -164,9 +179,9 @@ pub fn judge(schemas: &Schemas, file: &str, kind: Kind, old: &str, new: &str) ->
         Ok(again) if again == new => {}
         Ok(again) => {
             let (pointer, why) = first_difference(&after, &json(&again), "");
-            out.push(loss(pointer, format!("converted to 0.7 again, it changes: {why}")));
+            out.push(failure(Check::Unstable, pointer, format!("converted to 0.7 again, it changes: {why}")));
         }
-        Err(fault) => out.push(loss(fault.pointer.clone(), format!("converted to 0.7 again: {fault}"))),
+        Err(fault) => out.push(failure(Check::Unstable, fault.pointer.clone(), format!("converted to 0.7 again: {fault}"))),
     }
     out
 }
@@ -179,87 +194,6 @@ fn schema_failure(schemas: &Schemas, file: &str, kind: Kind, text: &str) -> Opti
 
 fn json(text: &str) -> Value {
     serde_json::from_str(text).expect("a text the reader accepts is JSON")
-}
-
-/// The tables of routes whose entries a conversion keeps: where each list is.
-const ROUTES: [(&str, &str); 4] = [
-    ("cc_params", "/cc_params/entries"),
-    ("params", "/params/entries"),
-    ("commands", "/commands"),
-    ("triggers", "/triggers/entries"),
-];
-
-/// The texts for people of an entry.
-const TEXTS: [&str; 4] = ["_usage", "_name", "_description", "_notes"];
-
-/// The field of 0.7 that may hold the text `key` of an entry of `table`
-/// (`spec/0.7.md` 5.3.1); none where the converter moves nothing.
-fn field_of(table: &str, key: &str) -> Option<&'static str> {
-    match (table, key) {
-        ("cc_params" | "params" | "triggers", "_name") => Some("title"),
-        ("cc_params" | "params" | "triggers", "_description") => Some("description"),
-        ("cc_params", "_usage") => Some("value_description"),
-        ("cc_params", "_notes") => Some("notes"),
-        _ => None,
-    }
-}
-
-/// The messages a control of 0.6 gives: its flat fields, when they name one,
-/// then each element of `also`. An entry of `params` gives one when it names a
-/// number.
-fn messages(table: &str, entry: &Map<String, Value>) -> usize {
-    let names = |keys: &[&str]| keys.iter().any(|k| entry.contains_key(*k));
-    if table == "params" {
-        return usize::from(names(&["pr", "p", "c", "r", "id"]));
-    }
-    let flat = names(&["cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb"]);
-    usize::from(flat) + entry.get("also").and_then(Value::as_array).map_or(0, Vec::len)
-}
-
-/// The fields of an entry with no message, which 0.7 keeps on the entry.
-const PARTIAL_FIELDS: [&str; 4] = ["range", "transmit", "recognize", "nrpn_lsb_range"];
-
-/// What the 0.6 document `before` says that the 0.7 document `after` does not:
-/// the pointer and what is lost.
-fn lost(before: &Value, after: &Value) -> Vec<(String, String)> {
-    let mut out = Vec::new();
-    for (table, at) in ROUTES {
-        let list = |v: &Value| v.pointer(at).and_then(Value::as_array).cloned().unwrap_or_default();
-        let (old, new) = (list(before), list(after));
-        if old.len() != new.len() {
-            out.push((at.to_string(), format!("{} entries became {}", old.len(), new.len())));
-            continue;
-        }
-        for (n, (old, new)) in old.iter().zip(&new).enumerate() {
-            let at = format!("{at}/{n}");
-            let (Some(old), Some(new)) = (old.as_object(), new.as_object()) else {
-                out.push((at, "an entry is not an object".into()));
-                continue;
-            };
-            if old.get("osc") != new.get("osc") {
-                out.push((format!("{at}/osc"), format!("the address {:?} became {:?}", old.get("osc"), new.get("osc"))));
-            }
-            if table == "cc_params" || table == "params" {
-                let (given, ways) = (messages(table, old), new.get("ways").and_then(Value::as_array).map_or(0, Vec::len));
-                if given != ways {
-                    out.push((format!("{at}/ways"), format!("{given} messages became {ways} ways")));
-                }
-                for key in PARTIAL_FIELDS.iter().filter(|_| given == 0) {
-                    if old.get(*key) != new.get(*key) {
-                        out.push((format!("{at}/{key}"), format!("{:?} became {:?}", old.get(*key), new.get(*key))));
-                    }
-                }
-            }
-            for key in TEXTS {
-                let Some(text) = old.get(key) else { continue };
-                let moved = field_of(table, key).is_some_and(|field| new.get(field) == Some(text));
-                if !moved && new.get(key) != Some(text) {
-                    out.push((format!("{at}/{key}"), format!("the text {text} is lost")));
-                }
-            }
-        }
-    }
-    out
 }
 
 /// Where two documents first differ: a JSON pointer, and how.

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "_sources": [
+    {
+      "type": "vendor-doc",
+      "profile": 5
+    },
+    {
+      "type": "vendor-doc",
+      "profile": [
+        1
+      ],
+      "_profile": "taken"
+    },
+    {
+      "type": "vendor-doc",
+      "profile": "acme"
+    }
+  ]
+}

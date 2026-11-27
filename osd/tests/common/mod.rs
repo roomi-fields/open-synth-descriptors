@@ -3,8 +3,11 @@
 
 #![allow(dead_code)]
 
+pub mod checks;
+pub mod credit;
 pub mod midi1;
 pub mod probe;
+pub mod reference_0_6;
 pub mod trial;
 
 use std::path::{Path, PathBuf};
@@ -73,9 +76,22 @@ fn name(id: &str) -> &str {
     id.split_once('/').unwrap().1
 }
 
+/// A catalogue of these files, by catalogue id, in a folder removed with the
+/// guard returned.
+pub fn catalogue_of(files: &[(&str, serde_json::Value)]) -> (tempfile::TempDir, Folder) {
+    let tmp = tempfile::tempdir().unwrap();
+    for (id, doc) in files {
+        let path = tmp.path().join(format!("{id}.json"));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, doc.to_string()).unwrap();
+    }
+    let dir = Folder(tmp.path().to_path_buf());
+    (tmp, dir)
+}
+
 /// The published schemas of a version, one validator per kind.
 pub struct Schemas {
-    validators: Vec<(osd::Kind, jsonschema::Validator)>,
+    validators: Vec<(osd::Kind, String, jsonschema::Validator)>,
 }
 
 impl Schemas {
@@ -107,10 +123,20 @@ impl Schemas {
             .iter()
             .map(|(kind, name)| {
                 let v = jsonschema::options().with_registry(&registry).build(&read(name)).unwrap();
-                (*kind, v)
+                let id = read(name)["$id"].as_str().unwrap().to_string();
+                (*kind, id, v)
             })
             .collect();
         Schemas { validators }
+    }
+
+    fn of(&self, kind: osd::Kind) -> &(osd::Kind, String, jsonschema::Validator) {
+        self.validators.iter().find(|(k, _, _)| *k == kind).unwrap()
+    }
+
+    /// The `$id` of the schema of `kind`: what a descriptor of this version declares.
+    pub fn id(&self, kind: osd::Kind) -> &str {
+        &self.of(kind).1
     }
 
     /// The first error the schema of `kind` finds in `doc`, if any.
@@ -121,7 +147,7 @@ impl Schemas {
     /// Every error the schema of `kind` finds in `doc`: its JSON pointer and
     /// what it says.
     pub fn errors(&self, kind: osd::Kind, doc: &serde_json::Value) -> Vec<(String, String)> {
-        let (_, v) = self.validators.iter().find(|(k, _)| *k == kind).unwrap();
+        let (_, _, v) = self.of(kind);
         v.iter_errors(doc).map(|e| (e.instance_path().to_string(), e.to_string())).collect()
     }
 }

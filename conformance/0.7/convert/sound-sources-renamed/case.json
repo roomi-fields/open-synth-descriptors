@@ -1,0 +1,41 @@
+{
+  "_about": "The `_sources` of a 0.6 sound become `sources`, with the carrying of keys of a device.",
+  "convert": "sound",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/sound.schema.json",
+    "name": "Warm pad",
+    "kind": "sound",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "vendor": "KORG",
+      "model": "minilogue"
+    },
+    "content": {
+      "settings": {
+        "/amp/attack": [
+          90
+        ]
+      }
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "version": "r7",
+        "sha256": "ff00"
+      },
+      {
+        "type": "contributed",
+        "title": "N",
+        "provider": "knobkraft",
+        "notes": "type in 0.6: knobkraft\nn"
+      },
+      {
+        "type": "vendor-doc",
+        "id": "manual",
+        "_imported_at": "2026-01-01",
+        "provider": "acme-synths"
+      }
+    ]
+  }
+}

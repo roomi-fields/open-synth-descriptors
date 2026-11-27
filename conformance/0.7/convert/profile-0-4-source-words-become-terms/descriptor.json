@@ -1,0 +1,11 @@
+{
+  "identity": {
+    "reply_text": "acme"
+  },
+  "_sources": [
+    {
+      "type": "vendor",
+      "license": "none"
+    }
+  ]
+}

@@ -6,9 +6,9 @@ The reference reader of [Open Synth Descriptors](https://github.com/roomi-fields
 
 ```toml
 [dependencies]
-osd = "0.1"
+osd = "0.6"
 ```
 
-The command line is the `osd-cli` crate; the formats others use (MIDI CSV tables, Electra One, MIDNAM, OSCQuery) are in `osd-formats`.
+The command line is the `osd-cli` crate; the formats others use are in `osd-formats`: the pencilresearch/midi CSV, its triggers CSV, Electra One presets, MIDNAM, OSCQuery, the MIDI 2.0 controller list, the Deluge device definition and the KnobKraft Orm adaptation skeleton. The Deluge device definition and the KnobKraft Orm adaptation skeleton are exported only.
 
 Licensed under MIT or Apache-2.0, at your option.

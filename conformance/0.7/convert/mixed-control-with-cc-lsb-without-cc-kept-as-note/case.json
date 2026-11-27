@@ -1,0 +1,53 @@
+{
+  "_about": "A 0.4 control that mixes a `cc_lsb` without its `cc` with an NRPN becomes a control with the NRPN way; the `cc_lsb` is kept in the note `_incomplete`, with the `range` of the flat fields.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/first",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/a",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                1,
+                2
+              ],
+              "value_bits": 14,
+              "range": [
+                0,
+                127
+              ]
+            }
+          ],
+          "_incomplete": [
+            {
+              "cc_lsb": 33,
+              "range": [
+                0,
+                127
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

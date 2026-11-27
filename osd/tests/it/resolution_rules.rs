@@ -19,13 +19,18 @@ struct Rule {
 /// The lines of the section Resolution of the specification: the `## ` heading whose title,
 /// once its number is dropped, is `Resolution`.
 fn section() -> Vec<String> {
-    let spec = text("spec/0.6.md");
+    section_of("spec/0.6.md")
+}
+
+/// The lines of the section Resolution of the text `path`.
+fn section_of(path: &str) -> Vec<String> {
+    let spec = text(path);
     let is_head = |l: &str| {
         l.strip_prefix("## ").is_some_and(|t| t.trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ' ').trim_end() == "Resolution")
     };
     let mut lines = spec.lines().skip_while(|l| !is_head(l)).map(str::to_string);
     let head = lines.next();
-    assert!(head.is_some(), "spec/0.6.md has no `## Resolution` section");
+    assert!(head.is_some(), "{path} has no `## Resolution` section");
     lines.take_while(|l| !l.starts_with("## ")).collect()
 }
 
@@ -71,6 +76,13 @@ fn rules() -> Vec<Rule> {
         }
     }
     out
+}
+
+/// The numbers a comment or the interface may cite: the rules of `spec/0.6.md`, and those the
+/// text of 0.7 numbers after them.
+fn citable() -> BTreeSet<u32> {
+    let of_0_7 = section_of("spec/0.7.md").into_iter().filter_map(|l| l.strip_prefix("### 23.")?.split(' ').next()?.parse::<u32>().ok()).filter(|n| *n >= FIRST_RULE);
+    rules().iter().map(|r| r.number).chain(of_0_7).collect()
 }
 
 /// The cases a `Cases:` line cites: each `<version>/<case>` between backticks.
@@ -245,7 +257,7 @@ fn uncited(comment: &str, numbers: &BTreeSet<u32>) -> Option<String> {
 
 #[test]
 fn the_comments_of_the_resolver_refer_to_the_rules_of_the_specification_by_number() {
-    let numbers: BTreeSet<u32> = rules().iter().map(|r| r.number).collect();
+    let numbers = citable();
     assert!(!numbers.is_empty(), "the Resolution section has no rule");
     let source = text("osd/src/resolve.rs");
     let mut failures = Vec::new();
@@ -263,7 +275,7 @@ fn the_comments_of_the_resolver_refer_to_the_rules_of_the_specification_by_numbe
 
 #[test]
 fn the_resolve_line_of_the_reader_interface_refers_to_the_rules_of_the_specification() {
-    let numbers: BTreeSet<u32> = rules().iter().map(|r| r.number).collect();
+    let numbers = citable();
     assert!(!numbers.is_empty(), "the Resolution section has no rule");
     let interface = text("osd/docs/INTERFACE.md");
     let line = interface.lines().find(|l| l.starts_with("| `resolve` |")).expect("no `resolve` line in osd/docs/INTERFACE.md");

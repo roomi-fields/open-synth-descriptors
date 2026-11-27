@@ -31,7 +31,7 @@ The role of the specification and what it refuses are in `docs/CADRE.md`. What a
 3. **The identity of the format is a permanent address.** From version 0.5, each schema is identified by `https://w3id.org/osd/<version>/<kind>.schema.json`, an identifier that the W3C Permanent Identifier Community Group keeps and redirects to where the schemas are served. The format is listed in the SchemaStore catalogue, so a code editor completes a descriptor. Reason: the identity depends on no host, person or domain, and moving the hosting changes the redirect alone.
 4. **Inheritance is for authors; a client is served the complete descriptor.** An author writes a device once and lets it take the profile of its maker and the MIDI of another device. A resolving reader follows these links and produces the complete descriptor, which holds no link. A client reads that descriptor alone. Reason: whoever looks for how a device speaks needs nothing of how the catalogue is built.
 
-Version 1.0 is published when three independent readers hold the format: osc-bridge, SyntHub, and a complete round trip with the format of a partner.
+Version 1.0 is published when three independent readers hold the format: two readers written without `osd`, in other languages, and a complete round trip with the format of a partner.
 
 The rules these choices rest on are `docs/CADRE.md` R1, R6, R8, R9 and R11, `spec/ERRATA.md`, and section 2 of `spec/<version>.md`.
 

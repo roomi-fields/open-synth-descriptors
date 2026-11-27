@@ -1,0 +1,8 @@
+{
+  "_about": "A refused licence in a source of a fingerprint is refused at its field.",
+  "read": "fingerprint",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/license"
+  }
+}

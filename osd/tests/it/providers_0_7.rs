@@ -64,6 +64,7 @@ fn warned(d: &Descriptor) -> Vec<(String, String)> {
         .map(|w| match w.kind {
             osd::WarningKind::UnknownProvider(id) => (w.pointer, id),
             osd::WarningKind::PartialControl => panic!("no control of these devices is partial: {}", w.pointer),
+            osd::WarningKind::UncreditedSource => panic!("a device keeps no source out of its credit: {}", w.pointer),
         })
         .collect()
 }

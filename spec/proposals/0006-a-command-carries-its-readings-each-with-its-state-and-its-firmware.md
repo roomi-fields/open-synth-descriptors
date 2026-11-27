@@ -2,11 +2,13 @@
 
 ## Status
 
-- State: `candidate`
-- Candidate since: 2026-11-24
+- State: `draft`
+- Candidate since: —
 - Under the trial: —
 
-Amended with proposal 0008: the human name of a source is its `title`, as 0008 says of every source. The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections. Where this text writes `_sources`, 0008 renames it `sources`; the rest of this text is unchanged.
+Amended on 2026-11-25 with the precisions the building of 0.7 brought to the `range` and the keys of a control's reading. This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
+
+Amended with proposal 0008: the human name of a source is its `title`, as 0008 says of every source. Where this text writes `_sources`, 0008 renames it `sources`; the rest of this text is unchanged.
 
 This proposal decides nothing until it is accepted. Every choice below is a recommendation; the questions that belong to the owner are listed apart, in the last section.
 
@@ -34,10 +36,14 @@ A command of `commands` and a control (an entry of `cc_params` or of `params`) M
 | `firmware` | text, required | the firmware this reading holds for, written as `_sources[].firmware` is written; `unknown` when it is not known |
 | `source` | text, optional | the `id` of an entry of `_sources` that gave the reading |
 | `title` | text, optional | the title of the command or control in this reading (the field is `title`, as in proposal 0007) |
-| `args` | array of `arg`, optional | for a command, the arguments (with their ranges) in this reading |
-| `range` | as the control's own range fields, optional | for a control, its range in this reading |
+| `args` | array of `arg`, optional, on a command only | the arguments (with their ranges) of the command in this reading; a reading of a control has none |
+| `range` | `[lowest, highest]`, two integers, optional, on a control | the range of the control in this reading |
 
-A reading carries only what two accounts of one command or control can differ on (its title, its arguments or its range). What does not differ (the address of the message, the section) stays on the command or control, once. When a command or control has `readings`, a `title`, `args` or range of a reading replaces, for that reading, the one of the command or control; a reading that names none says it as it stands. The range of a reading of a control is written on the reference scale of proposal 0009: the control's own `scale`, else the range of its most precise way. (The exact range fields of a control are those of `cc_params` and `params` in the 0.7 schema.)
+A reading carries only what two accounts of one command or control can differ on (its title, its arguments or its range). What does not differ (the address of the message, the section) stays on the command or control, once. When a command or control has `readings`, a `title`, `args` or range of a reading replaces, for that reading, the one of the command or control; a reading that names none says it as it stands.
+
+**The range of a reading of a control** is a pair `[lowest, highest]` of integers, the form of the `range` of 0.6. It is written in the reference scale of the control (proposal 0009): the control's `scale`, else the scale of its most precise way, or, for a control with no way, its `range`. It lies inside that scale, bounds included, its lowest not above its highest: a reader MUST refuse a range outside the scale, or with its lowest above its highest, as `BadValue` at the `range` of the reading. The range is compared with nothing when the reference scale is not known, as `default` is: a `params` entry whose ways give none, and an entry with no way that has neither `scale` nor `range`. A firmware that produces a wider range than the scale is written by making the control's `scale` that wide, never by a range outside it.
+
+`args` is a key of a command's reading: on a reading of a control a reader MUST refuse it, as `UnknownField`.
 
 `readings` is a field read by a program, on a command and on a control: it does not start with `_` and is not a `notes`. A reader MUST refuse an unknown key of a reading, as `UnknownField`.
 
@@ -86,11 +92,11 @@ There is one command, one descriptor, one device; the two readings sit in it, ea
 
 ### How a reader picks a reading
 
-The reader picks by firmware only; beyond that the choice is the tool's. The rule: for a firmware asked, the readings whose `firmware` is the same text, then among them the states in the order `valid`, `to-confirm`, `refuted` (a `refuted` reading is returned only when asked for). When the firmware asked has no reading, the reader returns all the readings of the command, none chosen, with their firmwares and states: the format does not say a reading of 1.2 holds on 1.3, since firmwares are free text (`spec/0.6.md` section 14: a reader MUST NOT refuse the `version` of a firmware for its form).
+The reader picks by firmware only; beyond that the choice is the tool's. The rule: for a firmware asked, the readings whose `firmware` is the same text, then among them the states in the order `valid`, `to-confirm`, `refuted` (a `refuted` reading is returned only when asked for). When that list is empty, because the firmware asked has no reading or its only readings are `refuted` and not asked for, the reader returns all the readings of the command that are not `refuted` (all of them when `refuted` is asked for), in the order written, none chosen, with their firmwares and states: the format does not say a reading of 1.2 holds on 1.3, since firmwares are free text (`spec/0.6.md` section 14: a reader MUST NOT refuse the `version` of a firmware for its form).
 
 Reason: choosing between two contradictory readings on a firmware nobody confirmed is a judgement on the data, and the data is the catalogue's (see the tension below).
 
-A figure: a command with the two readings above. A tool on firmware 1.2 receives the first (valid). On 1.3 it receives the second, with the state `to-confirm`, and shows it as unconfirmed. On 1.4, a firmware with no reading, it receives both, neither chosen, each with its firmware and state. On `unknown` it receives the readings whose `firmware` is `unknown`, and if none, both again.
+A figure: a command with the two readings above. A tool on firmware 1.2 receives the first (valid). On 1.3 it receives the second, with the state `to-confirm`, and shows it as unconfirmed. On 1.4, a firmware with no reading, it receives both, neither chosen, each with its firmware and state. On `unknown` it receives the readings whose `firmware` is `unknown`, and if none, both again. Were the reading of 1.3 `refuted`, a tool on 1.3 that does not ask for the refuted readings would receive the reading of 1.2 alone; one that asks for them would receive the reading of 1.3.
 
 ### What becomes of a 0.6 descriptor read as 0.7
 
@@ -104,6 +110,8 @@ Under `conformance/0.7/read/`, each with its input and its expected verdict:
 2. `reading-state-outside-the-three-refused` — the same descriptor with `state: "probably"`. Verdict: refused as `BadValue`, at the pointer of the state.
 3. `readings-of-one-command-on-two-firmwares-accepted` — one command with two readings, `{valid, 1.2, title "Filter cutoff", max 127}` and `{to-confirm, 1.3, title "Cutoff", max 255}`. Verdict: accepted; the reader returns both, each with its state and firmware, in the order written.
 4. `source-id-duplicated-refused` — an `id` of source written twice, in one file or between a file with `midi_of` and its target. Verdict: refused as `BadValue`.
+
+For the readings of a control, under `conformance/0.7/read/`: `control-reading-state-accepted`, `control-reading-args-refused` (refused as `UnknownField`) and `control-reading-range-outside-the-scale-refused` (refused as `BadValue`).
 
 And, in `conformance/0.7/convert/`: `command-without-readings-stays-as-it-is` — a 0.6 device with one command. Verdict: converted without a `readings`; read as 0.7, the command is returned with no state.
 
@@ -134,4 +142,4 @@ None yet.
 
 What was searched: the text of 0.6 (sections 4, 6.6, 14), the device schema of 0.6 (`command`, `source`), the proposals 0001 to 0005, Wikidata's help pages and the three references as quoted above.
 
-The owner answered the questions of the draft (2026-11-24); their answers are written in the text above. None remains open. The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections.
+The owner answered the questions of the draft (2026-11-24); their answers are written in the text above. None remains open.

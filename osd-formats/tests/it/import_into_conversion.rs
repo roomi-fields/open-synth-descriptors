@@ -1,6 +1,7 @@
 //! `import_into` on a base before 0.7 converts the base by the converter chain of `osd`
 //! (`write`, `convert_to` 0.7, `read`) before it adds the file: the blocks of the base come out as
-//! the chain gives them, and a base the chain or the reader refuses is `NotConvertible`.
+//! the chain gives them, and a base the chain refuses is `NotConvertible`. A base of 0.7 is read
+//! back by the reader before the file is added: one it refuses is `NotConvertible` too.
 
 use crate::common::{csv, device_from, row, source, trigger_csv, trigger_row};
 use osd_formats::{import_into, Fault, Format, Translated};
@@ -215,10 +216,7 @@ fn a_control_without_a_message_of_a_base_before_0_7_is_kept_with_an_empty_ways_a
 /// The refusal of both files joined to `base`, at `place`, repeating the rule `osd` gives for it.
 fn assert_not_convertible(base: &osd::Device, place: &str) {
     let text = written(base);
-    let given = match osd::convert_to(&text, Kind::Device, Version::V0_7) {
-        Err(f) => f,
-        Ok(converted) => osd::read(&converted, Kind::Device).expect_err("osd accepts the fixture"),
-    };
+    let given = osd::convert_to(&text, Kind::Device, Version::V0_7).expect_err("osd converts the fixture");
     assert_eq!(given.pointer, place, "the fixture is refused elsewhere: {given}");
     for (file, format) in files() {
         let f: Fault = match import_into(base.clone(), &file, format, &source()) {
@@ -229,8 +227,12 @@ fn assert_not_convertible(base: &osd::Device, place: &str) {
         assert_eq!(f.place, place, "{format:?}: {f}");
         assert!(f.rule.contains(&given.rule), "{format:?}: the rule of osd ({}) is not in {:?}", given.rule, f.rule);
         let own = f.rule.replace(&given.rule, "").to_lowercase();
-        for word in ["conver", "base", "version"] {
-            assert!(own.contains(word), "{format:?}: the rule says the fault comes from converting the base, at a pointer that may name a key of the version reached ({word}): {:?}", f.rule);
+        for word in ["base", "does not convert", "0.7"] {
+            assert!(own.contains(word), "{format:?}: the rule says the base does not convert to 0.7 ({word}): {:?}", f.rule);
+        }
+        // The pointer is always one of the base given: the rule announces no other text.
+        for word in ["pointer", "may name", "reached"] {
+            assert!(!own.contains(word), "{format:?}: the rule announces a pointer into another text than the base given ({word}): {:?}", f.rule);
         }
     }
 }
@@ -264,8 +266,79 @@ fn a_midi_of_sources_note_the_reader_of_0_7_refuses_makes_the_base_not_convertib
         })
         .to_string(),
     );
-    assert_not_convertible(&note, "/midi_of_sources");
+    // The pointer is that of the text given, which writes the credit under `_midi_of_sources`
+    // (spec/0.7.md § 2.4).
+    assert_not_convertible(&note, "/_midi_of_sources");
     // The converter from 0.4 translates the types of `_sources`, not those of this note.
     let word_of_0_4 = base_0_4_with_sources(json!([{"type": "community-re", "url": "u"}]), Some(json!([{"type": "vendor"}])));
-    assert_not_convertible(&word_of_0_4, "/midi_of_sources/0/type");
+    assert_not_convertible(&word_of_0_4, "/_midi_of_sources/0/type");
+}
+
+// ---- a base of 0.7 the reader refuses ---------------------------------------------------
+
+/// A device of 0.7 the reader accepts, which a case then breaks in memory.
+fn readable_base_of_0_7() -> osd::Device {
+    device_from(
+        &json!({
+            "$schema": SCHEMA_0_7,
+            "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"},
+            "sources": [{"type": "community-re", "id": "a", "url": "u", "license": "CC0-1.0"}],
+            "cc_params": {"entries": [{"osc": "/filter/cutoff", "ways": [{"ctrlType": "cc", "ctrlIndex": [20]}], "default": 3}]},
+        })
+        .to_string(),
+    )
+}
+
+/// The refusal of both files joined to `base`, a base of 0.7 the reader refuses: at the pointer
+/// `osd` gives in it, with its rule, saying the base does not read in 0.7.
+fn assert_unreadable_base_refused(base: &osd::Device, pointer: &str) {
+    let given = osd::read(&written(base), Kind::Device).expect_err("osd reads the fixture");
+    assert_eq!(given.pointer, pointer, "the fixture is refused elsewhere: {given}");
+    for (file, format) in files() {
+        let f: Fault = match import_into(base.clone(), &file, format, &source()) {
+            Ok(t) => panic!("{format:?}: a descriptor is returned:\n{}", written(&t.value)),
+            Err(f) => f,
+        };
+        assert_eq!(format!("{:?}", f.kind), "NotConvertible", "{format:?}: {f}");
+        assert_eq!(f.place, pointer, "{format:?}: {f}");
+        assert!(f.rule.contains(&given.rule), "{format:?}: the rule of osd ({}) is not in {:?}", given.rule, f.rule);
+        let own = f.rule.replace(&given.rule, "").to_lowercase();
+        for word in ["base", "not", "read", "0.7"] {
+            assert!(own.contains(word), "{format:?}: the rule says the base does not read in 0.7 ({word}): {:?}", f.rule);
+        }
+        assert!(!own.contains("convert"), "{format:?}: a base of 0.7 is not converted: {:?}", f.rule);
+    }
+}
+
+#[test]
+fn a_base_of_0_7_that_claims_a_message_twice_is_refused_at_the_later_claim() {
+    let mut base = readable_base_of_0_7();
+    let entries = &mut base.cc_params.as_mut().unwrap().entries;
+    let mut again = entries[0].clone();
+    again.osc = "/filter/again".to_string();
+    entries.push(again);
+    assert_unreadable_base_refused(&base, "/cc_params/entries/1/ways/0");
+}
+
+#[test]
+fn a_base_of_0_7_with_a_default_outside_its_scale_is_refused_at_the_default() {
+    let mut base = readable_base_of_0_7();
+    base.cc_params.as_mut().unwrap().entries[0].default = Some(500);
+    assert_unreadable_base_refused(&base, "/cc_params/entries/0/default");
+}
+
+#[test]
+fn a_base_of_0_7_that_declares_a_capability_no_field_requires_is_refused_at_the_list() {
+    let mut base = readable_base_of_0_7();
+    base.capabilities = Some(vec![osd::Capability::Lua]);
+    assert_unreadable_base_refused(&base, "/capabilities");
+}
+
+#[test]
+fn a_base_of_0_7_whose_sources_repeat_an_id_is_refused_at_the_later_source() {
+    let mut base = readable_base_of_0_7();
+    let sources = base.sources.as_mut().unwrap();
+    let again = sources[0].clone();
+    sources.push(again);
+    assert_unreadable_base_refused(&base, "/sources/1");
 }

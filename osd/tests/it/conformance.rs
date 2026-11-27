@@ -171,10 +171,9 @@ fn warning_claims(d: &osd::Descriptor, case: &Value) -> Option<String> {
     let got: Vec<Value> = osd::warnings(d)
         .into_iter()
         .map(|w| {
-            let kind = match w.kind {
-                osd::WarningKind::PartialControl => "PartialControl",
-                osd::WarningKind::UnknownProvider(_) => "UnknownProvider",
-            };
+            // A kind is named by the case as the reader names it.
+            let kind = format!("{:?}", w.kind);
+            let kind = kind.split('(').next().unwrap();
             serde_json::json!({"kind": kind, "pointer": w.pointer})
         })
         .collect();
@@ -1002,8 +1001,8 @@ fn the_0_7_conversion_cases_of_a_mixed_control_pass_from_0_4_and_from_0_5() {
         "mixed-cc-and-rpn-control-becomes-two-ways",
         "mixed-nrpn-and-rpn-control-becomes-two-ways",
         "mixed-three-kinds-control-becomes-three-ways",
-        "mixed-control-with-nrpn-of-one-number-refused",
-        "mixed-control-with-cc-lsb-without-cc-refused",
+        "mixed-control-with-nrpn-of-one-number-kept-as-note",
+        "mixed-control-with-cc-lsb-without-cc-kept-as-note",
         "mixed-control-with-block-without-nrpn-refused",
         "mixed-control-message-claimed-twice-refused",
     ] {
@@ -1020,6 +1019,16 @@ fn the_0_7_conversion_cases_of_a_mixed_control_pass_from_0_4_and_from_0_5() {
         failures.extend(run_convert_to_0_7(&dir).map(|why| format!("{name}: {why}")));
     }
     assert!(from_0_4 >= 2 && from_0_5 >= 2, "{from_0_4} cases from 0.4, {from_0_5} from 0.5");
+    common::report("cases failed", failures);
+}
+
+#[test]
+fn the_0_7_conversion_cases_of_an_incomplete_message_pass() {
+    let root = common::repo().join("conformance/0.7/convert");
+    let failures = ["nrpn-of-one-number-kept-as-note", "rpn-of-one-number-kept-as-note", "cc-lsb-without-cc-kept-as-note"]
+        .into_iter()
+        .filter_map(|name| run_convert_to_0_7(&root.join(name)).map(|why| format!("{name}: {why}")))
+        .collect();
     common::report("cases failed", failures);
 }
 
@@ -1182,6 +1191,61 @@ fn the_0_7_cases_of_the_sources_exist_under_their_names() {
 }
 
 #[test]
+fn the_0_7_cases_of_the_credit_of_every_kind_exist_under_their_names() {
+    let root = common::repo().join("conformance/0.7");
+    for case in [
+        "convert/profile-sources-key-renamed",
+        "convert/profile-0-4-source-words-become-terms",
+        "convert/sound-sources-renamed",
+        "convert/sound-made-on-sources-renamed",
+        "convert/fingerprint-sources-renamed",
+        "convert/firmware-sources-renamed",
+        "convert/assembly-sources-renamed",
+        "convert/source-without-type-becomes-contributed",
+        "convert/sources-entries-kept-as-note",
+        "convert/sources-not-a-list-kept-as-note",
+        "convert/sources-note-takes-the-next-free-key",
+        "convert/source-profile-not-a-string-kept-as-note",
+        "read/profile-sources-read",
+        "read/profile-source-keys-written-back",
+        "read/profile-underscore-sources-refused",
+        "read/profile-source-product-type-refused",
+        "read/profile-sources-note-not-a-list-warned",
+        "read/sound-sources-read",
+        "read/sound-underscore-sources-refused",
+        "read/sound-source-id-duplicated-refused",
+        "read/sound-source-imported-at-refused",
+        "read/sound-sources-not-carried-warned",
+        "read/sound-made-on-sources-read",
+        "read/sound-made-on-underscore-sources-refused",
+        "read/fingerprint-sources-read",
+        "read/fingerprint-underscore-sources-refused",
+        "read/fingerprint-source-license-refused",
+        "read/firmware-sources-read",
+        "read/firmware-underscore-sources-refused",
+        "read/firmware-source-provider-malformed-refused",
+        "read/firmware-source-provider-unknown-warned",
+        "read/assembly-sources-read",
+        "read/assembly-underscore-sources-refused",
+        "read/assembly-source-without-type-refused",
+        "read/source-profile-not-a-string-refused",
+        "read/source-profile-of-an-author-kept",
+        "resolve/profile-sources-appended-to-sources",
+        "resolve/profile-sources-of-an-inherited-block-in-midi-of-sources",
+        "resolve/profile-sources-of-own-and-inherited-blocks-once",
+        "resolve/profile-sources-of-a-0-6-profile-converted",
+        "resolve/profile-source-id-taken-given-without-id",
+        "resolve/profile-source-already-credited-not-repeated",
+        "resolve/profile-source-reading-refused",
+        "resolve/assembly-module-over-credited-midi-no-repeat",
+        "resolve/assembly-module-source-id-of-a-profile-source-accepted",
+        "resolve/assembly-module-reading-names-a-profile-source-refused",
+    ] {
+        assert!(root.join(case).join("case.json").is_file(), "{case}");
+    }
+}
+
+#[test]
 fn the_0_7_cases_of_the_changes_of_form_exist_under_their_names() {
     let root = common::repo().join("conformance/0.7");
     for case in [
@@ -1268,7 +1332,10 @@ fn every_file_of_a_0_7_resolution_case_validates_against_the_schema_of_its_own_v
         for (id, text) in files(&case.join("files")) {
             let doc: Value = serde_json::from_str(&text).unwrap();
             let v = if doc["$schema"].as_str().is_some_and(|s| s.contains("/0.7/")) { "0.7" } else { "0.6" };
-            let kind = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            // The kind is the one the file's `$schema` names (an assembly's catalogue holds
+            // firmwares too); a file without it is a 0.4 file, by its id.
+            let by_id = if id.contains("/_profile") { osd::Kind::Profile } else { osd::Kind::Device };
+            let kind = osd::declared_kind(&text).unwrap_or(by_id);
             if let Some(e) = common::Schemas::load(v).check(kind, &doc) {
                 failures.push(format!("{}: {id}: {e}", case.file_name().unwrap().to_string_lossy()));
             }

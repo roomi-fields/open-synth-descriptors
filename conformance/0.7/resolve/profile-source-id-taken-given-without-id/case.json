@@ -1,0 +1,33 @@
+{
+  "_about": "A profile source whose `id` is already held is given without it, never refused.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "own",
+        "id": "manual"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "profile": "acme"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "Q",
+        "id": "other",
+        "profile": "acme"
+      }
+    ]
+  }
+}

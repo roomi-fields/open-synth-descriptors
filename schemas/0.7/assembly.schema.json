@@ -18,12 +18,20 @@
       "patternProperties": {
         "^_": {
           "description": "A note for people; never read by a program."
-        }
+        },
+        "^_sources$": false
       },
       "additionalProperties": false,
       "properties": {
         "$schema": {
           "const": "https://w3id.org/osd/0.7/assembly.schema.json"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "device.schema.json#/$defs/source"
+          },
+          "description": "Where the data comes from, with its credit, licence and the firmware it documents."
         },
         "stock": {
           "description": "The stock firmware, pinned: the catalogue id of its descriptor (kind firmware or application) and its exact version.",

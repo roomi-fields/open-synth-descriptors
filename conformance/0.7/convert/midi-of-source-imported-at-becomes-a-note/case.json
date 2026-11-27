@@ -1,0 +1,10 @@
+{
+  "_about": "A dated source of `_midi_of_sources` comes out in `midi_of_sources` with its date kept as the note `_imported_at`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "midi_of": "acme/b",
+    "midi_of_sources": [{ "type": "vendor-doc", "notes": "Acme manual B", "_imported_at": "2026-01-01" }]
+  }
+}

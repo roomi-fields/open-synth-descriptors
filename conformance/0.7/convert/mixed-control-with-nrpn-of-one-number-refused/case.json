@@ -1,8 +1,0 @@
-{
-  "_about": "A control that mixes a CC and an NRPN given by its MSB alone has no way to write: 0.7 says an NRPN by two numbers and the converter invents none. It refuses at the control and returns no text.",
-  "convert": "device",
-  "fault": {
-    "kind": "NotConvertible",
-    "pointer": "/cc_params/entries/1"
-  }
-}

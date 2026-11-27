@@ -1,0 +1,48 @@
+{
+  "_about": "Each link of a midi_of chain is judged on the text it writes, in its own version (23.2, 23.9): a 0.6 middle link holds `_sources` and `_midi_of_sources` under a 0.7 file. Its `_midi_of_sources` follow the credit of its target (23.13), and midi_of_sources holds every source converted as the converter writes it.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of": "acme/b",
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "Manual of A"
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "title": "Manual of B",
+        "version": "2"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "Manual of C"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "Manual B took from"
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_about": "A type named after a product is no term of 0.7 in a profile either.",
+  "read": "profile",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/type"
+  }
+}

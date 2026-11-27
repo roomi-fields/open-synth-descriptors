@@ -3,5 +3,4 @@ spec/reference/
 target/
 _site/
 __pycache__/
-tools/osc-bridge-parity/Cargo.lock
 

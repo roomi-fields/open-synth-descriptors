@@ -1,0 +1,36 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/sound.schema.json",
+  "name": "Warm pad",
+  "kind": "sound",
+  "device": {
+    "descriptor": "korg/minilogue",
+    "vendor": "KORG",
+    "model": "minilogue"
+  },
+  "content": {
+    "settings": {
+      "/amp/attack": [
+        90
+      ]
+    }
+  },
+  "_sources": [
+    {
+      "type": "vendor-doc",
+      "preset_name": "P",
+      "revision": "r7",
+      "content_sha256": "ff00"
+    },
+    {
+      "type": "knobkraft",
+      "name": "N",
+      "notes": "n"
+    },
+    {
+      "type": "vendor-doc",
+      "id": "manual",
+      "imported_at": "2026-01-01",
+      "provider": "acme-synths"
+    }
+  ]
+}

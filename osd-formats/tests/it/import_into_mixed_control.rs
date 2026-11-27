@@ -1,6 +1,7 @@
 //! A base of 0.4 or 0.5 whose control gives both a CC and an NRPN keeps both messages through
 //! `import_into`: the base is converted to 0.7 by the chain of `osd`, the control stays one entry
-//! with a CC way then an NRPN way, its messages stay claimed, and a mix 0.7 cannot say is refused.
+//! with a CC way then an NRPN way, its messages stay claimed, an NRPN given by one number goes to
+//! the note `_incomplete` and claims nothing, and a mix 0.7 cannot say is refused.
 
 use crate::common::{csv, device_from, row, source, trigger_csv, trigger_row};
 use osd_formats::{import_into, Format, Translated};
@@ -175,21 +176,63 @@ fn a_mixed_control_with_half_an_nrpn_is_written_back_in_its_version_as_read() {
     }
 }
 
+/// A mix whose NRPN is given by one number, as 0.7 says it: the CC way, and the number given.
+fn in_0_7_with_half_an_nrpn(entry: &Value) -> Value {
+    let mut note = entry.clone();
+    let fields = note.as_object_mut().unwrap();
+    fields.remove("osc");
+    fields.remove("cc");
+    json!({"osc": "/a", "ways": [cc_way(1)], "_incomplete": [note]})
+}
+
 #[test]
-fn a_base_with_a_mixed_control_with_half_an_nrpn_is_not_convertible_at_that_control_with_each_csv() {
+fn a_base_with_a_mixed_control_with_half_an_nrpn_keeps_its_cc_way_and_the_number_in_the_note_with_each_csv() {
     for version in VERSIONS {
         for entry in mixes_with_half_an_nrpn() {
-            let first = (vec![entry.clone()], "/cc_params/entries/0");
-            let second = (vec![json!({"osc": "/plain", "cc": 7}), entry.clone()], "/cc_params/entries/1");
-            for (entries, place) in [first, second] {
+            let plain = (json!({"osc": "/plain", "cc": 7}), json!({"osc": "/plain", "ways": [cc_way(7)]}));
+            let half = (entry.clone(), in_0_7_with_half_an_nrpn(&entry));
+            for bases in [vec![half.clone()], vec![plain, half]] {
+                let (entries, want): (Vec<Value>, Vec<Value>) = bases.into_iter().unzip();
                 for (text, format) in files() {
-                    let fault = match import_into(base(version, &entries), &text, format, &source()) {
-                        Ok(t) => panic!("{version:?} {format:?} {entry}: a descriptor is returned:\n{}", written(&t.value)),
-                        Err(f) => f,
-                    };
-                    assert_eq!(format!("{:?}", fault.kind), "NotConvertible", "{version:?} {format:?} {entry}: {fault}");
-                    assert_eq!(fault.place, place, "{version:?} {format:?} {entry}: {fault}");
+                    let out = joined(base(version, &entries), &text, format);
+                    let controls = controls_read_in_0_7(&out.value);
+                    assert_eq!(controls[..want.len()], want[..], "{version:?} {format:?} {entry}");
+                    assert!(out.lost.is_empty(), "{version:?} {format:?} {entry}: {:?}", out.lost);
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_row_that_gives_a_whole_nrpn_is_added_beside_a_base_control_with_half_of_it() {
+    for version in VERSIONS {
+        // The number 0 that the base does not give is not claimed by it.
+        let entry = json!({"osc": "/a", "cc": 1, "nrpn_msb": 1});
+        let cells = [("nrpn_msb", "1"), ("nrpn_lsb", "0")];
+        let out = joined(base(version, std::slice::from_ref(&entry)), &controllers(&cells), Format::MidiCsv);
+        assert!(out.lost.is_empty(), "{version:?}: {:?}", out.lost);
+        let controls = controls_read_in_0_7(&out.value);
+        assert_eq!(controls[0], in_0_7_with_half_an_nrpn(&entry), "{version:?}");
+        let ways: Vec<&Value> = controls[1..].iter().map(|c| &c["ways"]).collect();
+        assert_eq!(ways, [&json!([nrpn_way(1, 0)])], "{version:?}");
+    }
+}
+
+#[test]
+fn a_base_with_a_mixed_control_with_a_block_and_no_nrpn_is_not_convertible_at_that_control_with_each_csv() {
+    let entry = json!({"osc": "/a", "cc": 1, "rpn_msb": 0, "rpn_lsb": 2, "nrpn_lsb_range": [0, 15]});
+    for version in VERSIONS {
+        let first = (vec![entry.clone()], "/cc_params/entries/0");
+        let second = (vec![json!({"osc": "/plain", "cc": 7}), entry.clone()], "/cc_params/entries/1");
+        for (entries, place) in [first, second] {
+            for (text, format) in files() {
+                let fault = match import_into(base(version, &entries), &text, format, &source()) {
+                    Ok(t) => panic!("{version:?} {format:?}: a descriptor is returned:\n{}", written(&t.value)),
+                    Err(f) => f,
+                };
+                assert_eq!(format!("{:?}", fault.kind), "NotConvertible", "{version:?} {format:?}: {fault}");
+                assert_eq!(fault.place, place, "{version:?} {format:?}: {fault}");
             }
         }
     }

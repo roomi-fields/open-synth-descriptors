@@ -7,7 +7,7 @@ mod dtd;
 use crate::credit::{address_words, credit_text, name_segment, uncarried_source_fields};
 use crate::importer::check_source;
 use crate::xml::{self, escape, Node};
-use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use dtd::check_tree;
 use osd::{Device, Resolved, Source};
 use serde_json::{json, Map, Value};
@@ -534,6 +534,7 @@ fn controls_of(d: &Device, losses: &mut Vec<Loss>) -> Vec<Control> {
     for (n, e) in cc.entries.iter().enumerate() {
         let at = format!("/cc_params/entries/{n}");
         let name = e.title.clone().unwrap_or_else(|| address_words(&e.osc));
+        lose_what_no_way_says(e, n, losses);
         for (field, present) in [
             ("description", e.description.is_some()),
             ("value_description", e.value_description.is_some()),

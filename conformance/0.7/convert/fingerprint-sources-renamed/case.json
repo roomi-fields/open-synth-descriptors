@@ -1,0 +1,32 @@
+{
+  "_about": "The `_sources` of a 0.6 fingerprint become `sources`, with the carrying of keys of a device.",
+  "convert": "fingerprint",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/fingerprint.schema.json",
+    "observed": "2026-11-22",
+    "device": {
+      "descriptor": "korg/minilogue",
+      "firmware": "2.01"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "version": "r7",
+        "sha256": "ff00"
+      },
+      {
+        "type": "contributed",
+        "title": "N",
+        "provider": "knobkraft",
+        "notes": "type in 0.6: knobkraft\nn"
+      },
+      {
+        "type": "vendor-doc",
+        "id": "manual",
+        "_imported_at": "2026-01-01",
+        "provider": "acme-synths"
+      }
+    ]
+  }
+}

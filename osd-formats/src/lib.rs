@@ -115,18 +115,31 @@ pub struct Loss {
     pub reason: String,
 }
 
+/// Names in `losses`, each at its field, what no way of the control `/cc_params/entries/{n}` says
+/// ([`osd::CcEntry::fields_no_way_says`]): of a device before 0.7, a message not fully known and the
+/// block beside it. A format is written from the ways and no number is added to complete one.
+pub(crate) fn lose_what_no_way_says(e: &osd::CcEntry, n: usize, losses: &mut Vec<Loss>) {
+    losses.extend(e.fields_no_way_says().into_iter().map(|field| Loss {
+        place: format!("/cc_params/entries/{n}/{field}"),
+        reason: "no way of the control says this field (a message not fully known, or the block beside one): it is not written, and no number is added to complete it".to_string(),
+    }));
+}
+
 /// Why a translation is refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FaultKind {
     /// The source given to an import has no `url`, `author` or `attribution`, or no `license`.
     SourceIncomplete,
+    /// The 0.7 reader of `osd` refuses the source given to an import in the descriptor it would
+    /// write.
+    SourceRefused,
     /// The text is not valid in its format.
     InvalidFile,
     /// The device to export has no `sources` entry.
     NoSources,
     /// The device to export has no `sound_transfers`.
     NoSoundTransfers,
-    /// The base of `import_into` does not convert to 0.7.
+    /// The base of `import_into` does not convert to 0.7, or, of 0.7, does not read.
     NotConvertible,
 }
 
@@ -146,9 +159,11 @@ impl fmt::Display for Fault {
 
 impl std::error::Error for Fault {}
 
-/// Reads `text`, a file of `format`, into an OSD device carrying `source` as its credit.
+/// Reads `text`, a file of `format`, into an OSD device carrying `source` as its credit, its
+/// `imported_at` written as the note `_imported_at` (the next free `_imported_at_N` when taken).
+/// The device is returned only when the reader of `osd` reads it (`InvalidFile` otherwise).
 pub fn import(text: &str, format: Format, source: &osd::Source) -> Result<Translated<osd::Device>, Fault> {
-    (format.contract().import)(text, source)
+    (format.contract().import)(text, &importer::note_date(source))
 }
 
 /// The credit and licence to carry with a file whose format has no place for them: one line per
@@ -166,9 +181,12 @@ pub fn export(device: &osd::Resolved, format: Format) -> Result<Translated<Strin
 }
 
 /// Reads `text`, a file of a format that [`Format::imports_into`] a descriptor, into `base`: the
-/// entries come after those `base` holds, its identity stays, and `source` follows its sources.
+/// entries come after those `base` holds, its identity stays, and `source` follows its sources,
+/// its `imported_at` written as the note `_imported_at` as by [`import`].
 /// The descriptor comes out in 0.7: an earlier base is first converted by the chain of `osd`
-/// (`convert_to`), and one that does not convert is `NotConvertible`.
+/// (`convert_to`), and one that does not convert, or a base of 0.7 the reader refuses, is
+/// `NotConvertible`. As by [`import`], the descriptor is returned only when the reader of `osd`
+/// reads it (`InvalidFile` otherwise).
 pub fn import_into(base: osd::Device, text: &str, format: Format, source: &osd::Source) -> Result<Translated<osd::Device>, Fault> {
     let Some(add) = format.contract().import_into else {
         let adding: Vec<&str> = Format::ALL.into_iter().filter(|f| f.imports_into()).map(Format::name).collect();
@@ -178,7 +196,7 @@ pub fn import_into(base: osd::Device, text: &str, format: Format, source: &osd::
             rule: format!("{} cannot be added to a descriptor: only these formats can: {}", format.name(), adding.join(", ")),
         });
     };
-    add(base, text, source)
+    add(base, text, &importer::note_date(source))
 }
 
 #[cfg(test)]

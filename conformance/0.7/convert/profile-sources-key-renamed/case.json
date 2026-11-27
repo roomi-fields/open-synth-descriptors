@@ -1,0 +1,24 @@
+{
+  "_about": "The `_sources` of a maker profile becomes `sources`, each source carried as a device's: the general keys, the date kept as `_imported_at`, a type named after a product written `contributed` with its `provider`.",
+  "convert": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+    "identity": {
+      "reply_text": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "Manual",
+        "version": "2",
+        "sha256": "ab",
+        "_imported_at": "2026-01-01"
+      },
+      {
+        "type": "contributed",
+        "provider": "electra-one",
+        "notes": "type in 0.6: electra-preset\nconverted from a partner"
+      }
+    ]
+  }
+}

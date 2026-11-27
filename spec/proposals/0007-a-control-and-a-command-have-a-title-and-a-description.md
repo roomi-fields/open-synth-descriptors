@@ -2,15 +2,17 @@
 
 ## Status
 
-- State: `candidate`
-- Candidate since: 2026-11-24
+- State: `draft`
+- Candidate since: —
 - Under the trial: —
 
-This proposal decides nothing until it is accepted. The owner answered its two questions (2026-11-24); each answer is written below where it decides, and none remains open. The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections.
+Amended on 2026-11-25 with the precision the building of 0.7 brought to a `_` key whose value is not a text. This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
+
+This proposal decides nothing until it is accepted. The owner answered its two questions (2026-11-24); each answer is written below where it decides, and none remains open.
 
 ## What it changes
 
-The version 0.7: the device schema (`schemas/0.7/device.schema.json`) and the text of 0.7 gain two optional fields, `title` and `description`, on an entry of `cc_params`, an entry of `params`, a command (an entry of `commands`) and a trigger, with the same form on the four; and a third optional field, `value_description`, on an entry of `cc_params`, a text for people, in CommonMark (0.28) like `description`, of what the values of the control mean. The converter 0.6 to 0.7 moves some existing human text into them, without loss, and writes no `title`. Nothing of 0.6 or 0.6.1 changes. The proposal 0006 names a reading's control or command by `title` for the same reason.
+The version 0.7: the device schema (`schemas/0.7/device.schema.json`) and the text of 0.7 gain two optional fields, `title` and `description`, on an entry of `cc_params`, an entry of `params`, a command (an entry of `commands`) and a trigger, with the same form on the four; and a third optional field, `value_description`, on an entry of `cc_params`, a text for people, in CommonMark (0.28) like `description`, of what the values of the control mean. The converter 0.6 to 0.7 moves some existing human text into them, where the value is a text, without loss, and writes no `title`. Nothing of 0.6 or 0.6.1 changes. The proposal 0006 names a reading's control or command by `title` for the same reason.
 
 ## Why
 
@@ -53,10 +55,12 @@ What the converter writes for a 0.6 entry that has no name: nothing. The entry s
 
 One rule sorts them, validated by the owner (2026-11-24): a text that says what the object is or does goes to `title` or `description`; a text of provenance, of reserve or of history stays a note for people.
 
+**A value that is not a text stays.** The converter moves `_name`, `_description`, `_usage` and `_notes` only when the value is a string, a non-empty one for `_name`, since `title` may not be empty. Otherwise the `_` key stays as it is and no field is written, so the converted descriptor is always valid and no text is lost. Each row of the table that moves a key says it under this condition.
+
 | Form | On | Becomes in 0.7 |
 |---|---|---|
 | `_usage` | entry of `cc_params` | `value_description`, by the converter, unchanged and without reading its content, whether the entry has `values` or not. It says what the values mean, and a program already reads it. It never becomes `description`. |
-| `_name` | entry of `params`, entry of `cc_params` | `title`, by the converter, unchanged, when the entry has no `title`; it names the control, and a program already reads it (the converters of Electra One, MIDNAM and midi.guide read it on `cc_params`). When the entry already has a `title`, the existing `title` wins and `_name` stays as a note, kept as it is. |
+| `_name` | entry of `params`, entry of `cc_params`, trigger | `title`, by the converter, unchanged, when the entry or the trigger has no `title`; it names the control or the trigger, and a program already reads it on a control (the converters of Electra One, MIDNAM and midi.guide read it on `cc_params`). When there is already a `title`, the existing `title` wins and `_name` stays as a note, kept as it is. |
 | `_description` | entry of `cc_params`, entry of `params`, trigger | `description`, by the converter, unchanged, when the entry has no `description`; a program already reads it (the converters of midi.guide's two CSV files). When the entry already has a `description`, the existing `description` wins and `_description` stays as a note, kept as it is. |
 | `_notes` | entry of `cc_params` (a control) | `notes`, by the converter, unchanged: the same decision as proposal 0008 (the owner decided it last, 2026-11-24). `notes` keeps the meaning it has elsewhere: reserve, history. When the control already has a `notes`, the existing `notes` wins and `_notes` stays as a note, kept as it is. |
 | `notes` | program, command, source | stays a note for people. `notes` without `_` is a field read by the schema of 0.6; in 0.7 the same name keeps its place where it already is. |
@@ -87,7 +91,7 @@ becomes
 { "cc": 74, "osc": "/filter/cutoff", "title": "Filter Cutoff", "description": "Opens the filter.", "value_description": "0 closes, 127 opens.", "notes": "Range checked on firmware 1.2." }
 ```
 
-`_usage` becomes `value_description`, whether the entry has `values` or not, without its content being read; `_name` becomes `title`, `_description` becomes `description`, and `_notes`, a note of reserve, becomes `notes`, each unchanged. When the target field already exists, it wins and the `_` key stays, as the next example shows.
+Each of these values is a string, and `_name` is not empty. `_usage` becomes `value_description`, whether the entry has `values` or not, without its content being read; `_name` becomes `title`, `_description` becomes `description`, and `_notes`, a note of reserve, becomes `notes`, each unchanged. When the target field already exists, it wins and the `_` key stays, as the next example shows.
 
 An entry of `params` carrying `_name` and already a `title`:
 
@@ -127,6 +131,10 @@ And, under `conformance/0.7/read/`:
 12. `value-description-not-a-string-refused` — an entry of `cc_params` with `value_description: 7`. Verdict: refused as `BadValue`, at the pointer of the field.
 13. `underscore-key-is-kept` — an entry carrying a key starting with `_` (`_note: "checked"`). Verdict: accepted; the reader keeps the key and writes it back as it is, and no program reads its meaning. The same verdict as case 13 of proposal 0008.
 
+And, under `conformance/0.7/convert/`:
+
+14. `text-of-wrong-form-stays-under-its-underscore` — a 0.6 entry of `cc_params` with an empty `_name` and a `_usage`, a `_description` and a `_notes` that are not strings. Verdict: converted with the four `_` keys as they are, and no `title`, `value_description`, `description` or `notes`.
+
 ## The tensions with the intentions of OSD
 
 - **One meaning per field.** `osc` and `title` side by side: `osc` addresses the control, `title` names it; two fields, two meanings, and an address is never copied into a `title`. `description` in CommonMark is a text for people, as in MIDI 2.0 Property Exchange: no program reads its content, and a reader draws no structure from it. The formatting is not a mini-language of the format, it is the text a person reads. The tension with "structure lives in JSON structures that the schema checks" is real: the proposal holds that a text for people is not a structure, and nothing a program decides is put in it. `value_description` says what the values mean, `description` what the control is: two meanings, two fields. `notes` stays beside `description`: two texts for people on one entry, told apart by the rule (what the object is or does, against provenance, reserve and history).
@@ -161,6 +169,4 @@ The owner answered the two questions of the draft (2026-11-24); none remains ope
 1. **Is `title` required in 0.7?** Answer: no, it is optional (the converter writes no title when a 0.6 entry has none, and invents no name); the departure from Property Exchange is written in "Is `title` required?" with its reason. Requiring it only for the entries born in 0.7 may be considered for a later version.
 2. **How are the forms of human text sorted?** Answer: the rule is validated: what the object is or does goes to `title` or `description`; provenance, reserve and history stay notes for people. `_note` and `_comment` are neither renamed nor removed; proposal 0008 keeps them as notes.
 
-Decided with these answers, to keep the proposal consistent: a key starting with `_` is accepted, kept and written back, and no program reads its meaning, in 0.7; `_usage` becomes `value_description`, not `description`; `_name` of a `params` or `cc_params` entry becomes `title` and `_description` becomes `description`. The owner's later decision (2026-11-24) on the `_notes` of a control: it becomes `notes`, as proposal 0008 says.
-
-The proposal is a `candidate` since 2026-11-24, waiting at least 14 days, open to objections.
+Decided with these answers, to keep the proposal consistent: a key starting with `_` is accepted, kept and written back, and no program reads its meaning, in 0.7; `_usage` becomes `value_description`, not `description`; `_name` of a `params` or `cc_params` entry, and of a trigger, becomes `title` and `_description` becomes `description`. The owner's later decision (2026-11-24) on the `_notes` of a control: it becomes `notes`, as proposal 0008 says.

@@ -62,13 +62,11 @@ fn the_conversions_of_the_former_importer_are_kept_and_only_the_re_import_policy
 }
 
 #[test]
-fn the_row_of_the_date_of_the_preset_is_lost_at_its_pointer_because_0_7_has_no_field_for_it() {
+fn the_row_of_the_date_of_the_preset_is_kept_with_its_case_and_the_note_imported_at() {
     let r = row("date of the preset");
-    assert_eq!(r[1], "lost");
-    assert_eq!(r[2], "/sources/0/imported_at");
-    assert!(r[3].contains("0.7 has no field for the date of an import"), "{r:?}");
-    assert!(r[3].contains("sources[].imported_at"), "{r:?}");
-    assert!(r[3].contains("0008"), "{r:?}");
+    assert_eq!(r[1], "kept");
+    assert!(case_exists(&r[2]), "the case {:?} is not a test of tests/it/", r[2]);
+    assert!(r[3].contains("`_imported_at`"), "{r:?}");
 }
 
 #[test]

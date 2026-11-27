@@ -1,0 +1,30 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/sound.schema.json",
+  "name": "Warm pad",
+  "kind": "sound",
+  "device": {
+    "descriptor": "korg/minilogue",
+    "vendor": "KORG",
+    "model": "minilogue"
+  },
+  "content": {
+    "settings": {
+      "/amp/attack": [
+        90
+      ]
+    }
+  },
+  "made_on": {
+    "stock": {
+      "firmware": "acme/stock",
+      "version": "1.0"
+    },
+    "modules": [],
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "Builder page"
+      }
+    ]
+  }
+}

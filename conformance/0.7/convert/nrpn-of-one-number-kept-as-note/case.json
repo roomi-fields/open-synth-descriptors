@@ -1,0 +1,70 @@
+{
+  "_about": "An NRPN of one number is a message not fully known: no way is written for it and no number is added. Its fields are kept in the note `_incomplete`; a control left with no way keeps its `range` and `transmit`. The same NRPN with a number 0 is a message of its own. When the first message of the source is the incomplete one, `scale` says the scale `default` is written in, and its `nrpn_lsb_range` becomes the note `_nrpn_lsb_range`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "channel": 0,
+      "entries": [
+        {
+          "osc": "/msb",
+          "ways": [],
+          "range": [
+            0,
+            1000
+          ],
+          "transmit": "absolute",
+          "_incomplete": [
+            {
+              "nrpn_msb": 1,
+              "value_bits": 14
+            }
+          ]
+        },
+        {
+          "osc": "/zero",
+          "ways": [
+            {
+              "ctrlType": "nrpn",
+              "ctrlIndex": [
+                1,
+                0
+              ],
+              "value_bits": 14
+            }
+          ]
+        },
+        {
+          "osc": "/cutoff",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                20
+              ]
+            }
+          ],
+          "default": 8000,
+          "scale": [
+            0,
+            16383
+          ],
+          "_nrpn_lsb_range": [
+            0,
+            7
+          ],
+          "_incomplete": [
+            {
+              "nrpn_msb": 5,
+              "value_bits": 14
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

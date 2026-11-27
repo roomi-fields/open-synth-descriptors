@@ -1,0 +1,81 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/a",
+        "range": [
+          0,
+          500
+        ],
+        "default": 300,
+        "also": [
+          {
+            "cc": 74
+          }
+        ]
+      },
+      {
+        "osc": "/b",
+        "range": [
+          0,
+          500
+        ],
+        "values": {
+          "Max": 500,
+          "Off": 0
+        },
+        "also": [
+          {
+            "cc": 75
+          },
+          {
+            "nrpn_msb": 3,
+            "nrpn_lsb": 0,
+            "value_bits": 14
+          }
+        ]
+      },
+      {
+        "osc": "/c",
+        "range": [
+          0,
+          500
+        ],
+        "step_count": 5,
+        "also": [
+          {
+            "cc": 76,
+            "range": [
+              0,
+              99
+            ]
+          }
+        ]
+      },
+      {
+        "osc": "/d",
+        "range": [
+          0,
+          16383
+        ],
+        "default": 8192,
+        "also": [
+          {
+            "cc": 77
+          },
+          {
+            "nrpn_msb": 3,
+            "nrpn_lsb": 1,
+            "value_bits": 14
+          }
+        ]
+      }
+    ]
+  }
+}

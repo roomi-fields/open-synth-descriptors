@@ -25,5 +25,12 @@ fn the_guide_to_add_a_converter_names_the_module_the_page_the_tests_the_line_and
 
 #[test]
 fn the_guide_to_add_a_converter_names_the_texts_that_list_the_formats() {
-    says(&["osd-formats/docs/CADRE.md", "osd-formats/docs/INTERFACE.md", "osd-cli/docs/INTERFACE.md"]);
+    says(&[
+        "osd-formats/docs/CADRE.md",
+        "osd-formats/docs/INTERFACE.md",
+        "osd-cli/docs/INTERFACE.md",
+        "osd-formats/README.md",
+        "description",
+        "osd-formats/Cargo.toml",
+    ]);
 }

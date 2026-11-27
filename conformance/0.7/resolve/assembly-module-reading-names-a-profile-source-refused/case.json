@@ -1,0 +1,9 @@
+{
+  "_about": "A reading of a module's MIDI file never names a source of a profile of the stock MIDI.",
+  "resolve_assembly": "acme/build",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/mod-midi",
+    "pointer": "/commands/0/readings/0/source"
+  }
+}

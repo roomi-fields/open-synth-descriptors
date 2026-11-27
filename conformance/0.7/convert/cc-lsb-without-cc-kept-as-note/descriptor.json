@@ -1,0 +1,31 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/low",
+        "cc_lsb": 38,
+        "range": [
+          0,
+          127
+        ]
+      },
+      {
+        "osc": "/also",
+        "also": [
+          {
+            "cc": 2
+          },
+          {
+            "cc_lsb": 40
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -7,7 +7,8 @@
 //! older version back as its text had it; what the ways alone cannot say of its message fields is
 //! held beside them ([`FlatFields`]).
 
-use crate::device::Direction;
+use crate::convert::free_key;
+use crate::device::{CcEntry, Direction};
 use crate::json::{int, obj, object, list, Dict, Object, Opt, Pair, INTEGER, ADDRESS, STRING};
 use crate::json::{closed, matching, words, At, Text};
 use crate::role::Role;
@@ -253,40 +254,65 @@ fn check_ways(schema: Option<Version>, channel: Option<u8>, cc: &[FlatCcEntry]) 
     Ok(())
 }
 
-/// The message fields a flat entry of `cc_params` and each way of its `also` gave, as given: the
-/// numbers an NRPN or an RPN lacks (a way holds 0 there), a `cc_lsb` without its `cc`, a block or a
-/// range no way carries, and an entry whose messages are all in `also`.
+/// What the ways of a flat entry of `cc_params` do not say of its message fields, as the text gave
+/// them: the fields of a message not fully known (which has no way), a block or a range no way
+/// carries, and an entry whose ways are all those of `also`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FlatFields {
+    /// No way is written on the entry itself, though it has an `also`.
+    none_on_entry: bool,
+    /// The fields of the entry.
     entry: Map<String, Value>,
-    also: Vec<Map<String, Value>>,
+    /// The elements of `also` with no way, each with its place in the list.
+    also: Vec<(usize, Map<String, Value>)>,
 }
 
-/// The fields that give the numbers of a message.
-const NUMBER_KEYS: [&str; 6] = ["cc", "cc_lsb", "nrpn_msb", "nrpn_lsb", "rpn_msb", "rpn_lsb"];
+impl CcEntry {
+    /// The places, relative to the entry, of the flat message fields of a text before 0.7 that none
+    /// of the ways says: the number given of each message not fully known (`nrpn_msb`, `cc_lsb`,
+    /// `also/0/rpn_lsb`), the flat fields first, then the `nrpn_lsb_range` of the entry when no way
+    /// takes it. Empty for an entry of 0.7, and for one whose ways say all its messages. What reads
+    /// the ways alone, an exporter for one, names these as what it does not carry.
+    pub fn fields_no_way_says(&self) -> Vec<String> {
+        let Some(held) = &self.flat else { return Vec::new() };
+        let numbers = |e: &Map<String, Value>| -> Vec<String> {
+            let incomplete = messages_of(e).into_iter().filter_map(Result::err);
+            incomplete.flat_map(|m| m.into_iter().map(|(k, _)| k).filter(|k| k != "value_bits" && k != "range")).collect()
+        };
+        let mut places = numbers(&held.entry);
+        if held.entry.contains_key("nrpn_lsb_range") {
+            places.push("nrpn_lsb_range".to_string());
+        }
+        for (n, element) in &held.also {
+            places.extend(numbers(element).into_iter().map(|k| format!("also/{n}/{k}")));
+        }
+        places
+    }
+}
 
 impl FlatFields {
-    /// The message fields of a flat entry; `value_bits` is held by the ways.
-    fn of(e: &Map<String, Value>) -> FlatFields {
-        let fields = |m: &Map<String, Value>| -> Map<String, Value> {
-            m.iter().filter(|(k, _)| WAY_KEYS.contains(&k.as_str()) && *k != "value_bits").map(|(k, v)| (k.clone(), v.clone())).collect()
-        };
-        let also = e.get("also").and_then(Value::as_array).into_iter().flatten();
-        FlatFields { entry: fields(e), also: also.filter_map(Value::as_object).map(fields).collect() }
-    }
-
-    /// Whether the entry names no message of its own while `also` does.
-    fn all_in_also(&self) -> bool {
-        !self.also.is_empty() && !NUMBER_KEYS.iter().any(|k| self.entry.contains_key(*k))
+    /// What is to be held beside `lifted`, the 0.7 form of the flat entry `e`, so that [`flat_cc`]
+    /// writes `e` back as given; `None` when its ways say it all.
+    fn of(e: &Map<String, Value>, lifted: &Map<String, Value>, schema: Option<Version>) -> Option<FlatFields> {
+        let also = e.get("also").and_then(Value::as_array);
+        let none_on_entry = also.is_some_and(|a| !a.is_empty()) && !messages_of(e).iter().any(Result::is_ok);
+        let incomplete = also.into_iter().flatten().filter_map(Value::as_object).enumerate().filter(|(_, a)| messages_of(a).iter().any(Result::is_err));
+        let mut held = FlatFields { none_on_entry, entry: Map::new(), also: incomplete.map(|(n, a)| (n, a.clone())).collect() };
+        // What the ways alone write on the entry.
+        let derived = flat_cc(lifted.clone(), schema, Some(&FlatFields { none_on_entry, entry: Map::new(), also: Vec::new() }));
+        held.entry = e.iter().filter(|(k, v)| WAY_KEYS.contains(&k.as_str()) && derived.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect();
+        let ways_moved = none_on_entry && lifted.get("ways").and_then(Value::as_array).is_some_and(|w| !w.is_empty());
+        (ways_moved || !held.entry.is_empty() || !held.also.is_empty()).then_some(held)
     }
 }
 
 /// The entries of `cc_params` and `params` of a device of a version before 0.7, read in the flat form,
 /// refused with the faults of their version, and the device `o` with those entries written as 0.7
-/// writes them: the reader then reads the one form. With it, per entry of `cc_params`, the fields to
-/// hold so that [`flatten`] writes the entry back as given.
+/// writes them: the reader then reads the one form. With it, what to hold so that [`flatten`] writes
+/// an entry back as given: per entry of `cc_params`, its fields; per entry of `params`, the key of
+/// the note that holds the `id` its ways cannot carry.
 #[allow(clippy::type_complexity)]
-pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> Result<(Map<String, Value>, Vec<Option<Box<FlatFields>>>), Fault> {
+pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> Result<(Map<String, Value>, Vec<Option<Box<FlatFields>>>, Vec<Option<String>>), Fault> {
     fn entries<'a>(o: &'a Map<String, Value>, table: &str) -> Option<&'a Vec<Value>> {
         o.get(table)?.get("entries")?.as_array()
     }
@@ -335,24 +361,20 @@ pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> 
     let mut cc_lifted = Vec::new();
     for (n, e) in cc.iter().enumerate() {
         let flat = written(object_of(e.write()), raw("cc_params", n));
-        let given = FlatFields::of(&flat);
-        let lifted = polarity_of(full_width(ways_of_cc(flat)));
-        // Nothing is held for an entry its ways write back as given.
-        let derived = FlatFields::of(&flat_cc(lifted.clone(), schema, None));
-        kept.push((derived != given).then(|| Box::new(given)));
+        let lifted = polarity_of(full_width(ways_of_cc(flat.clone())));
+        kept.push(FlatFields::of(&flat, &lifted, schema).map(Box::new));
         cc_lifted.push(lifted);
     }
-    for (table, lifted) in [
-        ("cc_params", cc_lifted),
-        ("params", params.iter().enumerate().map(|(n, e)| ways_of_param(written(object_of(e.write()), raw("params", n)))).collect()),
-    ] {
+    let (params_lifted, kept_ids): (Vec<_>, Vec<_>) =
+        params.iter().enumerate().map(|(n, e)| ways_of_param(written(object_of(e.write()), raw("params", n)))).unzip();
+    for (table, lifted) in [("cc_params", cc_lifted), ("params", params_lifted)] {
         if let Some(Value::Object(t)) = out.get_mut(table) {
             if t.get("entries").is_some_and(Value::is_array) {
                 t.insert("entries".into(), Value::Array(lifted.into_iter().map(Value::Object).collect()));
             }
         }
     }
-    Ok((out, kept))
+    Ok((out, kept, kept_ids))
 }
 
 /// `orientation` of a flat entry as 0.7 says it: `centered` is `bipolar`, `0-based` is `unipolar`, at the
@@ -392,44 +414,71 @@ fn number(e: &Map<String, Value>, key: &str) -> Option<i64> {
     e.get(key).and_then(Value::as_i64)
 }
 
-/// The ways of the flat fields of `e` (without direction), one per message kind they name, in the
-/// order CC, NRPN, RPN: one at most from 0.6, where an entry or a way of `also` mixes no kinds.
-fn ways_of(e: &Map<String, Value>) -> Vec<Map<String, Value>> {
-    let has = |a: &str, b: &str| e.contains_key(a) || e.contains_key(b);
-    let mut messages: Vec<(&str, Vec<i64>, Option<i64>)> = Vec::new();
-    if has("cc", "cc_lsb") {
-        messages.push(match (number(e, "cc"), number(e, "cc_lsb")) {
-            (Some(m), Some(l)) => ("cc", vec![m, l], Some(14)),
-            (Some(m), None) => ("cc", vec![m], None),
-            (None, l) => ("cc", l.into_iter().collect(), None),
-        });
-    }
-    for (kind, msb, lsb) in [("nrpn", "nrpn_msb", "nrpn_lsb"), ("rpn", "rpn_msb", "rpn_lsb")] {
-        if has(msb, lsb) {
-            messages.push((kind, vec![number(e, msb).unwrap_or(0), number(e, lsb).unwrap_or(0)], number(e, "value_bits")));
+/// The messages of the flat fields of `e`, one per message kind they name, in the order CC, NRPN,
+/// RPN: one at most from 0.6, where an entry or a way of `also` mixes no kinds. `Ok` is the way
+/// (without direction) of a message fully known: a `cc`, or both numbers of an NRPN or an RPN.
+/// A message not fully known (an NRPN or an RPN given by one number, a `cc_lsb` without its `cc`)
+/// has no way (`spec/0.7.md`, what the converter writes): `Err` holds the numbers it gives, with
+/// the `value_bits` and the `range` of `e`.
+fn messages_of(e: &Map<String, Value>) -> Vec<Result<Map<String, Value>, Map<String, Value>>> {
+    let mut messages = Vec::new();
+    for (kind, first, second) in [("cc", "cc", "cc_lsb"), ("nrpn", "nrpn_msb", "nrpn_lsb"), ("rpn", "rpn_msb", "rpn_lsb")] {
+        let (msb, lsb) = (number(e, first), number(e, second));
+        if msb.is_none() && lsb.is_none() {
+            continue;
         }
+        let index = match (msb, lsb) {
+            (Some(m), Some(l)) => vec![m, l],
+            (Some(m), None) if kind == "cc" => vec![m],
+            _ => {
+                let keys = [first, second, "value_bits", "range"];
+                messages.push(Err(keys.iter().filter_map(|k| e.get(*k).map(|v| ((*k).to_string(), v.clone()))).collect()));
+                continue;
+            }
+        };
+        let bits = match kind {
+            "cc" => (index.len() == 2).then_some(14),
+            _ => number(e, "value_bits"),
+        };
+        let mut w = Map::new();
+        w.insert("ctrlType".into(), kind.into());
+        w.insert("ctrlIndex".into(), Value::from(index));
+        if let Some(b) = bits {
+            w.insert("value_bits".into(), b.into());
+        }
+        if let Some(r) = e.get("range") {
+            w.insert("range".into(), r.clone());
+        }
+        if let (Some(r), "nrpn") = (e.get("nrpn_lsb_range"), kind) {
+            w.insert("nrpn_lsb_range".into(), r.clone());
+        }
+        messages.push(Ok(w));
     }
     messages
-        .into_iter()
-        .map(|(kind, index, bits)| {
-            let mut w = Map::new();
-            w.insert("ctrlType".into(), kind.into());
-            w.insert("ctrlIndex".into(), Value::from(index));
-            if let Some(b) = bits {
-                w.insert("value_bits".into(), b.into());
-            }
-            if let Some(r) = e.get("range") {
-                w.insert("range".into(), r.clone());
-            }
-            if let (Some(r), "nrpn") = (e.get("nrpn_lsb_range"), kind) {
-                w.insert("nrpn_lsb_range".into(), r.clone());
-            }
-            w
-        })
-        .collect()
 }
 
-/// The highest value a way of the 0.7 form can carry: its `range`, else what its kind and width imply.
+/// Whether the message of the kind of the flat fields `keys` that `e` names is fully known.
+pub(crate) fn is_complete(e: &Map<String, Value>, keys: [&str; 2]) -> bool {
+    // A CC is said by its number alone, an NRPN and an RPN by both.
+    e.contains_key(keys[0]) && (keys[0] == "cc" || e.contains_key(keys[1]))
+}
+
+/// The messages not fully known of the flat entry `e` of 0.6, in the order written, the flat fields
+/// then `also`, as the note `_incomplete` keeps them: the flat message with the numbers it gives,
+/// its `value_bits` and, when the entry keeps a way (`way_kept`), its `range`, which else stays on
+/// the entry; an element of `also` whole.
+pub(crate) fn incomplete_of(e: &Map<String, Value>, way_kept: bool) -> Vec<Map<String, Value>> {
+    let flat = messages_of(e).into_iter().filter_map(Result::err).map(|mut m| {
+        if !way_kept {
+            m.remove("range");
+        }
+        m
+    });
+    let also = e.get("also").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object);
+    flat.chain(also.filter(|a| messages_of(a).iter().any(Result::is_err)).cloned()).collect()
+}
+
+/// The highest value a way of the 0.7 form can carry: its `range`, else what its width implies.
 fn maximum_of(w: &Map<String, Value>) -> i64 {
     scale_of(w)[1]
 }
@@ -443,16 +492,27 @@ fn scale_of(w: &Map<String, Value>) -> [i64; 2] {
 }
 
 /// A flat entry of `cc_params` as the 0.7 form: its ways, in order, with the entry's direction on
-/// each; `values` as a list; `scale` where the reference is not the first way. An entry with no
-/// message has no way and keeps its `range`, `transmit`, `recognize` and `nrpn_lsb_range`.
+/// each; `values` as a list; `scale` where the reference is not that of the first message. An entry
+/// with no way (no message, or none fully known) keeps its `range`, `transmit`, `recognize` and
+/// `nrpn_lsb_range`.
 fn ways_of_cc(mut e: Map<String, Value>) -> Map<String, Value> {
     let mut ways: Vec<Map<String, Value>> = Vec::new();
-    ways.extend(ways_of(&e));
-    if let Some(Value::Array(also)) = e.get("also") {
-        for a in also.iter().filter_map(Value::as_object) {
-            for mut w in ways_of(a) {
-                w.extend(a.iter().filter(|(k, _)| k.starts_with('_')).map(|(k, v)| (k.clone(), v.clone())));
-                ways.push(w);
+    // The scale of the first message, when that message has no way.
+    let mut unsaid_first = None;
+    let also = e.get("also").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object);
+    for (n, source) in std::iter::once(&e).chain(also).enumerate() {
+        for message in messages_of(source) {
+            match message {
+                Ok(mut w) => {
+                    if n > 0 {
+                        w.extend(source.iter().filter(|(k, _)| k.starts_with('_')).map(|(k, v)| (k.clone(), v.clone())));
+                    }
+                    ways.push(w);
+                }
+                Err(fields) if ways.is_empty() => {
+                    unsaid_first.get_or_insert_with(|| scale_of(&fields));
+                }
+                Err(_) => {}
             }
         }
     }
@@ -468,10 +528,17 @@ fn ways_of_cc(mut e: Map<String, Value>) -> Map<String, Value> {
         ["transmit", "recognize"].iter().filter_map(|k| e.remove(*k).map(|v| (k.to_string(), v))).collect()
     };
     let measured = e.contains_key("default") || e.contains_key("values") || e.contains_key("step_count");
-    if measured && ways.len() > 1 {
-        let first = maximum_of(&ways[0]);
-        if ways[1..].iter().any(|w| maximum_of(w) > first) {
-            e.insert("scale".into(), Value::from(scale_of(&ways[0]).to_vec()));
+    if measured && !partial {
+        let scale = match unsaid_first {
+            // The reference the ways give by themselves is that of the most precise one.
+            Some(first) => {
+                let given = ways.iter().map(scale_of).reduce(|best, s| if s[1] > best[1] { s } else { best });
+                (given != Some(first)).then_some(first)
+            }
+            None => ways[1..].iter().any(|w| maximum_of(w) > maximum_of(&ways[0])).then(|| scale_of(&ways[0])),
+        };
+        if let Some(scale) = scale {
+            e.insert("scale".into(), Value::from(scale.to_vec()));
         }
     }
     for w in &mut ways {
@@ -485,13 +552,21 @@ fn ways_of_cc(mut e: Map<String, Value>) -> Map<String, Value> {
 }
 
 /// A flat entry of `params` as the 0.7 form: one `sysex` way; an entry with no number has none and
-/// keeps its `range`, `transmit` and `recognize`.
-fn ways_of_param(mut e: Map<String, Value>) -> Map<String, Value> {
+/// keeps its `range`, `transmit` and `recognize`. So does an entry whose one number is a negative
+/// `id`, which no way carries: the entry keeps it in a note, whose key is returned.
+fn ways_of_param(mut e: Map<String, Value>) -> (Map<String, Value>, Option<String>) {
     let given: Vec<(&str, Value)> = ["pr", "p", "c", "r"].iter().filter_map(|k| e.remove(*k).map(|v| (*k, v))).collect();
-    let id = e.remove("id");
-    // The numbers `[pr, p, c, r]` as the entry gives them, else `[id]`.
+    let mut id = e.remove("id");
+    let mut id_note = None;
+    if given.is_empty() && id.as_ref().and_then(Value::as_i64).is_some_and(|n| n < 0) {
+        let key = free_key(&e, "_flat");
+        e.insert(key.clone(), Value::Object(id.take().map(|v| ("id".to_string(), v)).into_iter().collect()));
+        id_note = Some(key);
+    }
+    // The numbers `[pr, p, c, r]` as the entry gives them, else `[id]`. One number alone reads as an
+    // `id`: `pr` alone is said by the note.
     let prefix = given.iter().zip(["pr", "p", "c", "r"]).all(|((k, _), want)| *k == want);
-    let exact = if given.is_empty() { true } else { prefix && id.is_none() };
+    let exact = if given.is_empty() { true } else { prefix && given.len() > 1 && id.is_none() };
     let mut flat = Map::new();
     if !exact {
         flat.extend(given.iter().map(|(k, v)| ((*k).to_string(), v.clone())));
@@ -516,7 +591,7 @@ fn ways_of_param(mut e: Map<String, Value>) -> Map<String, Value> {
     }
     e.insert("ways".into(), Value::Array(ways));
     named_values(&mut e);
-    e
+    (e, id_note)
 }
 
 /// `values` of 0.6, a dictionary of label to integer, as the list of `{value, title}` of 0.7.
@@ -537,8 +612,8 @@ fn named_values(e: &mut Map<String, Value>) {
 
 /// The text of a device of an older version as it had it: the entries of `cc_params` and `params`
 /// written in the flat form again; `kept` holds, per entry of `cc_params`, what its ways alone do
-/// not say.
-pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&FlatFields>]) {
+/// not say, and `kept_ids`, per entry of `params`, the key of the note that holds its `id`.
+pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&FlatFields>], kept_ids: &[Option<&str>]) {
     for table in ["cc_params", "params"] {
         let Some(Value::Array(entries)) = v.get_mut(table).and_then(|t| t.get_mut("entries")) else { continue };
         for (n, entry) in entries.iter_mut().enumerate() {
@@ -546,15 +621,14 @@ pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&Fl
             *e = if table == "cc_params" {
                 flat_cc(std::mem::take(e), schema, kept.get(n).copied().flatten())
             } else {
-                flat_param(std::mem::take(e))
+                flat_param(std::mem::take(e), kept_ids.get(n).copied().flatten())
             };
         }
     }
 }
 
-/// The keys of the flat fields of a way `w` of the 0.7 form; `given` are the fields the text gave
-/// where the way was read.
-fn flat_way(w: &Map<String, Value>, first: bool, given: Option<&Map<String, Value>>) -> Map<String, Value> {
+/// The keys of the flat fields of a way `w` of the 0.7 form.
+fn flat_way(w: &Map<String, Value>, first: bool) -> Map<String, Value> {
     let mut out = Map::new();
     let index: Vec<Value> = w.get("ctrlIndex").and_then(Value::as_array).cloned().unwrap_or_default();
     let kind = w.get("ctrlType").and_then(Value::as_str).unwrap_or_default();
@@ -564,15 +638,7 @@ fn flat_way(w: &Map<String, Value>, first: bool, given: Option<&Map<String, Valu
         "rpn" => &["rpn_msb", "rpn_lsb"],
         _ => &[],
     };
-    let gave = |name: &str| given.is_some_and(|g| g.contains_key(name));
-    // A CC given by its LSB number alone is written back under that name.
-    let names = if kind == "cc" && index.len() == 1 && gave("cc_lsb") && !gave("cc") { &names[1..] } else { names };
-    // A number of an NRPN or an RPN the text did not give, beside the one it gave, stays absent.
-    let one_given = kind != "cc" && names.iter().any(|name| gave(name));
     for (name, n) in names.iter().zip(index) {
-        if one_given && !gave(name) && n == 0 {
-            continue;
-        }
         out.insert((*name).into(), n);
     }
     if kind != "cc" {
@@ -594,11 +660,11 @@ fn flat_way(w: &Map<String, Value>, first: bool, given: Option<&Map<String, Valu
     out
 }
 
-/// How many of the first ways are written on the entry itself, the others in `also`: none when the
-/// text gave all its messages there; before 0.6, where there is no `also`, one way of each kind; from
+/// How many of the first ways are written on the entry itself, the others in `also`: none when
+/// the entry's ways are all those of `also`; before 0.6, where there is no `also`, one way of each kind; from
 /// 0.6, the first.
 fn ways_on_entry(ways: &[Map<String, Value>], schema: Option<Version>, kept: Option<&FlatFields>) -> usize {
-    if kept.is_some_and(FlatFields::all_in_also) {
+    if kept.is_some_and(|f| f.none_on_entry) {
         return 0;
     }
     if schema >= Some(Version::V0_6) {
@@ -624,41 +690,39 @@ fn flat_cc(mut e: Map<String, Value>, schema: Option<Version>, kept: Option<&Fla
     let (on_entry, in_also) = ways.split_at(ways_on_entry(&ways, schema, kept));
     for w in on_entry {
         // The ways of one entry share its range: the first says it.
-        for (k, v) in flat_way(w, true, kept.map(|f| &f.entry)) {
+        for (k, v) in flat_way(w, true) {
             e.entry(k).or_insert(v);
         }
     }
-    let also: Vec<Value> = in_also
-        .iter()
-        .enumerate()
-        .map(|(n, w)| Value::Object(flat_way(w, false, kept.and_then(|f| f.also.get(n)))))
-        .collect();
+    let mut also: Vec<Value> = in_also.iter().map(|w| Value::Object(flat_way(w, false))).collect();
+    if let Some(held) = kept {
+        for (n, element) in &held.also {
+            also.insert((*n).min(also.len()), Value::Object(element.clone()));
+        }
+    }
     if !also.is_empty() {
         e.insert("also".into(), Value::Array(also));
-    }
-    if let Some(given) = kept.map(|f| &f.entry) {
-        let names = |keys: &[&str]| keys.iter().any(|k| given.contains_key(*k));
-        // A block beside no NRPN, and the range of an entry with no message: no way holds them.
-        for (key, held_by) in [("nrpn_lsb_range", &NUMBER_KEYS[2..4]), ("range", &NUMBER_KEYS[..])] {
-            if let (false, Some(v)) = (names(held_by), given.get(key)) {
-                e.entry(key).or_insert_with(|| v.clone());
-            }
-        }
     }
     // Before 0.6 no control gives a width: the 14 bits of an NRPN or an RPN are the one coding.
     if schema < Some(Version::V0_6) {
         e.remove("value_bits");
     }
+    for (k, v) in kept.iter().flat_map(|f| &f.entry) {
+        e.entry(k.clone()).or_insert_with(|| v.clone());
+    }
     dictionary(&mut e);
     orientation_of(e)
 }
 
-fn flat_param(mut e: Map<String, Value>) -> Map<String, Value> {
+fn flat_param(mut e: Map<String, Value>, id_note: Option<&str>) -> Map<String, Value> {
     let first = match e.remove("ways") {
         Some(Value::Array(w)) => w.into_iter().find_map(|w| if let Value::Object(o) = w { Some(o) } else { None }),
         _ => None,
     };
     e.remove("scale");
+    if let Some(Value::Object(held)) = id_note.and_then(|key| e.remove(key)) {
+        e.extend(held);
+    }
     if let Some(w) = first {
         let index: Vec<Value> = w.get("ctrlIndex").and_then(Value::as_array).cloned().unwrap_or_default();
         if let Some(Value::Object(given)) = w.get("_flat") {

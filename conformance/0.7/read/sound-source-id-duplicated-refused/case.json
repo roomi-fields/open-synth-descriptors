@@ -1,0 +1,9 @@
+{
+  "_about": "An `id` written twice in the `sources` of a sound is refused at the second entry.",
+  "read": "sound",
+  "schema_accepts": true,
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/1"
+  }
+}

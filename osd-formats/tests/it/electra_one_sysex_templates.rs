@@ -272,21 +272,22 @@ fn the_parameter_number_of_each_command_is_kept_in_the_source_under_the_address_
 }
 
 #[test]
-fn the_date_of_the_preset_the_caller_gives_is_listed_as_a_loss_at_its_pointer_and_not_written() {
+fn the_date_of_the_preset_the_caller_gives_is_kept_as_the_note_imported_at_of_the_source() {
     let p = one(sysex_template(1, json!([67, 1])));
     let mut s = source();
     s.imported_at = Some("2026-01-02T03:04:05Z".to_string());
     let (d, lost) = imported_with(&p, &s);
+    assert_eq!(source_of(&d)["_imported_at"], "2026-01-02T03:04:05Z", "{}", source_of(&d));
     assert!(source_of(&d).get("imported_at").is_none(), "{}", source_of(&d));
-    let l = loss_at(&lost, "/sources/0/imported_at");
-    assert!(!l.reason.is_empty(), "{l:?}");
+    assert_eq!(lost, imported(&p).1, "the date is no loss");
 }
 
 #[test]
-fn a_source_without_a_date_gives_no_loss_at_the_date_and_none_is_invented() {
+fn a_source_without_a_date_gives_no_note_and_no_loss_at_the_date() {
     let p = one(sysex_template(1, json!([67, 1])));
     let (d, lost) = imported_with(&p, &source());
     assert!(source_of(&d).get("imported_at").is_none(), "{}", source_of(&d));
+    assert!(source_of(&d).get("_imported_at").is_none(), "{}", source_of(&d));
     assert!(lost.iter().all(|l| l.place != "/sources/0/imported_at"), "{lost:?}");
 }
 

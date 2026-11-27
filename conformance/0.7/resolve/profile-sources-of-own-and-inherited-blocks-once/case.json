@@ -1,0 +1,47 @@
+{
+  "_about": "A profile used by an own block and by an inherited one is credited once, in `sources`.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "programs": {
+      "banks": [
+        {
+          "name": "A",
+          "size": 128
+        }
+      ],
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of": "acme/b",
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "profile": "acme"
+      }
+    ]
+  }
+}

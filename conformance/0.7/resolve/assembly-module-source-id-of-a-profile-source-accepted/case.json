@@ -1,0 +1,59 @@
+{
+  "_about": "A source of a module's MIDI file whose `id` a source of a profile of the stock MIDI holds: the assembly resolves, the profile's source given without its `id`.",
+  "resolve_assembly": "acme/build",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/y",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "title": "S"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "profile": "acme"
+      }
+    ],
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "M",
+        "id": "p"
+      }
+    ]
+  }
+}

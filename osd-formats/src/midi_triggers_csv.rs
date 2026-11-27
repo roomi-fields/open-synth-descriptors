@@ -2,7 +2,7 @@
 //! The fate of each column is written in docs/midi-triggers-csv.md.
 
 use crate::csv;
-use crate::importer::{adopt_identity, blank_device, check_source, slug, unique, used_addresses};
+use crate::importer::{adopt_identity, blank_device, check_new_id, check_source, read_back, slug, unique, used_addresses};
 use crate::{Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Device, Resolved, Source, Trigger, Triggers};
 use std::collections::BTreeSet;
@@ -85,7 +85,7 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     let (vendor, name) = identity;
     let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
     device.triggers = Some(Triggers { entries, remarks: Default::default() });
-    Ok(Translated { value: device, lost: losses })
+    read_back(Translated { value: device, lost: losses })
 }
 
 /// Adds the triggers of `text` to `base`, which keeps its identity and its other blocks; a base
@@ -94,13 +94,14 @@ fn import_into(base: Device, text: &str, source: &Source) -> Result<Translated<D
     check_source(source)?;
     // The entries added carry `title`, a field from 0.7: they join a base of 0.7.
     let mut base = crate::base::in_0_7(base)?;
+    check_new_id(&base, source)?;
     let mut identity = (base.device.vendor.clone().unwrap_or_default(), base.device.name.clone());
     let mut used = used_addresses(&base);
     let (entries, losses) = read(text, &mut identity, &mut used)?;
     adopt_identity(&mut base, identity);
     base.triggers.get_or_insert_with(|| Triggers { entries: Vec::new(), remarks: Default::default() }).entries.extend(entries);
     base.sources.get_or_insert_with(Vec::new).push(source.clone());
-    Ok(Translated { value: base, lost: losses })
+    read_back(Translated { value: base, lost: losses })
 }
 
 fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>) -> Result<(Vec<Trigger>, Vec<Loss>), Fault> {

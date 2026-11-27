@@ -190,6 +190,7 @@ fn warn(asked: &str, descriptor: &osd::Descriptor) {
         let said = match w.kind {
             osd::WarningKind::PartialControl => "the control gives no message: it is to be completed".to_string(),
             osd::WarningKind::UnknownProvider(id) => format!("the provider {id} is not in the table of providers of {}", osd::PROVIDERS_VERSION),
+            osd::WarningKind::UncreditedSource => "the source is kept as a note and not carried as credit".to_string(),
         };
         eprintln!("{asked}: warning at \"{}\": {said}", w.pointer);
     }
@@ -434,7 +435,7 @@ fn import(o: Options, help: &str) -> i32 {
                 _ => file,
             };
             eprintln!("{at_fault}: {f}");
-            if f.kind == osd_formats::FaultKind::SourceIncomplete {
+            if matches!(f.kind, osd_formats::FaultKind::SourceIncomplete | osd_formats::FaultKind::SourceRefused) {
                 2
             } else {
                 1

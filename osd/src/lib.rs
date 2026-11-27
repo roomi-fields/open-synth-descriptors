@@ -223,6 +223,10 @@ pub fn read(text: &str, kind: Kind) -> Result<Descriptor, Fault> {
 
 pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
     let at = At::Root;
+    // A device and a profile judge the keys of their credit in their own reading.
+    if !matches!(kind, Kind::Device | Kind::Profile) {
+        check_credit_keys(v, kind, &at)?;
+    }
     Ok(match kind {
         Kind::Device => {
             sound_transfer::check_controls(v, false)?;
@@ -254,6 +258,19 @@ pub(crate) fn read_value(v: &Value, kind: Kind) -> Result<Descriptor, Fault> {
         Kind::Firmware => Descriptor::Firmware(Box::new(Firmware::read(v, &at)?)),
         Kind::Assembly => Descriptor::Assembly(Box::new(Assembly::read(v, &at)?)),
     })
+}
+
+/// The keys of the credit of a sound, a fingerprint, a firmware or an assembly, and of the assembly
+/// a sound was made on, by the version its `$schema` names; a `$schema` that names none is the
+/// reading's to refuse.
+fn check_credit_keys(v: &Value, kind: Kind, at: &At) -> Result<(), Fault> {
+    let Some(o) = v.as_object() else { return Ok(()) };
+    let Ok(schema) = json::field(o, "$schema", at, json::Opt(SchemaUrl(kind_name(kind)))) else { return Ok(()) };
+    device::check_credit_keys(v, at, schema)?;
+    match o.get("made_on").filter(|_| kind == Kind::Sound) {
+        Some(made_on) => device::check_credit_keys(made_on, &At::Key(at, "made_on"), schema),
+        None => Ok(()),
+    }
 }
 
 /// The text of a descriptor, as JSON: what [`read`] returns, written back

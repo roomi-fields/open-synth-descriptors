@@ -1,0 +1,18 @@
+{
+  "_about": "0.7 has no field `imported_at`: the converter keeps the date of a source as the note `_imported_at`. A key already taken stays as it is and the date goes under the next free suffix, `_imported_at_2`, then `_imported_at_3`.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": { "name": "Synth", "osc_prefix": "/synth" },
+    "sources": [
+      { "type": "vendor-doc", "notes": "Acme manual A", "_imported_at": "2026-01-01" },
+      {
+        "type": "vendor-doc",
+        "notes": "Acme manual B",
+        "_imported_at": "2025-12-01",
+        "_imported_at_2": "2025-12-15",
+        "_imported_at_3": "2026-01-01"
+      }
+    ]
+  }
+}

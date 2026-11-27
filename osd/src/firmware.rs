@@ -3,7 +3,7 @@
 
 use crate::json::{closed, list, list_of, matching, obj, object, words, At, Bool, Codec, Object, Opt, Text, STRING};
 use crate::sound::{Author, ForDevice};
-use crate::{Fault, FaultKind, SchemaUrl, Version};
+use crate::{Fault, FaultKind, SchemaUrl, Source, Version};
 use serde_json::Value;
 use std::cmp::Ordering;
 
@@ -50,6 +50,8 @@ object! {
         "builder" builder: Option<Builder> = Opt(obj()),
         "description" description: Option<String> = Opt(STRING),
         "communities" communities: Option<Vec<Community>> = Opt(list(obj())),
+        /// Where the data comes from, with its credit, licence and the firmware it documents (0.7).
+        "sources" sources: Option<Vec<Source>> = Opt(list(obj())),
     }
     check licence_of_its_version
 }
@@ -60,6 +62,7 @@ fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
     if crate::is_05_form(f.schema) {
         crate::vocabulary::check_license(f.license.as_deref(), "/license")?;
     }
+    crate::device::check_credit(f.schema, &[(at.pointer(), &f.sources)])?;
     let unknown = |key| At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field of a 0.6 firmware: it names targets"));
     if f.schema >= Some(Version::V0_6) {
         if f.device.is_some() {

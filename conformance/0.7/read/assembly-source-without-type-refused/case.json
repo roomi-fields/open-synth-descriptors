@@ -1,0 +1,8 @@
+{
+  "_about": "A source of an assembly without `type` is refused as Missing.",
+  "read": "assembly",
+  "fault": {
+    "kind": "Missing",
+    "pointer": "/sources/0/type"
+  }
+}

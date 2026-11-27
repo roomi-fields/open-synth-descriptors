@@ -14,8 +14,9 @@ This repository is exported from a private workshop where the maintainer, with
 the help of AI agents, develops OSD and reviews every change; a pull request is
 never merged here, [CONTRIBUTING.md](CONTRIBUTING.md) says how it is imported.
 
-1.0 is published when three independent readers hold the format: osc-bridge,
-SyntHub, and a complete round trip with a partner's format.
+1.0 is published when three independent readers hold the format: two readers
+written without `osd`, in other languages, and a complete round trip with a
+partner's format.
 
 A vulnerability is reported privately, as [SECURITY.md](SECURITY.md) says.
 Conduct follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

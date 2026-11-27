@@ -1,0 +1,9 @@
+{
+  "_about": "A reading never names a source of a profile.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/commands/0/readings/0/source"
+  }
+}

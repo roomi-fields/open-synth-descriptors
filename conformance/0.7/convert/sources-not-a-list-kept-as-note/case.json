@@ -1,0 +1,20 @@
+{
+  "_about": "A `_sources` that is not a list is kept whole under `_sources_2`; no `sources` is written.",
+  "convert": "firmware",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/firmware.schema.json",
+    "name": "Elekloader mod",
+    "version": "2.0",
+    "kind": "mod",
+    "targets": [
+      {
+        "device": {
+          "descriptor": "korg/minilogue",
+          "vendor": "KORG",
+          "model": "minilogue"
+        }
+      }
+    ],
+    "_sources_2": "see the manual"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "programs": {
+    "profile": "acme/pads"
+  },
+  "identity": {
+    "profile": "acme/keys"
+  },
+  "sources": [
+    {
+      "type": "vendor-doc",
+      "title": "own"
+    }
+  ]
+}

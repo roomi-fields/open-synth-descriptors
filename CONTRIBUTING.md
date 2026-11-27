@@ -60,8 +60,9 @@ others. To add one, or to change one, send one pull request, as
   imports and exports.
 - **The texts that list the formats and their order**:
   `osd-formats/docs/CADRE.md` (R1), `osd-formats/docs/INTERFACE.md` (the
-  `Format` row and the media type table) and `osd-cli/docs/INTERFACE.md` (the
-  `import` and `export` rows). The maintainer rereads the frame and the
+  `Format` row and the media type table), `osd-cli/docs/INTERFACE.md` (the
+  `import` and `export` rows), `osd-formats/README.md` and the `description`
+  of `osd-formats/Cargo.toml`. The maintainer rereads the frame and the
   interface.
 
 `cargo test -p osd-formats` and `cargo test -p osd-cli` run green; the tests of

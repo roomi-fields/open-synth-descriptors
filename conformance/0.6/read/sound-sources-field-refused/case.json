@@ -1,0 +1,8 @@
+{
+  "_about": "Before 0.7 `sources` is no field of a sound.",
+  "read": "sound",
+  "fault": {
+    "kind": "UnknownField",
+    "pointer": "/sources"
+  }
+}

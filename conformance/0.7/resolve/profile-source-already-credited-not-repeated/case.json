@@ -1,0 +1,33 @@
+{
+  "_about": "A profile source equal in every key but `id`, `profile` included, to a source already held is not appended; one that differs in `profile` hides nothing.",
+  "resolve": "acme/synth",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "acme",
+      "profile": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "title": "P",
+        "id": "mine",
+        "profile": "acme"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "Q",
+        "profile": "acme/other"
+      },
+      {
+        "type": "vendor-doc",
+        "title": "Q",
+        "profile": "acme"
+      }
+    ]
+  }
+}

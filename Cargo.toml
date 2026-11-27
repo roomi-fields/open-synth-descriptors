@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["osd", "osd-cli", "osd-formats", "reference"]
-exclude = ["tools/osc-bridge-parity"]
 
 [workspace.package]
 version = "0.6.0"

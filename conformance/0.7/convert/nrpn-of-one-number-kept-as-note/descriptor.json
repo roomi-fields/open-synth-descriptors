@@ -1,0 +1,43 @@
+{
+  "$schema": "https://w3id.org/osd/0.6/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "cc_params": {
+    "channel": 0,
+    "entries": [
+      {
+        "osc": "/msb",
+        "nrpn_msb": 1,
+        "value_bits": 14,
+        "range": [
+          0,
+          1000
+        ],
+        "transmit": "absolute"
+      },
+      {
+        "osc": "/zero",
+        "nrpn_msb": 1,
+        "nrpn_lsb": 0,
+        "value_bits": 14
+      },
+      {
+        "osc": "/cutoff",
+        "nrpn_msb": 5,
+        "value_bits": 14,
+        "nrpn_lsb_range": [
+          0,
+          7
+        ],
+        "default": 8000,
+        "also": [
+          {
+            "cc": 20
+          }
+        ]
+      }
+    ]
+  }
+}

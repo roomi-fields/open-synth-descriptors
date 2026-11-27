@@ -1,0 +1,8 @@
+{
+  "_about": "`_sources` in the assembly a 0.7 sound was made on is refused at its key.",
+  "read": "sound",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/made_on/_sources"
+  }
+}

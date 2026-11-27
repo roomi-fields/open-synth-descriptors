@@ -1,0 +1,8 @@
+{
+  "_about": "A 0.7 maker profile that carries `_sources` is refused as BadValue at `/_sources`, as a device is.",
+  "read": "profile",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/_sources"
+  }
+}

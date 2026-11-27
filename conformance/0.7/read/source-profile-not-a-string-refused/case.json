@@ -1,0 +1,8 @@
+{
+  "_about": "The `profile` of a source is a string: another value is refused at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/profile"
+  }
+}

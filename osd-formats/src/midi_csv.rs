@@ -2,8 +2,8 @@
 //! each column is written in docs/midi-csv.md.
 
 use crate::csv;
-use crate::importer::{adopt_identity, blank_device, check_source, slug, unique, used_addresses};
-use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use crate::importer::{adopt_identity, blank_device, check_new_id, check_source, read_back, slug, unique, used_addresses, way_claims, Claim};
+use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use osd::{CcEntry, CcParams, Device, Polarity, Resolved, Source, Way};
 
 use std::collections::BTreeSet;
@@ -94,6 +94,13 @@ fn midi_number(cells: &[String], line: usize, column: usize) -> Result<Option<u8
     }
 }
 
+/// Whether the default of the NRPN cell, alone beside a CC, makes the NRPN the first way: the
+/// ranges differ, or the row gives none and the default is above 127. The importer orders the ways
+/// by it, and the exporter chooses the column of a default by it.
+fn nrpn_default_comes_first(cc_range: Option<[i64; 2]>, nrpn_range: Option<[i64; 2]>, default: i64) -> bool {
+    cc_range != nrpn_range || (cc_range.is_none() && default > 127)
+}
+
 /// A minimum and a maximum, refused when the minimum is above the maximum.
 fn bounds(cells: &[String], line: usize, min: usize, max: usize) -> Result<(Option<i64>, Option<i64>), Fault> {
     let (lo, hi) = (number(cells, line, min)?, number(cells, line, max)?);
@@ -114,7 +121,7 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     let (vendor, name) = identity;
     let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
     device.cc_params = Some(CcParams { channel: None, entries, remarks: Default::default() });
-    Ok(Translated { value: device, lost: losses })
+    read_back(Translated { value: device, lost: losses })
 }
 
 /// Adds the controls of `text` to `base`, which keeps its identity and its other blocks; a base
@@ -123,6 +130,7 @@ fn import_into(base: Device, text: &str, source: &Source) -> Result<Translated<D
     check_source(source)?;
     // The entries added carry `title`, a field from 0.7: they join a base of 0.7.
     let mut base = crate::base::in_0_7(base)?;
+    check_new_id(&base, source)?;
     let mut identity = (base.device.vendor.clone().unwrap_or_default(), base.device.name.clone());
     let mut used = used_addresses(&base);
     let channel = base.cc_params.as_ref().and_then(|c| c.channel);
@@ -131,19 +139,7 @@ fn import_into(base: Device, text: &str, source: &Source) -> Result<Translated<D
     adopt_identity(&mut base, identity);
     base.cc_params.get_or_insert_with(|| CcParams { channel: None, entries: Vec::new(), remarks: Default::default() }).entries.extend(entries);
     base.sources.get_or_insert_with(Vec::new).push(source.clone());
-    Ok(Translated { value: base, lost: losses })
-}
-
-/// A message: its kind (CC, NRPN, RPN), its channel and its numbers. A 14-bit CC claims its CC
-/// number and its LSB number, one message each.
-pub(crate) type Claim = (u8, Option<u8>, Option<u8>, Option<u8>);
-
-fn claims(cc: Option<u8>, cc_lsb: Option<u8>, nrpn: Option<(Option<u8>, Option<u8>)>, channel: Option<u8>) -> Vec<Claim> {
-    let mut out: Vec<Claim> = [cc, cc_lsb].into_iter().flatten().map(|v| (0, channel, Some(v), None)).collect();
-    if let Some((msb, lsb)) = nrpn {
-        out.push((1, channel, msb, lsb));
-    }
-    out
+    read_back(Translated { value: base, lost: losses })
 }
 
 /// The messages the controls of a device already claim.
@@ -152,17 +148,7 @@ pub(crate) fn claimed_by(base: &Device) -> BTreeSet<Claim> {
     let mut out = BTreeSet::new();
     for e in &c.entries {
         let channel = e.channel.or(c.channel);
-        for w in &e.ways {
-            let number = |n: usize| w.ctrl_index.as_ref().and_then(|i| i.get(n)).map(|n| *n as u8);
-            match w.ctrl_type.as_str() {
-                "cc" => out.extend(claims(number(0), number(1), None, channel)),
-                "nrpn" => out.extend(claims(None, None, Some((number(0), number(1))), channel)),
-                "rpn" => {
-                    out.insert((2, channel, number(0), number(1)));
-                }
-                _ => {}
-            }
-        }
+        out.extend(e.ways.iter().flat_map(|w| way_claims(w, channel)));
     }
     out
 }
@@ -203,6 +189,11 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         }
 
         let mut row_losses = Vec::new();
+        // A 14-bit pair is two distinct numbers: a CC LSB equal to its CC leaves one 7-bit CC.
+        if cc.is_some() && cc_lsb == cc {
+            lost(&mut row_losses, line, CC_LSB, "a 14-bit pair takes two distinct numbers: the CC is written alone, on 7 bits");
+            cc_lsb = None;
+        }
         // An NRPN is its MSB and its LSB: half of one is no message.
         if has_nrpn && (nrpn_msb.is_none() || nrpn_lsb.is_none()) {
             let column = if nrpn_msb.is_none() { NRPN_MSB } else { NRPN_LSB };
@@ -215,8 +206,12 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             }
         }
         // A message is claimed once: a way whose message an earlier control holds is left out.
-        let cc_claims = claims(cc, cc_lsb, None, channel);
-        let nrpn_claims = claims(None, None, has_nrpn.then_some((nrpn_msb, nrpn_lsb)), channel);
+        let claims_of = |kind: &str, numbers: [Option<u8>; 2]| {
+            let numbers = numbers.into_iter().flatten().map(i64::from).collect();
+            way_claims(&Way { ctrl_type: kind.into(), ctrl_index: Some(numbers), ..Default::default() }, channel)
+        };
+        let cc_claims = claims_of("cc", [cc, cc_lsb]);
+        let nrpn_claims = if has_nrpn { claims_of("nrpn", [nrpn_msb, nrpn_lsb]) } else { Vec::new() };
         if cc_claims.iter().any(|c| taken.contains(c)) {
             lost(&mut row_losses, line, CC_MSB, "the CC is already claimed by an earlier control: this way is left out");
             (cc, cc_lsb) = (None, None);
@@ -294,28 +289,48 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         // A row with a CC and an NRPN is one control with two ways; the one range a row gives
         // goes to both ways.
         let (cc_range, nrpn_range) = if cc.is_some() && has_nrpn { (cc_range.or(nrpn_range), nrpn_range.or(cc_range)) } else { (cc_range, nrpn_range) };
-        // A default goes to the control of its address, when inside that control's range.
-        let mut default_of = |default: Option<i64>, column: usize, has: bool, range: Option<[i64; 2]>| {
+        // The CSV does not say the width of an NRPN value: the full 14 bits.
+        let nrpn_way = has_nrpn.then(|| Way {
+            ctrl_type: "nrpn".into(),
+            ctrl_index: Some(vec![i64::from(nrpn_msb.unwrap_or_default()), i64::from(nrpn_lsb.unwrap_or_default())]),
+            value_bits: Some(14),
+            range: nrpn_range,
+            ..Default::default()
+        });
+        let cc_way = cc.map(|_| Way {
+            ctrl_type: "cc".into(),
+            ctrl_index: Some([cc, cc_lsb].into_iter().flatten().map(i64::from).collect()),
+            value_bits: cc_lsb.map(|_| 14),
+            range: cc_range,
+            ..Default::default()
+        });
+        // A default goes to the control of its address, when inside that control's scale: its
+        // range, else the whole of what its message carries.
+        let mut default_of = |default: Option<i64>, column: usize, way: Option<&Way>| {
             let value = default?;
-            if !has {
+            let Some(way) = way else {
                 lost(&mut row_losses, line, column, "no control carries this default: the row has no such address");
                 return None;
+            };
+            let [lo, hi] = way.scale();
+            if value < lo || value > hi {
+                let reason = match way.range {
+                    Some(_) => "the default is outside the range of its control",
+                    None => "the default is outside the scale of its control",
+                };
+                lost(&mut row_losses, line, column, reason);
+                return None;
             }
-            match range {
-                Some([lo, hi]) if value < lo || value > hi => {
-                    lost(&mut row_losses, line, column, "the default is outside the range of its control");
-                    None
-                }
-                _ => Some(value),
-            }
+            Some(value)
         };
-        let cc_default = default_of(cc_default, CC_DEFAULT, cc.is_some(), cc_range);
-        let nrpn_default = default_of(nrpn_default, NRPN_DEFAULT, has_nrpn, nrpn_range);
+        let cc_default = default_of(cc_default, CC_DEFAULT, cc_way.as_ref());
+        let nrpn_default = default_of(nrpn_default, NRPN_DEFAULT, nrpn_way.as_ref());
         // One control has one default, in the space of its first way's range.
-        // A lone default in the NRPN cell, with ranges that differ, makes the NRPN the first way.
+        // A lone default in the NRPN cell makes the NRPN the first way when the ranges differ, or
+        // when there is none and the default does not fit 7 bits.
         let mut nrpn_first = false;
         let (cc_default, nrpn_default) = match (cc.is_some() && has_nrpn, cc_default, nrpn_default) {
-            (true, None, Some(v)) if cc_range == nrpn_range => (Some(v), None),
+            (true, None, Some(v)) if !nrpn_default_comes_first(cc_range, nrpn_range, v) => (Some(v), None),
             (true, None, Some(v)) => {
                 nrpn_first = true;
                 (None, Some(v))
@@ -339,27 +354,10 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             }
         };
         // The CC is the first way, the NRPN the way after it; a row with an NRPN alone has it first.
-        // The CSV does not say the width of an NRPN value: the full 14 bits.
-        let nrpn_way = Way {
-            ctrl_type: "nrpn".into(),
-            ctrl_index: Some(vec![i64::from(nrpn_msb.unwrap_or_default()), i64::from(nrpn_lsb.unwrap_or_default())]),
-            value_bits: Some(14),
-            range: nrpn_range,
-            ..Default::default()
-        };
-        let cc_way = || Way {
-            ctrl_type: "cc".into(),
-            ctrl_index: Some([cc, cc_lsb].into_iter().flatten().map(i64::from).collect()),
-            value_bits: cc_lsb.map(|_| 14),
-            range: cc_range,
-            ..Default::default()
-        };
-        let ways = match cc {
-            Some(_) if nrpn_first => vec![nrpn_way, cc_way()],
-            Some(_) if has_nrpn => vec![cc_way(), nrpn_way],
-            Some(_) => vec![cc_way()],
-            None => vec![nrpn_way],
-        };
+        let mut ways: Vec<Way> = cc_way.into_iter().chain(nrpn_way).collect();
+        if nrpn_first {
+            ways.reverse();
+        }
         let fallback = match cc {
             Some(n) => format!("cc-{n}"),
             None => format!("nrpn-{}-{}", nrpn_msb.map_or(String::new(), |n| n.to_string()), nrpn_lsb.map_or(String::new(), |n| n.to_string())),
@@ -469,6 +467,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
         for (n, e) in cc.entries.iter().enumerate() {
             let at = |field: &str| format!("/cc_params/entries/{n}/{field}");
+            lose_what_no_way_says(e, n, &mut losses);
             let mut row = vec![String::new(); HEADER.len()];
             row[MANUFACTURER] = d.device.vendor.clone().unwrap_or_default();
             row[DEVICE] = d.device.name.clone();
@@ -497,6 +496,8 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 put(&mut row, CC_MSB, index(w, 0));
                 put(&mut row, CC_LSB, index(w, 1));
             }
+            // Where the loss of the width of the NRPN way goes, once the bounds of the row are known.
+            let width_loss_at = losses.len();
             if let Some(w) = nrpn_way {
                 put(&mut row, NRPN_MSB, index(w, 0));
                 put(&mut row, NRPN_LSB, index(w, 1));
@@ -505,17 +506,17 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 }
             }
             put(&mut row, ORIENTATION, e.polarity.map(|o| if o == Polarity::Bipolar { "centered" } else { "0-based" }));
-            // A range the two ways share is written once, in the CC columns.
-            let cc_range = cc_way.and_then(|w| w.range);
-            let nrpn_range = nrpn_way.and_then(|w| w.range).filter(|r| cc_range != Some(*r));
-            for (range, min, max) in [(cc_range, CC_MIN, CC_MAX), (nrpn_range, NRPN_MIN, NRPN_MAX)] {
-                if let Some([lo, hi]) = range {
-                    row[min] = lo.to_string();
-                    row[max] = hi.to_string();
+            // The ranges of the row. The import gives the one range of a row to both ways: when
+            // one way alone has a range and the message of the other implies another scale, both
+            // scales are written.
+            let (mut cc_range, mut nrpn_range) = (cc_way.and_then(|w| w.range), nrpn_way.and_then(|w| w.range));
+            if let (Some(c), Some(n)) = (cc_way, nrpn_way) {
+                if c.range.is_some() != n.range.is_some() && c.scale() != n.scale() {
+                    (cc_range, nrpn_range) = (Some(c.scale()), Some(n.scale()));
                 }
             }
             // The CSV has no column for the order of the ways: the import puts the CC first, except
-            // when a default in the NRPN column, beside a CC of another range, makes the NRPN first.
+            // when a default in the NRPN column makes the NRPN first ([`nrpn_default_comes_first`]).
             let mut order_kept = false;
             if let Some(v) = e.default {
                 // The default is in the reference scale of the control. It goes, as the way carries
@@ -525,11 +526,27 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 let cc_scale = cc_way.map(Way::scale);
                 // The way that gives the reference scale is the first way of that scale.
                 let reference_at = ways.iter().position(|w| w.scale() == reference);
-                let (in_cc, in_nrpn) = (reference_at == cc_at || (cc_scale == Some(reference) && reference_at == nrpn_at), reference_at == nrpn_at);
+                // The import gives the one range of a row to both ways.
+                let nrpn_column_keeps_order = nrpn_default_comes_first(cc_range.or(nrpn_range), nrpn_range.or(cc_range), v);
+                let shared = cc_scale == Some(reference) && reference_at == nrpn_at && !nrpn_column_keeps_order;
+                let (in_cc, in_nrpn) = (reference_at == cc_at || shared, reference_at == nrpn_at);
                 if in_cc && reference_at.is_some() {
                     row[CC_DEFAULT] = v.to_string();
                 } else if in_nrpn && reference_at.is_some() {
                     row[NRPN_DEFAULT] = v.to_string();
+                    // Alone on its row, an NRPN of 7 bits without a range gets no bounds, and
+                    // the import reads it on 14 bits.
+                    if cc_way.is_none() && nrpn_way.is_some_and(|w| w.value_bits != Some(14) && w.range.is_none()) {
+                        gone(&mut losses, at("default"), "the CSV does not say the width of an NRPN value: the import reads this default on the scale 0..16383, not 0..127");
+                    }
+                    // A default up to 127 alone beside a CC, with no range on the row, would
+                    // come back on the CC: the ranges the ways imply are written, which differ,
+                    // so the import puts the NRPN first and the default keeps its scale.
+                    if let (Some(c), Some(n)) = (cc_way, nrpn_way) {
+                        if c.range.is_none() && n.range.is_none() && !nrpn_default_comes_first(None, None, v) {
+                            (cc_range, nrpn_range) = (Some(c.scale()), Some(n.scale()));
+                        }
+                    }
                     if cc_way.is_some() {
                         order_kept = nrpn_at < cc_at;
                         if cc_at < nrpn_at {
@@ -540,6 +557,24 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                     gone(&mut losses, at("default"), "the default is in the reference scale of a way that is neither the CC nor the NRPN written: no column carries it");
                 } else {
                     gone(&mut losses, at("default"), "the entry has neither a CC nor an NRPN to give the default to");
+                }
+            }
+            // The CSV does not say the width of an NRPN value: the import reads 14 bits. No range
+            // is added for 7 bits: on a way of 14 bits, 0..127 would send the data LSB alone.
+            if let Some(m) = nrpn_at.filter(|&m| ways[m].value_bits != Some(14)) {
+                let mut reason = "the CSV has no column for the width of a value: the import reads this NRPN on 14 bits (data MSB and LSB)".to_string();
+                // The import gives the one range of a row to both ways.
+                if cc_range.is_none() && nrpn_range.is_none() {
+                    reason.push_str(", and its scale becomes 0..16383");
+                }
+                losses.insert(width_loss_at, Loss { place: at(&format!("ways/{m}/value_bits")), reason });
+            }
+            // A range the two ways share is written once, in the CC columns.
+            let nrpn_range = nrpn_range.filter(|r| cc_range != Some(*r));
+            for (range, min, max) in [(cc_range, CC_MIN, CC_MAX), (nrpn_range, NRPN_MIN, NRPN_MAX)] {
+                if let Some([lo, hi]) = range {
+                    row[min] = lo.to_string();
+                    row[max] = hi.to_string();
                 }
             }
             if let (Some(c), Some(r)) = (cc_at, nrpn_at) {

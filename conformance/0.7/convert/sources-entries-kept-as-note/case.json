@@ -1,0 +1,30 @@
+{
+  "_about": "Each entry 0.7 cannot hold, the later of two entries of one `id` included, is kept unchanged under `_sources_2`; the others go to `sources`; nothing is refused.",
+  "convert": "profile",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/profile.schema.json",
+    "identity": {
+      "reply_text": "acme"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "a"
+      }
+    ],
+    "_sources_2": [
+      "a text",
+      {
+        "type": "guess"
+      },
+      {
+        "type": "vendor-doc",
+        "license": "none"
+      },
+      {
+        "type": "community-re",
+        "id": "a"
+      }
+    ]
+  }
+}

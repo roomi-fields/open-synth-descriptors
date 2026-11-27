@@ -3,8 +3,8 @@
 //! (docs.electra.one/developers/presetformat.html, documentation 5.0.0); the fate of each kind
 //! of message and the numbers the export lays out by are in docs/electra-one.md.
 
-use crate::importer::{check_source, slug, unique};
-use crate::{Contract, Fault, FaultKind, Loss, Translated};
+use crate::importer::{check_source, read_back, slug, unique, way_claims};
+use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Address, Algorithm, Arg, ArgType, CcEntry, CcParams, Command, Device, DeviceInfo, Encoding, FramePart, FrameToken, Resolved, Source, Version, Way};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
@@ -65,6 +65,38 @@ fn why_lost(kind: &str) -> &'static str {
         "macro" => "a macro holds a parameter of the performance, which the descriptor has no field for",
         "virtual" | "none" => "the value sends nothing: no MIDI binding to describe",
         _ => "the descriptor has no field for it",
+    }
+}
+
+/// The `min` and `max` of a value, `at` being its pointer: whole numbers.
+fn bounds_of(value: &Map<String, Value>, at: &str) -> Result<(Option<i64>, Option<i64>), Fault> {
+    let bound = |key: &str| match value.get(key) {
+        None => Ok(None),
+        Some(b) => b.as_i64().map(Some).ok_or_else(|| invalid(format!("{at}/{key}"), "a bound is a whole number")),
+    };
+    Ok((bound("min")?, bound("max")?))
+}
+
+/// The range two bounds give: a range needs both, and a lone bound is a loss.
+fn range_of(bounds: (Option<i64>, Option<i64>), at: &str, losses: &mut Vec<Loss>) -> Option<[i64; 2]> {
+    match bounds {
+        (Some(a), Some(b)) => Some([a, b]),
+        (None, None) => None,
+        (Some(_), None) => {
+            loss(losses, format!("{at}/min"), "a range needs both bounds: the maximum is missing");
+            None
+        }
+        (None, Some(_)) => {
+            loss(losses, format!("{at}/max"), "a range needs both bounds: the minimum is missing");
+            None
+        }
+    }
+}
+
+/// Names each bound a value holds when nothing written takes it.
+fn lose_bounds(value: &Map<String, Value>, at: &str, reason: &str, losses: &mut Vec<Loss>) {
+    for key in ["min", "max"].into_iter().filter(|k| value.contains_key(*k)) {
+        loss(losses, format!("{at}/{key}"), reason);
     }
 }
 
@@ -223,6 +255,8 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     let overlays: Vec<Value> = root.get("overlays").and_then(Value::as_array).cloned().unwrap_or_default();
     // The overlays a carried control refers to: their labels are its `values`.
     let mut overlays_read: BTreeSet<usize> = BTreeSet::new();
+    // The items, by overlay and index, that the `values` of at least one control hold.
+    let mut items_carried: BTreeSet<(usize, usize)> = BTreeSet::new();
     for (key, reason) in [
         ("pages", "the pages are the look of the preset"),
         ("devices", "the ports and channels of the preset's devices (and each message's deviceId) are the setup of the controller"),
@@ -241,6 +275,9 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     }
 
     let (mut entries, mut commands, mut used) = (Vec::new(), Vec::new(), BTreeSet::new());
+    // The messages the controls written claim: no channel is written, `deviceId` being the setup
+    // of the controller.
+    let mut taken = BTreeSet::new();
     let mut parameter_numbers = Map::new();
     for (n, c) in controls.iter().enumerate() {
         let here = format!("/controls/{n}");
@@ -269,7 +306,7 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
             };
             let carried_kind = matches!(
                 v.get("message").and_then(|m| m.get("type")).and_then(Value::as_str),
-                Some("cc7" | "cc14" | "nrpn" | "rpn")
+                Some("cc7" | "cc14" | "nrpn" | "rpn" | "relcc")
             );
             let overlay_at = carried_kind
                 .then(|| v.get("overlayId"))
@@ -281,21 +318,12 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                 }
                 loss(&mut losses, format!("{at}/{}", segment(key)), "how the value is shown on the controller");
             }
-            let labels: Option<BTreeMap<String, i64>> = overlay_at.map(|o| {
-                overlays_read.insert(o);
-                overlays[o]
-                    .get("items")
-                    .and_then(Value::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|i| Some((i.get("label")?.as_str()?.to_string(), i.get("value")?.as_i64()?)))
-                    .collect()
-            });
             let Some(message) = v.get("message") else {
                 loss(&mut losses, at, "the value has no message");
                 continue;
             };
-            let at = format!("{at}/message");
+            let value_at = at;
+            let at = format!("{value_at}/message");
             let Some(message) = message.as_object() else {
                 return Err(invalid(at, "a message is a JSON object"));
             };
@@ -313,22 +341,25 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                         _ => 16383,
                     };
                     let number = pointer_number(message, &at, max)?;
-                    let bound = |key: &str| match v.get(key) {
-                        None => Ok(None),
-                        Some(b) => b.as_i64().map(Some).ok_or_else(|| invalid(format!("{}/{key}", at.trim_end_matches("/message")), "a bound is a whole number")),
+                    let bounds = bounds_of(v, &value_at)?;
+                    let split = |n: u64| vec![(n >> 7) as i64, (n & 127) as i64];
+                    // A preset does not say the width of an NRPN or RPN value: the full 14 bits.
+                    let mut way = match kind {
+                        "nrpn" | "rpn" => Way { ctrl_type: kind.into(), ctrl_index: Some(split(number)), value_bits: Some(14), ..Default::default() },
+                        "cc14" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64, number as i64 + 32]), value_bits: Some(14), ..Default::default() },
+                        "relcc" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), transmit: Some(osd::Direction::Relative), recognize: Some(osd::Direction::Relative), ..Default::default() },
+                        _ => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), ..Default::default() },
                     };
-                    let range = match (bound("min")?, bound("max")?) {
-                        (Some(a), Some(b)) => Some([a, b]),
-                        (None, None) => None,
-                        (Some(_), None) => {
-                            loss(&mut losses, at.replace("/message", "/min"), "a range needs both bounds: the maximum is missing");
-                            None
-                        }
-                        (None, Some(_)) => {
-                            loss(&mut losses, at.replace("/message", "/max"), "a range needs both bounds: the minimum is missing");
-                            None
-                        }
-                    };
+                    // A message is claimed once: a control whose message an earlier one holds is
+                    // not written.
+                    let claims = way_claims(&way, None);
+                    if claims.iter().any(|c| taken.contains(c)) {
+                        loss(&mut losses, at, "the message is already claimed by an earlier control: this control is not written");
+                        lose_bounds(v, &value_at, "the bound of a control that is not written: an earlier one claims its message", &mut losses);
+                        continue;
+                    }
+                    taken.extend(claims);
+                    way.range = range_of(bounds, &value_at, &mut losses);
                     for key in message.keys().filter(|k| !["type", "parameterNumber", "deviceId"].contains(&k.as_str())) {
                         // The way of a relative CC says that it is relative; the encoding of the steps is no field of the way.
                         loss(&mut losses, format!("{at}/{}", segment(key)), "how the controller encodes the value: the descriptor has no field for it");
@@ -342,14 +373,7 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                             joined.join("/")
                         }
                     };
-                    let split = |n: u64| vec![(n >> 7) as i64, (n & 127) as i64];
-                    // A preset does not say the width of an NRPN or RPN value: the full 14 bits.
-                    let way = match kind {
-                        "nrpn" | "rpn" => Way { ctrl_type: kind.into(), ctrl_index: Some(split(number)), value_bits: Some(14), range, ..Default::default() },
-                        "cc14" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64, number as i64 + 32]), value_bits: Some(14), range, ..Default::default() },
-                        "relcc" => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), range, transmit: Some(osd::Direction::Relative), recognize: Some(osd::Direction::Relative), ..Default::default() },
-                        _ => Way { ctrl_type: "cc".into(), ctrl_index: Some(vec![number as i64]), value_bits: Some(7), range, ..Default::default() },
-                    };
+                    let scale = way.scale();
                     // The literal survives the addition of a field: `..Default::default()` closes it.
                     #[allow(clippy::needless_update)]
                     let mut entry = CcEntry {
@@ -370,7 +394,11 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                         remarks: Default::default(),
                         ..Default::default()
                     };
-                    entry.values = labels.filter(|l| !l.is_empty()).map(|l| osd::NamedValues(l.into_iter().map(|(title, value)| osd::NamedValue { value, title, remarks: Default::default() }).collect()));
+                    if let Some(o) = overlay_at {
+                        overlays_read.insert(o);
+                        let control = if name.is_empty() { format!("the control at {here}") } else { format!("the control \"{name}\"") };
+                        entry.values = overlay_values(&overlays[o], o, scale, &control, &mut items_carried, &mut losses);
+                    }
                     entries.push(entry);
                 }
                 "sysex" => {
@@ -418,10 +446,15 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                         }
                     }
                     if !carried {
+                        lose_bounds(v, &value_at, "the bound of a message that is not carried: no command takes it", &mut losses);
                         continue;
                     }
                     for key in message.keys().filter(|k| !["type", "data", "deviceId", "parameterNumber"].contains(&k.as_str())) {
                         loss(&mut losses, format!("{at}/{}", segment(key)), "how the controller sends the template: the descriptor has no field for it");
+                    }
+                    match args.as_mut() {
+                        Some(arg) => arg.range = range_of(bounds_of(v, &value_at)?, &value_at, &mut losses),
+                        None => lose_bounds(v, &value_at, "the template sends no value: the command has no argument to take the bound", &mut losses),
                     }
                     frame.push(FrameToken::Byte(0xF7));
                     let path = {
@@ -454,11 +487,14 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                     };
                     commands.push(command);
                 }
-                _ => loss(
-                    &mut losses,
-                    at,
-                    format!("the {kind} message is not carried: {}; it is lost in the round trip", why_lost(kind)),
-                ),
+                _ => {
+                    loss(
+                        &mut losses,
+                        at,
+                        format!("the {kind} message is not carried: {}; it is lost in the round trip", why_lost(kind)),
+                    );
+                    lose_bounds(v, &value_at, "the bound of a message that is not carried: nothing takes it", &mut losses);
+                }
             }
         }
     }
@@ -466,6 +502,7 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     for (n, _) in overlays.iter().enumerate().filter(|(n, _)| !overlays_read.contains(n)) {
         loss(&mut losses, format!("/overlays/{n}"), "the list of labels is the look of the preset: no control of the descriptor uses it");
     }
+    lose_overlay_keys(&overlays, &overlays_read, &items_carried, &mut losses);
     let name = root.get("name").and_then(Value::as_str).filter(|n| !n.is_empty()).unwrap_or("Electra One preset").to_string();
     let prefix = match slug(&name) {
         s if s.is_empty() => "/electra-one-preset".to_string(),
@@ -474,9 +511,6 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     // The caller's source (credit, revision) carries the hash of the text received and the
     // parameter number of each command.
     let mut source = source.clone();
-    if source.imported_at.take().is_some() {
-        loss(&mut losses, "/sources/0/imported_at", "0.7 has no field for the date of an import (`sources[].imported_at` is removed)");
-    }
     source.extra.insert("sha256".to_string(), Value::String(sha256_hex(text.as_bytes())));
     if !parameter_numbers.is_empty() {
         source.extra.insert("parameter_numbers".to_string(), Value::Object(parameter_numbers));
@@ -520,7 +554,54 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
         role_vocabulary: None,
         remarks: Default::default(),
     };
-    Ok(Translated { value: device, lost: losses })
+    read_back(Translated { value: device, lost: losses })
+}
+
+/// The keys the descriptor has no field for, once each: those of an overlay a control reads
+/// other than `id` and `items`, and those of an item a control holds other than `value` and
+/// `label`. An overlay or an item no control takes is named whole elsewhere.
+fn lose_overlay_keys(overlays: &[Value], read: &BTreeSet<usize>, carried: &BTreeSet<(usize, usize)>, losses: &mut Vec<Loss>) {
+    let mut lose = |object: &Value, place: String, taken: [&str; 2]| {
+        for key in object.as_object().into_iter().flat_map(Map::keys).filter(|k| !taken.contains(&k.as_str())) {
+            loss(losses, format!("{place}/{}", segment(key)), "the descriptor has no field for it");
+        }
+    };
+    for &o in read {
+        lose(&overlays[o], format!("/overlays/{o}"), ["id", "items"]);
+    }
+    for &(o, i) in carried {
+        lose(&overlays[o]["items"][i], format!("/overlays/{o}/items/{i}"), ["value", "label"]);
+    }
+}
+
+/// The named values of a control from the overlay of index `o`, in its order: each item with a
+/// text label and a whole value inside `scale`, the scale of the way of the control, bounds
+/// included, and noted in `carried`. Any other item is a loss that names the control; `None`
+/// when no value remains.
+fn overlay_values(overlay: &Value, o: usize, [low, high]: [i64; 2], control: &str, carried: &mut BTreeSet<(usize, usize)>, losses: &mut Vec<Loss>) -> Option<osd::NamedValues> {
+    let items = match overlay.get("items") {
+        None => return None,
+        Some(Value::Array(items)) => items,
+        Some(_) => {
+            loss(losses, format!("/overlays/{o}/items"), format!("{control}: the items of the overlay are no list"));
+            return None;
+        }
+    };
+    let mut values = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let reason = match (item.get("label").and_then(Value::as_str), item.get("value").and_then(Value::as_i64)) {
+            (None, _) => "the item has no text label".to_string(),
+            (_, None) => "the item has no whole value".to_string(),
+            (_, Some(value)) if value < low || value > high => format!("the value {value} is outside the scale {low}..{high}"),
+            (Some(title), Some(value)) => {
+                values.push(osd::NamedValue { value, title: title.to_string(), remarks: Default::default() });
+                carried.insert((o, i));
+                continue;
+            }
+        };
+        loss(losses, format!("/overlays/{o}/items/{i}"), format!("{control}: {reason}"));
+    }
+    (!values.is_empty()).then(|| osd::NamedValues(values))
 }
 
 // ---- export -----------------------------------------------------------------------------
@@ -628,6 +709,7 @@ fn address_text(a: &Address) -> String {
 
 fn entry_item(n: usize, e: &CcEntry, losses: &mut Vec<Loss>) -> Option<Item> {
     let at = format!("/cc_params/entries/{n}");
+    lose_what_no_way_says(e, n, losses);
     let name = e.title.clone()
         .or_else(|| Some(readable(&e.role.as_ref()?.setting)).filter(|s| !s.is_empty()))
         .unwrap_or_else(|| last_segment(&e.osc));

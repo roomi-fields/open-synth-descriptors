@@ -1,0 +1,35 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/sound.schema.json",
+  "name": "Warm pad",
+  "kind": "sound",
+  "device": {
+    "descriptor": "korg/minilogue",
+    "vendor": "KORG",
+    "model": "minilogue"
+  },
+  "content": {
+    "settings": {
+      "/amp/attack": [
+        90
+      ]
+    }
+  },
+  "sources": [
+    {
+      "type": "vendor-doc",
+      "id": "manual",
+      "provider": "electra-one",
+      "title": "Manual",
+      "url": "https://example.org/manual",
+      "license": "CC-BY-4.0",
+      "profile": "acme",
+      "x-other": [
+        1
+      ]
+    },
+    {
+      "type": "contributed",
+      "author": "Dee"
+    }
+  ]
+}

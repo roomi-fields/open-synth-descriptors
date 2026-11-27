@@ -1,6 +1,7 @@
 //! A control of 0.4 or 0.5 whose flat fields mix kinds of message (a CC, an NRPN, an RPN) reaches
-//! 0.7 as one control with one way per message (`spec/0.7.md` 21.3, proposal 0009). The mixes that
-//! no way can say, the refusal toward 0.6 and the controls of a fingerprint stay refused.
+//! 0.7 as one control with one way per message (`spec/0.7.md` 21.3, proposal 0009), a message not
+//! fully known going to the note `_incomplete`. A block with no NRPN, the refusal toward 0.6 and
+//! the controls of a fingerprint stay refused.
 
 // @lit spec/0.7.md
 
@@ -236,52 +237,99 @@ fn a_file_with_a_mixed_control_is_refused_for_the_rest_with_the_fault_it_has_wit
     }
 }
 
-// ---- the mixes no way can say
+// ---- the mixes with a message not fully known
 
-/// Mixes with a field that no way holds without a number invented or lost.
-fn incomplete_mixes() -> Vec<Value> {
+/// Mixes with a message no way says: the flat fields, the ways of the complete messages and the
+/// incomplete ones, each in the order CC, NRPN, RPN.
+fn incomplete_mixes() -> Vec<(Value, Vec<Value>, Vec<Value>)> {
     vec![
-        json!({"cc": 93, "nrpn_msb": 1}),
-        json!({"cc": 93, "nrpn_lsb": 0}),
-        json!({"cc": 93, "rpn_msb": 0}),
-        json!({"cc": 93, "rpn_lsb": 2}),
-        json!({"cc_lsb": 33, "nrpn_msb": 1, "nrpn_lsb": 2}),
-        json!({"cc_lsb": 0, "rpn_msb": 0, "rpn_lsb": 1}),
-        json!({"nrpn_msb": 1, "nrpn_lsb": 2, "rpn_msb": 0}),
-        json!({"nrpn_lsb": 2, "rpn_msb": 0, "rpn_lsb": 1}),
-        json!({"nrpn_msb": 1, "rpn_lsb": 1}),
-        json!({"cc_lsb": 33, "nrpn_lsb": 2}),
-        json!({"cc": 93, "rpn_msb": 0, "rpn_lsb": 2, "nrpn_lsb_range": [0, 15]}),
-        json!({"cc": 93, "nrpn_msb": 1, "nrpn_lsb": 2, "rpn_lsb": 2}),
+        (json!({"cc": 93, "nrpn_msb": 1}), vec![cc(&[93])], vec![json!({"nrpn_msb": 1})]),
+        (json!({"cc": 93, "nrpn_lsb": 0}), vec![cc(&[93])], vec![json!({"nrpn_lsb": 0})]),
+        (json!({"cc": 93, "rpn_msb": 0}), vec![cc(&[93])], vec![json!({"rpn_msb": 0})]),
+        (json!({"cc": 93, "rpn_lsb": 2}), vec![cc(&[93])], vec![json!({"rpn_lsb": 2})]),
+        (json!({"cc_lsb": 33, "nrpn_msb": 1, "nrpn_lsb": 2}), vec![parameter("nrpn", 1, 2)], vec![json!({"cc_lsb": 33})]),
+        (json!({"cc_lsb": 0, "rpn_msb": 0, "rpn_lsb": 1}), vec![parameter("rpn", 0, 1)], vec![json!({"cc_lsb": 0})]),
+        (json!({"nrpn_msb": 1, "nrpn_lsb": 2, "rpn_msb": 0}), vec![parameter("nrpn", 1, 2)], vec![json!({"rpn_msb": 0})]),
+        (json!({"nrpn_lsb": 2, "rpn_msb": 0, "rpn_lsb": 1}), vec![parameter("rpn", 0, 1)], vec![json!({"nrpn_lsb": 2})]),
+        (json!({"rpn_lsb": 1, "nrpn_msb": 1}), vec![], vec![json!({"nrpn_msb": 1}), json!({"rpn_lsb": 1})]),
+        (json!({"nrpn_lsb": 2, "cc_lsb": 33}), vec![], vec![json!({"cc_lsb": 33}), json!({"nrpn_lsb": 2})]),
+        (
+            json!({"cc": 93, "nrpn_msb": 1, "nrpn_lsb": 2, "rpn_lsb": 2}),
+            vec![cc(&[93]), parameter("nrpn", 1, 2)],
+            vec![json!({"rpn_lsb": 2})],
+        ),
     ]
 }
 
-fn assert_not_convertible_at(doc: &Value, pointer: &str) {
-    match to_0_7(doc) {
-        Err(f) => assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::NotConvertible, pointer), "{f}\n{doc}"),
-        Ok(out) => panic!("converted: {doc}\ninto {out}"),
-    }
-}
-
 #[test]
-fn a_mixed_control_with_a_field_no_way_holds_is_not_convertible_to_0_7_at_the_control() {
+fn a_mixed_control_with_an_incomplete_message_converts_to_its_complete_ways_and_the_note() {
     for version in FLAT_VERSIONS {
-        for mix in incomplete_mixes() {
-            let doc = device(version, vec![json!({"osc": "/first", "cc": 1}), merged(json!({"osc": "/x"}), &mix)]);
-            assert_not_convertible_at(&doc, "/cc_params/entries/1");
+        for (fields, ways, note) in incomplete_mixes() {
+            let doc = device(version, vec![json!({"osc": "/first", "cc": 1}), merged(json!({"osc": "/x"}), &fields)]);
+            let want = json!({"osc": "/x", "ways": ways, "_incomplete": note});
+            assert_eq!(converted(&doc)["cc_params"]["entries"][1], want, "{doc}");
         }
     }
 }
 
 #[test]
-fn an_incomplete_mix_after_a_complete_one_is_the_control_refused() {
+fn the_range_of_a_mixed_control_with_an_incomplete_message_is_on_its_ways_and_in_the_note_else_on_the_entry() {
     for version in FLAT_VERSIONS {
-        for mix in incomplete_mixes() {
-            let doc = device(version, vec![
-                json!({"osc": "/whole", "cc": 1, "nrpn_msb": 1, "nrpn_lsb": 1}),
-                merged(json!({"osc": "/x"}), &mix),
-            ]);
-            assert_not_convertible_at(&doc, "/cc_params/entries/1");
+        for (fields, ways, note) in incomplete_mixes() {
+            let range = json!({"range": [10, 20]});
+            let want = if ways.is_empty() {
+                json!({"osc": "/x", "ways": [], "range": [10, 20], "_incomplete": note})
+            } else {
+                let ways: Vec<Value> = ways.into_iter().map(|w| merged(w, &range)).collect();
+                let note: Vec<Value> = note.into_iter().map(|n| merged(n, &range)).collect();
+                json!({"osc": "/x", "ways": ways, "_incomplete": note})
+            };
+            let doc = device(version, vec![merged(json!({"osc": "/x", "range": [10, 20]}), &fields)]);
+            assert_eq!(converted(&doc)["cc_params"]["entries"][0], want, "{doc}");
+        }
+    }
+}
+
+#[test]
+fn the_block_of_a_mixed_control_with_an_incomplete_nrpn_goes_to_no_way() {
+    for version in FLAT_VERSIONS {
+        let doc = device(version, vec![
+            json!({"osc": "/a", "cc": 93, "nrpn_msb": 1, "nrpn_lsb_range": [0, 15]}),
+            json!({"osc": "/b", "cc_lsb": 33, "nrpn_lsb": 2, "nrpn_lsb_range": [0, 15]}),
+        ]);
+        assert_eq!(
+            converted(&doc)["cc_params"]["entries"],
+            json!([
+                {"osc": "/a", "ways": [cc(&[93])], "_nrpn_lsb_range": [0, 15], "_incomplete": [{"nrpn_msb": 1}]},
+                {"osc": "/b", "ways": [], "nrpn_lsb_range": [0, 15], "_incomplete": [{"cc_lsb": 33}, {"nrpn_lsb": 2}]}
+            ]),
+            "{doc}"
+        );
+    }
+}
+
+#[test]
+fn the_incomplete_message_of_a_mixed_control_claims_nothing() {
+    for version in FLAT_VERSIONS {
+        converted(&device(version, vec![
+            json!({"osc": "/a", "cc": 93, "nrpn_msb": 1}),
+            json!({"osc": "/b", "nrpn_msb": 1, "nrpn_lsb": 0}),
+        ]));
+    }
+}
+
+#[test]
+fn a_mixed_control_with_a_block_and_no_nrpn_is_not_convertible_to_0_7_at_the_control() {
+    for version in FLAT_VERSIONS {
+        for mix in [
+            json!({"cc": 93, "rpn_msb": 0, "rpn_lsb": 2, "nrpn_lsb_range": [0, 15]}),
+            json!({"cc": 93, "rpn_msb": 0, "nrpn_lsb_range": [0, 15]}),
+        ] {
+            let doc = device(version, vec![json!({"osc": "/first", "cc": 1}), merged(json!({"osc": "/x"}), &mix)]);
+            match to_0_7(&doc) {
+                Err(f) => assert_eq!((f.kind, f.pointer.as_str()), (FaultKind::NotConvertible, "/cc_params/entries/1"), "{f}\n{doc}"),
+                Ok(out) => panic!("converted: {doc}\ninto {out}"),
+            }
         }
     }
 }
@@ -442,9 +490,14 @@ fn a_0_6_file_on_a_target_with_a_mixed_control_is_refused_in_the_target_at_the_c
 }
 
 #[test]
-fn a_0_7_file_on_a_target_with_an_incomplete_mix_is_refused_in_the_target_at_the_control() {
+fn a_0_7_file_on_a_target_with_an_incomplete_mix_resolves_into_its_ways_and_the_note() {
     for version in FLAT_VERSIONS {
-        assert_refused_in_the_target(Version::V0_7, &device(version, vec![json!({"osc": "/x", "cc": 93, "nrpn_msb": 1})]));
+        let target = device(version, vec![json!({"osc": "/x", "cc": 93, "nrpn_msb": 1})]);
+        let files = catalogue(&[("acme/a", &variant(Version::V0_7)), ("acme/b", &target)]);
+        assert_eq!(
+            resolved(&files)["cc_params"]["entries"],
+            json!([{"osc": "/x", "ways": [cc(&[93])], "_incomplete": [{"nrpn_msb": 1}]}])
+        );
     }
 }
 
@@ -467,8 +520,8 @@ fn the_section_on_one_message_kind_per_control_cites_the_cases_of_a_mixed_contro
         "mixed-cc-and-rpn-control-becomes-two-ways",
         "mixed-nrpn-and-rpn-control-becomes-two-ways",
         "mixed-three-kinds-control-becomes-three-ways",
-        "mixed-control-with-nrpn-of-one-number-refused",
-        "mixed-control-with-cc-lsb-without-cc-refused",
+        "mixed-control-with-nrpn-of-one-number-kept-as-note",
+        "mixed-control-with-cc-lsb-without-cc-kept-as-note",
         "mixed-control-with-block-without-nrpn-refused",
         "mixed-control-message-claimed-twice-refused",
         "fingerprint-control-mixing-cc-and-nrpn-refused",
