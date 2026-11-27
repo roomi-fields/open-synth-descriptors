@@ -46,7 +46,8 @@ fn a_checksum_element_becomes_a_checksum_of_the_frame_that_sends_the_bytes_the_m
         json!([240, 65, 16, 66, 18, 64, 0, 127, {"checksum": "twos7", "from": 4, "length": 4}, 247])
     );
     assert_eq!(render_frame(&c[0]["frame"], 0), vec![240, 65, 16, 66, 18, 64, 0, 127, 47, 247]);
-    assert!(lost.iter().all(|l| !l.place.starts_with(MESSAGE)), "{lost:?}");
+    // The device of a message is the setting of the controller; the template is carried.
+    assert!(lost.iter().all(|l| !l.place.starts_with(MESSAGE) || l.place.ends_with("/deviceId")), "{lost:?}");
 }
 
 #[test]
@@ -63,13 +64,59 @@ fn each_algorithm_of_the_maker_becomes_its_osd_algorithm_and_sends_its_own_byte(
     }
 }
 
+/// The loss of a checksum without length: the page of the maker makes it sum no byte (default 0),
+/// which OSD cannot write.
+fn assert_lost_for_summing_no_byte(d: &Value, lost: &[Loss], message: &str, case: &str) {
+    assert!(commands(d).is_empty(), "{case}: no command is written: {d}");
+    let l = loss_at(lost, message);
+    for word in ["Send", "checksum", "length", "default", "0"] {
+        assert!(l.reason.contains(word), "{case}: the loss names {word}: {}", l.reason);
+    }
+}
+
 #[test]
-fn a_checksum_without_a_length_sums_every_byte_written_before_it() {
-    let data = json!([65, 16, 66, 18, 64, 0, 127, checksum_element(json!("roland"), json!(4), None)]);
-    let (d, _) = imported(&one(sysex_template(1, data)));
-    let c = commands(&d);
-    assert!(c[0]["frame"][8].get("length").is_none(), "{}", c[0]["frame"]);
-    assert_eq!(render_frame(&c[0]["frame"], 0), vec![240, 65, 16, 66, 18, 64, 0, 127, 47, 247]);
+fn a_checksum_without_a_length_sums_no_byte_and_so_gives_no_command_and_a_loss_naming_the_default_0() {
+    for start in [json!(4), json!(0), Value::Null] {
+        let data = json!([65, 16, 66, 18, 64, 0, 127, checksum_element(json!("roland"), start.clone(), None)]);
+        let (d, lost) = imported(&one(sysex_template(1, data)));
+        assert_lost_for_summing_no_byte(&d, &lost, MESSAGE, &format!("start {start}"));
+    }
+}
+
+#[test]
+fn a_checksum_without_a_length_in_a_template_named_by_its_id_gives_no_command_and_a_loss_at_the_message() {
+    let mut p = one(json!({"type": "sysex", "deviceId": 1, "data": 5}));
+    p["devices"] = json!([{"id": 1, "name": "Synth", "port": 1, "channel": 1,
+        "messages": [{"id": 5, "data": [65, 16, checksum_element(json!("waldorf"), json!(0), None)]}]}]);
+    let (d, lost) = imported(&p);
+    assert_lost_for_summing_no_byte(&d, &lost, MESSAGE, "by id");
+}
+
+#[test]
+fn a_checksum_without_a_length_loses_only_its_own_control() {
+    let p = preset(
+        &[],
+        vec![
+            control(1, "Summed", None, sysex_template(1, json!([67, 2, checksum_element(json!("roland"), json!(0), Some(1))])), None),
+            control(2, "Send", None, sysex_template(1, json!([67, 3, checksum_element(json!("roland"), json!(0), None)])), None),
+        ],
+    );
+    let (d, lost) = imported(&p);
+    assert_eq!(commands(&d).len(), 1, "{lost:?}");
+    assert_eq!(commands(&d)[0]["frame"], json!([240, 67, 2, {"checksum": "twos7", "from": 0, "length": 1}, 247]));
+    assert!(commands_lost(&lost, 1) && !commands_lost(&lost, 0), "{lost:?}");
+}
+
+fn commands_lost(lost: &[Loss], control: usize) -> bool {
+    lost.iter().any(|l| l.place == format!("/controls/{control}/values/0/message"))
+}
+
+#[test]
+fn the_page_says_a_checksum_without_a_length_has_the_default_0_of_the_maker() {
+    let page = crate::common::fields::page("electra-one");
+    let checksum = page.lines().find(|l| l.starts_with("- `checksum`")).expect("the line of the checksum element");
+    assert!(!checksum.contains("every byte before it"), "{checksum}");
+    assert!(checksum.contains("default 0") || checksum.contains("default: 0") || checksum.contains("default `0`") || checksum.contains("default: `0`"), "{checksum}");
 }
 
 #[test]

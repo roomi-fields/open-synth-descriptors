@@ -21,7 +21,8 @@ fn every_property_of_the_table_has_a_line_with_its_fate_its_reason_and_the_piece
     for name in PROPERTIES {
         let line = lines.iter().find(|l| l[0] == name).unwrap_or_else(|| panic!("no line for {name} in {DOC}"));
         assert!(line.len() >= 4, "{name}: a line has the name, the fate, the reason and the piece");
-        assert!(line[1] == "carried" || line[1] == "lost", "{name}: the fate is carried or lost, not {:?}", line[1]);
+        let fates: &[&str] = if name == "ctrlMapId" { &["structure"] } else { &["carried", "lost"] };
+        assert!(fates.contains(&line[1].as_str()), "{name}: the fate is one of {fates:?}, not {:?}", line[1]);
         assert!(!line[2].is_empty(), "{name}: no reason");
         assert!(line[3].contains("M2-117-UM"), "{name}: the piece of the standard is not cited: {:?}", line[3]);
     }
@@ -41,10 +42,16 @@ fn the_document_lists_no_property_the_table_does_not_have() {
 #[test]
 fn the_properties_the_import_cannot_read_back_are_lost_and_the_others_carried() {
     let lines = doc_lines();
-    for name in ["channel", "ctrlType", "ctrlIndex", "priority", "default", "transmit", "recognize", "paramPath", "typeHint", "ctrlMapId", "stepCount", "minMax"] {
+    for name in ["channel", "ctrlType", "ctrlIndex", "priority", "default", "transmit", "recognize", "paramPath", "typeHint", "stepCount", "minMax"] {
         let line = lines.iter().find(|l| l[0] == name).unwrap();
         assert_eq!(line[1], "carried", "{name}");
     }
+}
+
+#[test]
+fn the_map_id_is_structure_the_import_follows_to_the_named_values() {
+    let line = line_of("ctrlMapId");
+    assert!(line.contains("structure"), "{line}");
 }
 
 #[test]

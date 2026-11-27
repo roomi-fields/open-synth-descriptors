@@ -1,5 +1,5 @@
 {
-  "_about": "A 0.6 `params` entry becomes one `sysex` way: `pr`, `p`, `c`, `r` in `ctrlIndex`, with `range`, `transmit`, `recognize`; the rest stays on the entry.",
+  "_about": "A 0.6 `params` entry becomes one `sysex` way: `pr`, `p`, `c`, `r` as fields of the way under their names, with `range`, `transmit`, `recognize`; the rest stays on the entry.",
   "convert": "device",
   "result": {
     "$schema": "https://w3id.org/osd/0.7/device.schema.json",
@@ -12,7 +12,7 @@
         {
           "osc": "/osc1/shape",
           "default": 5,
-          "ways": [{ "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0], "range": [0, 100], "transmit": "absolute", "recognize": "absolute" }]
+          "ways": [{ "ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0, "range": [0, 100], "transmit": "absolute", "recognize": "absolute" }]
         }
       ]
     }

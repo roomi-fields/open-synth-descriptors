@@ -1,0 +1,8 @@
+{
+  "_about": "The `id` of a `sysex` way is an integer: a text is BadValue at `id`.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/params/entries/0/ways/0/id"
+  }
+}

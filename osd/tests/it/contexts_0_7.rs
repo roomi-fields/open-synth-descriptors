@@ -225,7 +225,7 @@ fn in_and_slice_on_a_way_of_params_are_unknown_fields() {
             }
         })
     };
-    let base = json!({"ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0]});
+    let base = json!({"ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0});
     let mut with_in = base.clone();
     with_in["in"] = json!({"part": "track1"});
     let mut with_slice = base.clone();

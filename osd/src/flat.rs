@@ -7,8 +7,7 @@
 //! older version back as its text had it; what the ways alone cannot say of its message fields is
 //! held beside them ([`FlatFields`]).
 
-use crate::convert::free_key;
-use crate::device::{CcEntry, Direction};
+use crate::device::{CcEntry, Direction, SYSEX_NUMBERS};
 use crate::json::{int, obj, object, list, Dict, Object, Opt, Pair, INTEGER, ADDRESS, STRING};
 use crate::json::{closed, matching, words, At, Text};
 use crate::role::Role;
@@ -309,10 +308,10 @@ impl FlatFields {
 /// The entries of `cc_params` and `params` of a device of a version before 0.7, read in the flat form,
 /// refused with the faults of their version, and the device `o` with those entries written as 0.7
 /// writes them: the reader then reads the one form. With it, what to hold so that [`flatten`] writes
-/// an entry back as given: per entry of `cc_params`, its fields; per entry of `params`, the key of
-/// the note that holds the `id` its ways cannot carry.
+/// an entry back as given: per entry of `cc_params`, its fields; an entry of `params` needs none, its
+/// way saying all its numbers.
 #[allow(clippy::type_complexity)]
-pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> Result<(Map<String, Value>, Vec<Option<Box<FlatFields>>>, Vec<Option<String>>), Fault> {
+pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> Result<(Map<String, Value>, Vec<Option<Box<FlatFields>>>), Fault> {
     fn entries<'a>(o: &'a Map<String, Value>, table: &str) -> Option<&'a Vec<Value>> {
         o.get(table)?.get("entries")?.as_array()
     }
@@ -365,8 +364,7 @@ pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> 
         kept.push(FlatFields::of(&flat, &lifted, schema).map(Box::new));
         cc_lifted.push(lifted);
     }
-    let (params_lifted, kept_ids): (Vec<_>, Vec<_>) =
-        params.iter().enumerate().map(|(n, e)| ways_of_param(written(object_of(e.write()), raw("params", n)))).unzip();
+    let params_lifted: Vec<_> = params.iter().enumerate().map(|(n, e)| ways_of_param(written(object_of(e.write()), raw("params", n)))).collect();
     for (table, lifted) in [("cc_params", cc_lifted), ("params", params_lifted)] {
         if let Some(Value::Object(t)) = out.get_mut(table) {
             if t.get("entries").is_some_and(Value::is_array) {
@@ -374,7 +372,7 @@ pub(crate) fn lift(o: &Map<String, Value>, schema: Option<Version>, at: &At) -> 
             }
         }
     }
-    Ok((out, kept, kept_ids))
+    Ok((out, kept))
 }
 
 /// `orientation` of a flat entry as 0.7 says it: `centered` is `bipolar`, `0-based` is `unipolar`, at the
@@ -551,37 +549,15 @@ fn ways_of_cc(mut e: Map<String, Value>) -> Map<String, Value> {
     e
 }
 
-/// A flat entry of `params` as the 0.7 form: one `sysex` way; an entry with no number has none and
-/// keeps its `range`, `transmit` and `recognize`. So does an entry whose one number is a negative
-/// `id`, which no way carries: the entry keeps it in a note, whose key is returned.
-fn ways_of_param(mut e: Map<String, Value>) -> (Map<String, Value>, Option<String>) {
-    let given: Vec<(&str, Value)> = ["pr", "p", "c", "r"].iter().filter_map(|k| e.remove(*k).map(|v| (*k, v))).collect();
-    let mut id = e.remove("id");
-    let mut id_note = None;
-    if given.is_empty() && id.as_ref().and_then(Value::as_i64).is_some_and(|n| n < 0) {
-        let key = free_key(&e, "_flat");
-        e.insert(key.clone(), Value::Object(id.take().map(|v| ("id".to_string(), v)).into_iter().collect()));
-        id_note = Some(key);
-    }
-    // The numbers `[pr, p, c, r]` as the entry gives them, else `[id]`. One number alone reads as an
-    // `id`: `pr` alone is said by the note.
-    let prefix = given.iter().zip(["pr", "p", "c", "r"]).all(|((k, _), want)| *k == want);
-    let exact = if given.is_empty() { true } else { prefix && given.len() > 1 && id.is_none() };
-    let mut flat = Map::new();
-    if !exact {
-        flat.extend(given.iter().map(|(k, v)| ((*k).to_string(), v.clone())));
-        flat.extend(id.iter().map(|v| ("id".to_string(), v.clone())));
-    }
-    let index: Vec<Value> = if given.is_empty() { id.into_iter().collect() } else { given.into_iter().map(|(_, v)| v).collect() };
+/// A flat entry of `params` as the 0.7 form: one `sysex` way with each number the entry gives under
+/// its name, its `range` and direction; an entry with no number has none and keeps them.
+fn ways_of_param(mut e: Map<String, Value>) -> Map<String, Value> {
+    let numbers: Vec<(String, Value)> = SYSEX_NUMBERS.iter().filter_map(|k| e.remove(*k).map(|v| ((*k).to_string(), v))).collect();
     let mut ways = Vec::new();
-    if !index.is_empty() {
+    if !numbers.is_empty() {
         let mut w = Map::new();
         w.insert("ctrlType".into(), "sysex".into());
-        w.insert("ctrlIndex".into(), Value::Array(index));
-        if !exact {
-            // What the numbers alone cannot say: which fields of 0.6 the entry gave, kept as a note.
-            w.insert("_flat".into(), Value::Object(flat));
-        }
+        w.extend(numbers);
         for k in ["range", "transmit", "recognize"] {
             if let Some(v) = e.remove(k) {
                 w.insert(k.into(), v);
@@ -591,7 +567,7 @@ fn ways_of_param(mut e: Map<String, Value>) -> (Map<String, Value>, Option<Strin
     }
     e.insert("ways".into(), Value::Array(ways));
     named_values(&mut e);
-    (e, id_note)
+    e
 }
 
 /// `values` of 0.6, a dictionary of label to integer, as the list of `{value, title}` of 0.7.
@@ -612,8 +588,8 @@ fn named_values(e: &mut Map<String, Value>) {
 
 /// The text of a device of an older version as it had it: the entries of `cc_params` and `params`
 /// written in the flat form again; `kept` holds, per entry of `cc_params`, what its ways alone do
-/// not say, and `kept_ids`, per entry of `params`, the key of the note that holds its `id`.
-pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&FlatFields>], kept_ids: &[Option<&str>]) {
+/// not say.
+pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&FlatFields>]) {
     for table in ["cc_params", "params"] {
         let Some(Value::Array(entries)) = v.get_mut(table).and_then(|t| t.get_mut("entries")) else { continue };
         for (n, entry) in entries.iter_mut().enumerate() {
@@ -621,7 +597,7 @@ pub(crate) fn flatten(v: &mut Value, schema: Option<Version>, kept: &[Option<&Fl
             *e = if table == "cc_params" {
                 flat_cc(std::mem::take(e), schema, kept.get(n).copied().flatten())
             } else {
-                flat_param(std::mem::take(e), kept_ids.get(n).copied().flatten())
+                flat_param(std::mem::take(e))
             };
         }
     }
@@ -714,29 +690,16 @@ fn flat_cc(mut e: Map<String, Value>, schema: Option<Version>, kept: Option<&Fla
     orientation_of(e)
 }
 
-fn flat_param(mut e: Map<String, Value>, id_note: Option<&str>) -> Map<String, Value> {
+fn flat_param(mut e: Map<String, Value>) -> Map<String, Value> {
     let first = match e.remove("ways") {
         Some(Value::Array(w)) => w.into_iter().find_map(|w| if let Value::Object(o) = w { Some(o) } else { None }),
         _ => None,
     };
     e.remove("scale");
-    if let Some(Value::Object(held)) = id_note.and_then(|key| e.remove(key)) {
-        e.extend(held);
-    }
     if let Some(w) = first {
-        let index: Vec<Value> = w.get("ctrlIndex").and_then(Value::as_array).cloned().unwrap_or_default();
-        if let Some(Value::Object(given)) = w.get("_flat") {
-            e.extend(given.iter().map(|(k, v)| (k.clone(), v.clone())));
-        } else if index.len() == 1 {
-            e.insert("id".into(), index[0].clone());
-        } else {
-            for (k, n) in ["pr", "p", "c", "r"].iter().zip(index) {
-                e.insert((*k).into(), n);
-            }
-        }
-        for k in ["range", "transmit", "recognize"] {
-            if let Some(v) = w.get(k) {
-                e.insert(k.into(), v.clone());
+        for k in SYSEX_NUMBERS.iter().chain(["range", "transmit", "recognize"].iter()) {
+            if let Some(v) = w.get(*k) {
+                e.insert((*k).into(), v.clone());
             }
         }
     }

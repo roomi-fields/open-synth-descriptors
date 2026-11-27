@@ -1,5 +1,5 @@
 {
-  "_about": "A `params` entry has ways of kind `sysex`: its `ctrlIndex` carries `pr`, `p`, `c`, `r` in that order.",
+  "_about": "A `params` entry has ways of kind `sysex`: each carries its numbers under their names, `pr`, `p`, `c`, `r`, with no `ctrlIndex`.",
   "read": "device",
   "result": {
     "$schema": "https://w3id.org/osd/0.7/device.schema.json",
@@ -9,7 +9,7 @@
       "set_frame": [240, 67, { "arg": "pr" }, { "arg": "p" }, { "arg": "c" }, { "arg": "r" }, { "arg": "value" }, 247],
       "value_type": "u7",
       "entries": [
-        { "osc": "/osc1/shape", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0] }] }
+        { "osc": "/osc1/shape", "ways": [{ "ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0 }] }
       ]
     }
   }

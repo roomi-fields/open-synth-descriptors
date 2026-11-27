@@ -206,17 +206,22 @@ fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<L
     }
     let mut args = Vec::new();
     let mut used: Vec<String> = Vec::new();
+    // The tags the export writes otherwise: several tags read as one argument type.
+    let mut rewritten = Vec::new();
     for (i, tag) in tags(ty).into_iter().enumerate() {
-        let kind = match tag {
-            'i' | 'h' => "int",
-            'f' | 'd' => "float",
-            's' | 'S' | 'c' => "string",
-            'T' | 'F' => "bool",
+        let (kind, read_as) = match tag {
+            'i' | 'h' => ("int", ArgType::Int),
+            'f' | 'd' => ("float", ArgType::Float),
+            's' | 'S' | 'c' => ("string", ArgType::String),
+            'T' | 'F' => ("bool", ArgType::Bool),
             other => {
                 loss(losses, format!("{ptr}/TYPE"), format!("the tag {other:?} has no argument type in the descriptor: the method is not imported"));
                 return None;
             }
         };
+        if tag_of(read_as) != tag {
+            rewritten.push(format!("{tag} comes back as {}", tag_of(read_as)));
+        }
         let mut name = format!("arg{}", i + 1);
         if let Some(n) = o.get("EXTENDED_TYPE").and_then(|e| e.get(i)).and_then(Value::as_str) {
             if name_ok(n) && !used.iter().any(|u| u == n) {
@@ -252,6 +257,9 @@ fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<L
         loss(losses, ptr, "the path has braces that are no capture ({name}, letters, digits and _, one per piece of text): the method is not imported");
         return None;
     };
+    if !rewritten.is_empty() {
+        loss(losses, format!("{ptr}/TYPE"), format!("the descriptor does not keep these type tags, and the export writes others: {}", rewritten.join(", ")));
+    }
     let mut c = Map::new();
     c.insert("osc".into(), osc);
     if !args.is_empty() {

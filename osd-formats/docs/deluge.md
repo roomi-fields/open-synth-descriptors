@@ -23,3 +23,7 @@ The fate is `carried` when the export writes it, `lost` otherwise.
 | `0-119` | carried | one attribute per CC number from 0 to 119, its value the name; a CC above 119 is lost | midi_instrument.cpp:605-625; src/definitions_cxx.hpp:770 |
 | `hideUnlabeledCC` | lost | the descriptor has no field to hide the CC without a name: the export never writes it | midi_instrument.cpp:629 |
 | `value` | lost | the attribute of `hideUnlabeledCC`, written with it | midi_instrument.cpp:629 |
+
+## Round trip on public files
+
+There is no round trip: the format is not imported, the export alone is offered, so this page gives no figure.

@@ -5,10 +5,13 @@
 
 pub mod deluge;
 pub mod electra;
+pub mod fields;
 pub mod knobkraft;
 pub mod midi2;
 pub mod midnam;
 pub mod oscquery;
+pub mod partner;
+pub mod round_trip;
 pub mod xml;
 
 /// The devices of this repository's conformance cases and examples, as (name, text): every

@@ -92,7 +92,9 @@ const PROFILE_DEPTH: usize = 8;
 /// name another, up to `MIDI_OF_DEPTH` links and never in a circle. The
 /// file may add routes of its own (`OWN_LISTS`, the `entries` of
 /// `OWN_TABLES`), appended to the target's, its own winning on the same
-/// OSC address; its own `OWN_BLOCKS` replace the target's. The two files may
+/// OSC address; its own `OWN_BLOCKS` replace the target's, and from 0.7 it names
+/// `role_vocabulary` for the roles of its own routes: the state of its target, or any when the
+/// target names none. The two files may
 /// be of two versions: the older text is converted to the newer one's version
 /// (`convert_to`, forward only) before they are joined, so the document states
 /// the more recent of the two; a conversion that fails refuses the resolution
@@ -242,8 +244,11 @@ fn follow(id: &str, text: Value, asked: Version, files: &dyn Files, chain: &mut 
     }
     let allowed = |k: &str| k.starts_with('_') || ["$schema", "device", "midi_of"].contains(&k) || (k == "sources" && text_07)
         || (from_06 && k == "capabilities") || OWN_LISTS.contains(&k) || OWN_TABLES.contains(&k) || OWN_BLOCKS.contains(&k);
-    if let Some(own) = text.as_object().and_then(|o| o.keys().find(|k| !allowed(k))) {
-        return Err(fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)")));
+    let targets_own = |own: &str| fault(FaultKind::UnknownField, At::Key(&At::Root, own).pointer(), format!("{own} is the target's (a midi_of file adds routes only)"));
+    // `role_vocabulary` waits for the target: another state than its own is refused as such (23.35),
+    // and a file before 0.7 may not name one at all (23.9).
+    if let Some(own) = text.as_object().and_then(|o| o.keys().find(|k| *k != "role_vocabulary" && !allowed(k))) {
+        return Err(targets_own(own));
     }
     let doc = carried(&text)?;
     // The file's own routes: each address once.
@@ -275,6 +280,17 @@ fn follow(id: &str, text: Value, asked: Version, files: &dyn Files, chain: &mut 
         return Err(link(FaultKind::LinkTooDeep, &format!("more than {MIDI_OF_DEPTH} links")));
     }
     let mut out = follow(tid, out, own_version, files, chain, read)?;
+    if let Some(state) = text.get("role_vocabulary") {
+        // Each file's roles are read against the state it names: states are never merged.
+        if out.get("role_vocabulary").is_some_and(|t| t != state) {
+            return Err(fault(FaultKind::BadValue, "/role_vocabulary".into(), "the file names another state of the vocabulary than its target's".into()));
+        }
+        // From 0.7 the file adds the roles of its own routes: it names the state of its target,
+        // or the one of the result when its target names none.
+        if !text_07 {
+            return Err(targets_own("role_vocabulary"));
+        }
+    }
     let target_version = version_of(&out);
     let doc = if own_version < target_version { upgrade(&doc, Kind::Device, target_version, id)? } else { doc.clone() };
     let name = |d: &Value| d.pointer("/device/name").and_then(Value::as_str).map(str::to_string);
@@ -314,12 +330,6 @@ fn follow(id: &str, text: Value, asked: Version, files: &dyn Files, chain: &mut 
     for (k, v) in doc.as_object().into_iter().flatten() {
         if k == "$schema" {
             // Both texts are of one version by now (the older was converted): the target's stands.
-        } else if k == "role_vocabulary" {
-            // Each file's roles are read against the state it names: states are never merged.
-            if obj.get(k).is_some_and(|t| t != v) {
-                return Err(fault(FaultKind::BadValue, "/role_vocabulary".into(), "the file names another state of the vocabulary than its target's".into()));
-            }
-            obj.insert(k.clone(), v.clone());
         } else if k == "device" {
             // The rule follows the declared version of the pair, read before the conversion
             // that removes `revision` made the two texts one version.

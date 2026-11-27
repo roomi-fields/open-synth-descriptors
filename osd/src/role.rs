@@ -6,7 +6,7 @@
 //! `x-<registrant>-<term>`. Nothing here is written per role: a role is checked against
 //! the state's terms (`stands_under`, `at_top`, `applies_to`).
 
-use crate::json::{at_least, list_of, obj, object, Opt, Remarks, STRING};
+use crate::json::{at_least, list_of, obj, object, Opt, Remarks, Word, STRING};
 use crate::role_vocabulary::{segment, vocabulary_state, Term, TermKind, Vocabulary};
 use crate::vocabulary::is_extension;
 use crate::{Descriptor, Device, Fault, FaultKind};
@@ -107,15 +107,20 @@ fn fault(kind: FaultKind, pointer: &str, rule: impl Into<String>) -> Fault {
     Fault { kind, file: None, pointer: pointer.to_string(), rule: rule.into() }
 }
 
-/// The term `name` of type `kind` in the state; none for an extension, which
-/// stands in for a term the vocabulary lacks.
+/// The term `name` of type `kind` (a part or a setting) in the state; none for
+/// an extension, which stands in for a term the vocabulary lacks.
 fn term_of<'v>(state: &'v Vocabulary, name: &str, kind: TermKind, pointer: &str) -> Result<Option<&'v Term>, Fault> {
     if is_extension(name) {
         return Ok(None);
     }
-    let what = if kind == TermKind::Part { "part" } else { "setting" };
+    let what = kind.word();
     match state.term(name) {
         Some(t) if t.kind == kind => Ok(Some(t)),
+        Some(t) if t.kind == TermKind::Value => Err(fault(
+            FaultKind::BadValue,
+            pointer,
+            format!("{name} is a value of the vocabulary state {}, a choice of a selector: no {what} of a role", state.state),
+        )),
         Some(_) => Err(fault(FaultKind::BadValue, pointer, format!("{name} is not a {what} of the vocabulary state {}", state.state))),
         None => Err(fault(
             FaultKind::BadValue,
@@ -215,8 +220,7 @@ pub fn role_from_param_path(path: &str, state: &str) -> Result<Role, Fault> {
             match vocabulary.terms.iter().find(|t| segment(&t.name) == *seg) {
                 Some(t) if t.kind == kind => t.name.clone(),
                 Some(t) => {
-                    let what = if last { "setting" } else { "part" };
-                    return Err(fault(FaultKind::BadValue, &here, format!("{seg} is the {} {}, where a {what} stands", if t.kind == TermKind::Part { "part" } else { "setting" }, t.name)));
+                    return Err(fault(FaultKind::BadValue, &here, format!("{seg} is the {} {}, where a {} stands", t.kind.word(), t.name, kind.word())));
                 }
                 None => {
                     return Err(fault(FaultKind::BadValue, &here, format!("{seg} is no CamelCase term of the vocabulary state {state}, no extension x-<registrant>-<term> and no number")))

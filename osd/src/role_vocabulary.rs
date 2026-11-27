@@ -1,36 +1,43 @@
 //! The vocabulary of roles: numbered states of terms, each a part of an
-//! instrument or a setting of a part, written as data under
-//! `schemas/vocabulary/<state>/terms.json`. A published state never changes;
-//! the next state only adds. A state is read strictly, like a descriptor, and
-//! a role is checked against the state its descriptor names. The README of the
-//! vocabulary (`spec/vocabulary/1.md`) states the rule of entry.
+//! instrument, a setting of a part or, from state 2, a value of a selector,
+//! written as data under `schemas/vocabulary/<state>/terms.json`. A published
+//! state never changes; the next state only adds. A state is read strictly,
+//! like a descriptor, and a role is checked against the state its descriptor
+//! names. The text of each state (`spec/vocabulary/<state>.md`) states the
+//! rule of entry.
 
-use crate::json::{closed, int, list, list_of, matching, obj, object, words, At, Bool, Codec, Object, Opt, STRING};
+use crate::json::{closed, int, list, list_of, matching, obj, object, words, At, Bool, Codec, Object, Opt, Word, STRING};
 use crate::{Fault, FaultKind};
 use serde_json::Value;
 use std::sync::OnceLock;
 
 /// The states of the vocabulary this crate holds, the folders of
 /// `schemas/vocabulary/`.
-pub const VOCABULARY_STATES: &[&str] = &["1"];
+pub const VOCABULARY_STATES: &[&str] = &["1", "2"];
 
 const STATE_1: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/vocabulary-state-1.json"));
+const STATE_2: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/vocabulary-state-2.json"));
 
-/// The published state `state` of the vocabulary, or none when this crate
-/// does not hold it.
+/// The state `state` of the vocabulary, or none when this crate does not hold
+/// it.
 pub fn vocabulary_state(state: &str) -> Option<&'static Vocabulary> {
     static ONE: OnceLock<Vocabulary> = OnceLock::new();
-    match state {
-        "1" => Some(ONE.get_or_init(|| read_vocabulary(STATE_1).expect("state 1 of the vocabulary is valid"))),
-        _ => None,
-    }
+    static TWO: OnceLock<Vocabulary> = OnceLock::new();
+    let (cell, text) = match state {
+        "1" => (&ONE, STATE_1),
+        "2" => (&TWO, STATE_2),
+        _ => return None,
+    };
+    Some(cell.get_or_init(|| read_vocabulary(text).unwrap_or_else(|f| panic!("state {state} of the vocabulary is valid: {f}"))))
 }
 
 words! {
-    /// What a term is: a part of the instrument, or what is set on a part.
+    /// What a term is: a part of the instrument, what is set on a part, or a
+    /// choice of a setting that selects.
     TermKind {
         Part = "part",
         Setting = "setting",
+        Value = "value",
     }
 }
 
@@ -108,7 +115,7 @@ object! {
         "name" name: String = matching(is_name, "of lowercase letters, digits and hyphens, starting with a letter"),
         "type" kind: TermKind = closed(),
         "definition" definition: String = matching(is_one_sentence, "of one sentence"),
-        /// The parts a setting applies to.
+        /// The parts a setting applies to, or the settings a value is a choice of.
         "applies_to" applies_to: Option<Vec<String>> = Opt(list(STRING)),
         /// The parts a part may stand under in a path.
         "stands_under" stands_under: Option<Vec<String>> = Opt(list_of(STRING, 1, usize::MAX)),
@@ -164,15 +171,20 @@ fn check_term(t: &Term, at: &At) -> Result<(), Fault> {
         (TermKind::Setting, Some(a)) if a.is_empty() => {
             return Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "at least one part"))
         }
+        (TermKind::Value, None) => return Err(fault(FaultKind::Missing, format!("{here}/applies_to"), "applies_to is required for a value")),
+        (TermKind::Value, Some(a)) if a.is_empty() => {
+            return Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "at least one setting"))
+        }
         (TermKind::Part, Some(_)) => return Err(fault(FaultKind::BadValue, format!("{here}/applies_to"), "a part applies to nothing")),
         _ => {}
     }
-    if t.kind == TermKind::Setting {
+    if t.kind != TermKind::Part {
+        let what = t.kind.word();
         if t.stands_under.is_some() {
-            return Err(fault(FaultKind::BadValue, format!("{here}/stands_under"), "a setting stands under no part: it applies to parts"));
+            return Err(fault(FaultKind::BadValue, format!("{here}/stands_under"), format!("a {what} stands under no part: only a part does")));
         }
         if t.at_top.is_some() {
-            return Err(fault(FaultKind::BadValue, format!("{here}/at_top"), "a setting does not open a path"));
+            return Err(fault(FaultKind::BadValue, format!("{here}/at_top"), format!("a {what} does not open a path")));
         }
     }
     if t.source.is_none() && t.shared_by.is_none() {
@@ -250,7 +262,8 @@ fn check_state(v: &Vocabulary, _: &At) -> Result<(), Fault> {
             return Err(fault(FaultKind::BadValue, "/$schema".into(), format!("`{want}`")));
         }
     }
-    let part = |name: &str| v.terms.iter().find(|t| t.name == name && t.kind == TermKind::Part);
+    let of_kind = |name: &str, kind: TermKind| v.terms.iter().find(|t| t.name == name && t.kind == kind);
+    let part = |name: &str| of_kind(name, TermKind::Part);
     // The compositions the state holds: a chain of parts, each under the one before, and a
     // setting that applies to the last (a part alone is a chain of one).
     let chains = v.chains();
@@ -316,9 +329,11 @@ fn check_state(v: &Vocabulary, _: &At) -> Result<(), Fault> {
                 return Err(fault(FaultKind::BadValue, format!("{here}/words/{k}/word"), format!("`{}` already means a term", w.word)));
             }
         }
+        // A setting applies to parts, a value to settings.
+        let target = if t.kind == TermKind::Value { TermKind::Setting } else { TermKind::Part };
         for (k, a) in t.applies_to.iter().flatten().enumerate() {
-            if part(a).is_none() {
-                return Err(fault(FaultKind::BadValue, format!("{here}/applies_to/{k}"), format!("{a} is not a part of the state")));
+            if of_kind(a, target).is_none() {
+                return Err(fault(FaultKind::BadValue, format!("{here}/applies_to/{k}"), format!("{a} is not a {} of the state", target.word())));
             }
         }
         for (k, a) in t.stands_under.iter().flatten().enumerate() {
@@ -347,14 +362,27 @@ impl Vocabulary {
         self.terms.iter().find(|t| t.name == name)
     }
 
-    /// Whether `next` only adds to this state: each term stays, with its type;
-    /// a term a later state replaces stays and says `replaced_by`.
+    /// Whether a role valid in this state stays valid in `next`: each term stays,
+    /// with its type, keeps every element of its `applies_to` and of its
+    /// `stands_under`, and a part that opens a path still does. A term a later
+    /// state replaces stays and says `replaced_by`. A definition, a source, a
+    /// word or a `shared_by` may change.
     pub fn check_successor(&self, next: &Vocabulary) -> Result<(), Fault> {
+        let refuse = |rule: String| Err(fault(FaultKind::BadValue, "/terms".into(), rule));
         for t in &self.terms {
-            match next.term(&t.name) {
-                Some(n) if n.kind == t.kind => {}
-                Some(_) => return Err(fault(FaultKind::BadValue, "/terms".into(), format!("{} changes its type", t.name))),
-                None => return Err(fault(FaultKind::BadValue, "/terms".into(), format!("{} is not in the next state: a term stays", t.name))),
+            let Some(n) = next.term(&t.name) else {
+                return refuse(format!("{} is not in the next state: a term stays", t.name));
+            };
+            if n.kind != t.kind {
+                return refuse(format!("{} changes its type", t.name));
+            }
+            for (field, old, new) in [("applies_to", &t.applies_to, &n.applies_to), ("stands_under", &t.stands_under, &n.stands_under)] {
+                if let Some(lost) = old.iter().flatten().find(|e| !new.iter().flatten().any(|k| k == *e)) {
+                    return refuse(format!("{} loses {lost} in its {field}", t.name));
+                }
+            }
+            if t.kind == TermKind::Part && t.opens_a_path() && !n.opens_a_path() {
+                return refuse(format!("{} no longer opens a path", t.name));
             }
         }
         Ok(())

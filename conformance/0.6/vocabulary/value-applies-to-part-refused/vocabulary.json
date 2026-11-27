@@ -1,0 +1,11 @@
+{
+  "$schema": "https://w3id.org/osd/vocabulary/2/vocabulary.schema.json",
+  "state": "2",
+  "terms": [
+    { "name": "filter", "type": "part", "definition": "A filter that shapes the harmonic content of the sound.", "words": [], "shared_by": [{ "maker": "Moog", "device": "Minimoog Model D" }, { "maker": "Roland", "device": "Juno-106" }] },
+    { "name": "filter-type", "type": "setting", "definition": "Which frequencies the filter lets through.", "applies_to": ["filter"], "words": [], "shared_by": [{ "maker": "Moog", "device": "Minimoog Model D" }, { "maker": "Roland", "device": "Juno-106" }] },
+    { "name": "oscillator", "type": "part", "definition": "A source of a repeating waveform at a pitch.", "words": [], "shared_by": [{ "maker": "Moog", "device": "Minimoog Model D" }, { "maker": "Roland", "device": "Juno-106" }] },
+    { "name": "waveform", "type": "setting", "definition": "The shape of the repeating wave of a source.", "applies_to": ["oscillator"], "words": [], "shared_by": [{ "maker": "Moog", "device": "Minimoog Model D" }, { "maker": "Roland", "device": "Juno-106" }] },
+    { "name": "low-pass", "type": "value", "definition": "A filter type that lets the frequencies below the cutoff through.", "applies_to": ["filter"], "words": [], "shared_by": [{ "maker": "Moog", "device": "Minimoog Model D" }, { "maker": "Roland", "device": "Juno-106" }] }
+  ]
+}

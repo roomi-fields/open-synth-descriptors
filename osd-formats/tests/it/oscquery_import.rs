@@ -262,3 +262,37 @@ fn a_segment_with_braces_that_is_no_valid_capture_is_not_imported_and_is_named_i
         assert!(lost.iter().any(|l| l.place.starts_with(&place)), "{bad}: {lost:?}");
     }
 }
+
+// ---- the type tags the descriptor does not keep ------------------------------------------
+
+const NODE: &str = "/CONTENTS/synth/CONTENTS/x";
+
+fn typed(tags: &str) -> Value {
+    namespace(vec![("x", json!({"FULL_PATH": "/synth/x", "ACCESS": 2, "TYPE": tags}))])
+}
+
+#[test]
+fn a_type_tag_the_export_writes_as_another_is_a_loss_at_the_type() {
+    for (tag, written) in [("h", "i"), ("d", "f"), ("S", "s"), ("c", "s"), ("F", "T")] {
+        let t = import(&typed(tag).to_string(), Format::OscQuery, &source()).expect("imports");
+        let found = lost_at(&t.lost, &format!("{NODE}/TYPE"));
+        assert_eq!(found.len(), 1, "{tag}: {:?}", t.lost);
+        assert!(found[0].reason.contains(tag), "{tag}: {}", found[0].reason);
+        let (back, _) = exported(&crate::common::resolved(t.value));
+        assert_eq!(back["CONTENTS"]["synth"]["CONTENTS"]["x"]["TYPE"], written, "{tag}: {back}");
+    }
+}
+
+#[test]
+fn one_rewritten_tag_among_others_names_the_type_of_its_method() {
+    let (_, lost) = imported(&typed("ihs"));
+    let found = lost_at(&lost, &format!("{NODE}/TYPE"));
+    assert_eq!(found.len(), 1, "{lost:?}");
+    assert!(found[0].reason.contains('h'), "{}", found[0].reason);
+}
+
+#[test]
+fn the_type_tags_the_export_writes_back_are_no_loss() {
+    let (_, lost) = imported(&typed("ifsT"));
+    assert!(lost_at(&lost, &format!("{NODE}/TYPE")).is_empty(), "{lost:?}");
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/firmware.schema.json",
+  "name": "a",
+  "version": "1.0",
+  "kind": "module",
+  "targets": [
+    {
+      "device": {
+        "descriptor": "acme/synth",
+        "vendor": "Acme",
+        "model": "Synth"
+      },
+      "midi": {
+        "descriptor": "acme/a-midi"
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@ fn device(controls: &[Value]) -> osd::Device {
         .map(|(n, c)| {
             let mut c = c.clone();
             c["osc"] = json!(format!("/c{n}"));
+            c["title"] = json!(format!("c{n}"));
             c
         })
         .collect();
@@ -169,7 +170,7 @@ fn only_the_nrpn_way_the_row_writes_names_its_width_and_a_way_not_written_is_nam
 }
 
 #[test]
-fn a_14_bit_nrpn_way_a_cc_way_and_a_7_bit_nrpn_way_not_written_name_no_width() {
+fn a_14_bit_nrpn_way_a_cc_way_without_a_width_and_a_7_bit_nrpn_way_not_written_name_no_width() {
     let second = json!({"ctrlType": "nrpn", "ctrlIndex": [3, 4], "value_bits": 7});
     let controls = [
         json!({"ways": [nrpn14(None)]}),
@@ -177,7 +178,6 @@ fn a_14_bit_nrpn_way_a_cc_way_and_a_7_bit_nrpn_way_not_written_name_no_width() {
         json!({"ways": [cc(None), nrpn14(None)]}),
         json!({"ways": [nrpn14(None), cc14(None)]}),
         json!({"ways": [cc(None)]}),
-        json!({"ways": [{"ctrlType": "cc", "ctrlIndex": [74], "value_bits": 7}]}),
         json!({"ways": [cc14(None)]}),
         json!({"ways": [nrpn14(None), second]}),
     ];

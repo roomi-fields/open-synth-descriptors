@@ -36,6 +36,12 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 | `numSigBits` | carried | the bits used by the 32-bit values (32 when not provided): follows from the range and from the LSB of a 14-bit CC (the LSB is the MSB + 32); a count with no range gives the range | M2-117-UM v1.0, tables 6 and 12: numSigBits |
 | `paramPath` | carried | the role, a path of parts and a setting; a path with no known role is kept as the section | M2-117-UM v1.0, tables 6 and 12: paramPath |
 | `typeHint` | carried | `expects` by the table of spec/0.6.md; `trigger` is written as `momentary`, `clock` has no hint, `relative` has no `expects` word | M2-117-UM v1.0, tables 6 and 12: typeHint |
-| `ctrlMapId` | carried | the named values, a map shared by controls with equal lists; the numbering of the ids is not kept | M2-117-UM v1.0, tables 6 and 12: ctrlMapId |
+| `ctrlMapId` | structure | the import follows it to the named values, a map shared by controls with equal lists; the numbering of the ids is not kept | M2-117-UM v1.0, tables 6 and 12: ctrlMapId |
 | `stepCount` | carried | the number of steps, 2 or more | M2-117-UM v1.0, tables 6 and 12: stepCount |
 | `minMax` | carried | two unsigned 32-bit values in the norm, the range in OSD: scaled as `default` is (M2-115-U v1.0.2, Min-Center-Max or Zero-Extension); a negative bound is lost | M2-117-UM v1.0, tables 6 and 12: minMax |
+
+## Round trip on public files
+
+No public file of a partner holding controller data was found, so this page gives no figure. Searched on 2026-11-27: the JSON files of GitHub's code that name `ChCtrlList` (`gh api 'search/code?q=ChCtrlList+extension:json'`), two results: the schema of midi2-dev/MIDI2.0Workbench (`libs/schema/M2-117-S_v1-0_ChCtrlList.json`), which describes the list and holds no device, and `data/resources.json` of wustep/midi, which names the resource in the text of a link and holds no list.
+
+The count is the one of the other formats, played on the small files of the tests: a file is imported, then the device is exported in the same format, and each leaf of the JSON is `carried`, `lost` (a loss covers it, or the export does not hold it equal on the paired entry) or `structure` (`ctrlMapId`). The key of an entry is its `ctrlType` and `ctrlIndex`, of a map the first entry that names it, of an item of a map its `value`.

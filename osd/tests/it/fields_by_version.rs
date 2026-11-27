@@ -14,7 +14,8 @@ fn stamp(version: &str, mut doc: Value) -> Value {
             let list = doc.get_mut(block).and_then(|b| b.get_mut("entries")).and_then(Value::as_array_mut);
             for entry in list.into_iter().flatten().filter_map(Value::as_object_mut) {
                 if let Some(n) = entry.remove(flat) {
-                    entry.insert("ways".into(), json!([{"ctrlType": kind, "ctrlIndex": [n]}]));
+                    let way = if kind == "sysex" { json!({"ctrlType": kind, "id": n}) } else { json!({"ctrlType": kind, "ctrlIndex": [n]}) };
+                    entry.insert("ways".into(), json!([way]));
                 }
             }
         }

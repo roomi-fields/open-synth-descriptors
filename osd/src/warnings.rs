@@ -1,9 +1,11 @@
 //! What the reader reports of a descriptor without refusing it: a control that is to be completed,
-//! a source whose provider the table of providers does not hold, and a source not carried as credit.
+//! a source whose provider the table of providers does not hold, a source not carried as credit and
+//! a place of a sound that is to be confirmed.
 
 use crate::device::LEGACY_SOURCES;
 use crate::json::Remarks;
 use crate::providers::{is_provider, known};
+use crate::sound_transfer::unconfirmed_places;
 use crate::{Descriptor, Source, Version};
 use serde_json::Value;
 
@@ -27,16 +29,21 @@ pub enum WarningKind {
     /// A source not carried as credit: an entry of a note `_sources_<n>` (n from 2). The pointer is
     /// the entry's, or the note's when it is no list.
     UncreditedSource,
+    /// A place of a sound transfer whose control that transfer places at places that differ: none
+    /// is taken as sure, the place is to be confirmed. The pointer is the place's `control`.
+    UnconfirmedPlace,
 }
 
 /// The warnings of a descriptor. A device gives one [`WarningKind::PartialControl`] for each entry
 /// of `cc_params` then `params` with no way (0.4 to 0.7), then one
 /// [`WarningKind::UnknownProvider`] for each well-formed `provider` of `sources` then
 /// `midi_of_sources` of a device of 0.7 that the table of providers does not hold (before 0.7 there
-/// is no `provider` field). A maker profile, a sound, a fingerprint, a firmware or an assembly of
+/// is no `provider` field), then one [`WarningKind::UnconfirmedPlace`] for each place, of the
+/// transfers in order, whose control its transfer places at places that differ (0.6 and 0.7).
+/// A maker profile, a sound, a fingerprint, a firmware or an assembly of
 /// 0.7 gives those of its `sources`, then one [`WarningKind::UncreditedSource`] for each source its
 /// notes `_sources_<n>` keep; a sound gives the same for the assembly it was made on, after its
-/// own. Before 0.7 these five kinds give none.
+/// own. Before 0.7 these five kinds of descriptor give none.
 pub fn warnings(descriptor: &Descriptor) -> Vec<Warning> {
     if let Descriptor::Device(d) = descriptor {
         let cc = d.cc_params.iter().flat_map(|t| &t.entries).enumerate().filter(|(_, e)| e.ways.is_empty()).map(|(n, _)| format!("/cc_params/entries/{n}"));
@@ -45,6 +52,7 @@ pub fn warnings(descriptor: &Descriptor) -> Vec<Warning> {
         if d.schema >= Some(Version::V0_7) {
             out.extend(unknown_providers("", &[("sources", &d.sources), ("midi_of_sources", &d.midi_of_sources)]));
         }
+        out.extend(unconfirmed_places(d).into_iter().map(|pointer| Warning { pointer, kind: WarningKind::UnconfirmedPlace }));
         return out;
     }
     if descriptor.schema() < Some(Version::V0_7) {

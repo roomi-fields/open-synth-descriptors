@@ -301,3 +301,78 @@ fn a_document_of_extending_names_only_is_refused_for_a_device_has_no_name_to_rea
     let f = refused(&document_text(&doc));
     assert_eq!(f.kind, FaultKind::InvalidFile);
 }
+
+// ---- the names and numbers the export does not write back -------------------------------
+
+/// Whether a loss at the line of the element holding `needle` names `what` (`Element@Attribute`).
+fn names_at(text: &str, lost: &[osd_formats::Loss], needle: &str, what: &str) -> bool {
+    let line = text.lines().position(|l| l.contains(needle)).unwrap_or_else(|| panic!("no {needle}: {text}")) + 1;
+    let place = format!("line {line}");
+    lost.iter().any(|l| l.place == place && l.reason.starts_with(what))
+}
+
+#[test]
+fn a_list_of_names_or_a_reference_to_one_named_otherwise_than_the_export_names_it_is_a_loss_at_its_name() {
+    let mut doc = rich_document();
+    for (path, name) in [(&[1, 3, 1][..], "Kit"), (&[1, 4][..], "Kit"), (&[1, 3, 2][..], "Knobs"), (&[1, 5][..], "Knobs"), (&[1, 3, 3, 1][..], "Pads")] {
+        doc.at_mut(path).attrs = vec![("Name".to_string(), name.to_string())];
+    }
+    let text = document_text(&doc);
+    let (_, lost) = imported(&text);
+    for what in ["UsesNoteNameList", "NoteNameList", "UsesControlNameList", "ControlNameList", "PatchNameList"] {
+        let needle = format!("<{what} Name=");
+        assert!(names_at(&text, &lost, &needle, &format!("{what}@Name")), "{what}: {lost:?}");
+    }
+}
+
+#[test]
+fn the_lists_named_as_the_export_names_them_are_no_loss_at_their_names() {
+    let text = rich_text();
+    let (_, lost) = imported(&text);
+    for what in ["UsesNoteNameList", "NoteNameList", "UsesControlNameList", "ControlNameList", "PatchNameList"] {
+        let needle = format!("<{what} Name=");
+        assert!(!names_at(&text, &lost, &needle, &format!("{what}@Name")), "{what}: {lost:?}");
+    }
+}
+
+#[test]
+fn the_name_of_a_reference_to_a_list_of_patch_names_is_a_loss() {
+    let mut doc = rich_document();
+    let bank = doc.at_mut(&[1, 3, 3]);
+    let list = std::mem::replace(&mut bank.children[1], Node::new("UsesPatchNameList", &[("Name", "Bank A")]));
+    doc.at_mut(&[1]).children.insert(4, list);
+    let text = document_text(&doc);
+    let (d, lost) = imported(&text);
+    assert_eq!(d["programs"]["banks"][0]["size"], 2, "{d}");
+    assert!(names_at(&text, &lost, "<UsesPatchNameList ", "UsesPatchNameList@Name"), "{lost:?}");
+}
+
+/// The rich document, its two patches holding these values of `attribute`.
+fn patches_with(attribute: &str, values: [&str; 2]) -> String {
+    let mut doc = rich_document();
+    for (i, value) in values.iter().enumerate() {
+        let patch = doc.at_mut(&[1, 3, 3, 1, i]);
+        let held = patch.attrs.iter_mut().find(|a| a.0 == attribute).expect("the patch holds the attribute");
+        held.1 = value.to_string();
+    }
+    document_text(&doc)
+}
+
+#[test]
+fn each_patch_number_that_is_not_a_whole_number_is_a_loss_even_when_no_patch_of_its_bank_has_one() {
+    let text = patches_with("Number", ["A01", "A02"]);
+    let (_, lost) = imported(&text);
+    for number in ["A01", "A02"] {
+        assert!(names_at(&text, &lost, &format!("Number=\"{number}\""), "Patch@Number"), "{number}: {lost:?}");
+    }
+}
+
+#[test]
+fn each_program_change_outside_0_to_127_is_a_loss_even_when_no_patch_of_its_bank_has_a_valid_one() {
+    let text = patches_with("ProgramChange", ["200", "x"]);
+    let (d, lost) = imported(&text);
+    assert!(d["programs"]["banks"][0].get("first_pc").is_none(), "{d}");
+    for pc in ["200", "x"] {
+        assert!(names_at(&text, &lost, &format!("ProgramChange=\"{pc}\""), "Patch@ProgramChange"), "{pc}: {lost:?}");
+    }
+}

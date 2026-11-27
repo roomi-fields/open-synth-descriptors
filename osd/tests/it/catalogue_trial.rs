@@ -293,7 +293,7 @@ fn a_converted_text_without_one_of_its_ways_is_named() {
 #[test]
 fn a_converted_text_with_a_way_the_0_6_entry_does_not_give_is_named() {
     assert_named(Check::Loss, "/params/entries/0/ways", |d| {
-        list(d, "/params/entries/0/ways").push(json!({ "ctrlType": "sysex", "ctrlIndex": [9] }));
+        list(d, "/params/entries/0/ways").push(json!({ "ctrlType": "sysex", "id": 9 }));
     });
 }
 

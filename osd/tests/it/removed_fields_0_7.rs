@@ -48,7 +48,7 @@ fn routes_07() -> Value {
 
 fn params_07() -> Value {
     json!({"get_frame": [240, 247], "set_frame": [240, 247], "value_type": "u7",
-        "entries": [{"osc": "/b", "ways": [{"ctrlType": "sysex", "ctrlIndex": [3]}], "transform": "x * 2", "transform_reverse": "x // 2"}]})
+        "entries": [{"osc": "/b", "ways": [{"ctrlType": "sysex", "id": 3}], "transform": "x * 2", "transform_reverse": "x // 2"}]})
 }
 
 fn way_cc(entry: Value) -> Value {
@@ -190,7 +190,7 @@ fn the_converter_drops_each_removed_field_but_the_date_kept_as_a_note_and_keeps_
     assert_eq!(out["midi_out"], json!({"default_channel": 1}));
     assert_eq!(out["identity"], json!({"reply": [240, 126, "any", 6, 2]}));
     assert_eq!(out["cc_params"]["entries"][0], way_cc(json!({"osc": "/a", "transform": "x * 2"})));
-    assert_eq!(out["params"]["entries"][0], json!({"osc": "/b", "ways": [{"ctrlType": "sysex", "ctrlIndex": [3]}], "transform": "x * 2"}));
+    assert_eq!(out["params"]["entries"][0], json!({"osc": "/b", "ways": [{"ctrlType": "sysex", "id": 3}], "transform": "x * 2"}));
     assert_eq!(out["capabilities"], json!(["lua"]));
     assert_eq!(out["_coverage"], json!({"controls": 3}));
     osd::read(&out.to_string(), Kind::Device).unwrap_or_else(|f| panic!("the converted text does not read: {f}"));

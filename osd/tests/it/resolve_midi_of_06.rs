@@ -295,6 +295,30 @@ fn a_0_5_midi_of_file_over_a_0_5_target_keeps_the_limit_of_0_5() {
 }
 
 #[test]
+fn a_midi_of_file_that_names_the_state_of_its_target_or_a_state_its_target_lacks_is_refused_as_a_key_of_the_target() {
+    let naming = |state: Option<&str>, mut extra: Value| {
+        if let Some(s) = state {
+            extra["role_vocabulary"] = json!(s);
+        }
+        device(S6, extra)
+    };
+    for (own, target) in [("2", Some("2")), ("1", Some("1")), ("2", None), ("1", None)] {
+        let files = catalogue(vec![
+            ("acme/a", naming(Some(own), json!({"midi_of": "acme/b"}))),
+            ("acme/b", naming(target, json!({}))),
+        ]);
+        assert_eq!(refused(&files), at(FaultKind::UnknownField, "acme/a", "/role_vocabulary"), "{own} over {target:?}");
+    }
+    // The state of the target is the one its own chain gives it.
+    let files = catalogue(vec![
+        ("acme/a", naming(Some("2"), json!({"midi_of": "acme/b"}))),
+        ("acme/b", naming(None, json!({"midi_of": "acme/c"}))),
+        ("acme/c", naming(Some("2"), json!({}))),
+    ]);
+    assert_eq!(refused(&files), at(FaultKind::UnknownField, "acme/a", "/role_vocabulary"));
+}
+
+#[test]
 fn a_0_6_midi_of_file_holds_only_what_it_may_add() {
     let target = device(S6, json!({"params": with_entries(json!([{"osc": "/p1"}]))}));
     for (key, value) in [("sysex", json!({"header": [240]})), ("identity_x", json!(1)), ("loads_sounds_of", json!(["acme"]))] {

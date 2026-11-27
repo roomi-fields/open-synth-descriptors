@@ -18,13 +18,9 @@ fn every_element_the_export_writes_has_a_row_with_its_rule_and_the_piece_of_the_
     }
 }
 
+/// The rows of the tables of the kinds, the former importer, the numbers and the elements.
 fn table_lines() -> Vec<Vec<String>> {
-    std::fs::read_to_string(TABLE)
-        .unwrap_or_else(|e| panic!("{TABLE}: {e}"))
-        .lines()
-        .filter(|l| l.trim_start().starts_with('|'))
-        .map(|l| l.trim().trim_matches('|').split('|').map(|c| c.trim().trim_matches('`').to_string()).collect())
-        .collect()
+    ["Kind", "Behaviour", "Limit", "Element"].iter().flat_map(|header| crate::common::fields::table("electra-one", header)).collect()
 }
 
 #[test]
@@ -59,13 +55,7 @@ fn the_table_lists_no_kind_the_maker_does_not_document() {
     let known = ["pages", "control sets", "pots", "controls", "devices"];
     for line in table_lines() {
         let name = line[0].as_str();
-        if name == "Kind"
-            || name == "Limit"
-            || name == "Element"
-            || name == "Behaviour"
-            || FORMER_BEHAVIOURS.contains(&name)
-            || name == FORMER_POLICY
-            || ELEMENTS.contains(&name) || name.starts_with('-') || known.contains(&name) {
+        if FORMER_BEHAVIOURS.contains(&name) || name == FORMER_POLICY || ELEMENTS.contains(&name) || known.contains(&name) {
             continue;
         }
         assert!(KINDS.contains(&name), "{name} is in the table and not in the documented kinds");

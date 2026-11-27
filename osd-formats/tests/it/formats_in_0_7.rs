@@ -22,7 +22,7 @@ fn rich_blocks() -> Value {
              "ways": [{"ctrlType": "pBend", "value_bits": 14}, {"ctrlType": "cc", "ctrlIndex": [74]}, {"ctrlType": "nrpn", "ctrlIndex": [1, 8], "value_bits": 14}, {"ctrlType": "note", "ctrlIndex": [36]}]},
             {"osc": "/press", "ways": [{"ctrlType": "chPress"}, {"ctrlType": "pPress", "ctrlIndex": [60]}]},
         ]},
-        "params": {"get_frame": [240, 247], "set_frame": [240, 247], "value_type": "u7", "entries": [{"osc": "/p", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}]}]},
+        "params": {"get_frame": [240, 247], "set_frame": [240, 247], "value_type": "u7", "entries": [{"osc": "/p", "ways": [{"ctrlType": "sysex", "id": 5}]}]},
     })
 }
 
@@ -43,7 +43,10 @@ fn flat_segment(pointer: &str) -> Option<String> {
 fn assert_export_places(format: Format, doc: &Value, lost: &[Loss]) {
     for l in lost {
         assert!(l.place.starts_with('/'), "{}: the place of a loss of an export is a JSON pointer: {l:?}", format.name());
-        assert!(resolves(doc, &l.place), "{}: {:?} does not resolve in the descriptor given: {l:?}", format.name(), l.place);
+        // A field the import of the file written adds is named at its pointer, inside a block of the
+        // descriptor given.
+        let block = l.place.rsplit_once('/').map_or("", |(block, _)| block);
+        assert!(resolves(doc, &l.place) || resolves(doc, block), "{}: {:?} does not resolve in the descriptor given: {l:?}", format.name(), l.place);
         assert_eq!(flat_segment(&l.place), None, "{}: a flat field retired in 0.7: {l:?}", format.name());
     }
 }

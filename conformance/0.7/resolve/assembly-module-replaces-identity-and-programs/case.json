@@ -1,0 +1,48 @@
+{
+  "_about": "The identity and programs blocks the MIDI file of a module writes replace those of the stock MIDI, whole; the device block stays the stock one.",
+  "resolve_assembly": "acme/build",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "identity": {
+      "reply_text": "modded"
+    },
+    "programs": {
+      "banks": [
+        {
+          "name": "B",
+          "size": 64
+        }
+      ]
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/y",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

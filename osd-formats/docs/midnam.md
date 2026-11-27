@@ -12,7 +12,7 @@ The `values` of a control are written as `ValueNameList` (one `Value` per label,
 
 ## What the import reads
 
-Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The `ValueNameList` of a control, inline or by `UsesValueNameList`, becomes its `values`; two names on the same number are both read, and a `Value` whose number is not whole is lost while the others are carried. A `Values` that states the bounds MIDI fixes for the type of its control (0 to 127, or 0 to 16383) gives an entry without `range` and no loss: those bounds are the ones MIDI imposes. The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence. The date of the import the caller passes in that source (`imported_at`) is kept as the note `_imported_at` of the source added, its value unchanged, 0.7 having no field for it: a `_imported_at` the source already holds stays, and the date goes under `_imported_at_2` (then `_imported_at_3`, then the next number not taken). It is no loss, no date is invented, and the other keys of the source are kept.
+Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The `ValueNameList` of a control, inline or by `UsesValueNameList`, becomes its `values`; two names on the same number are both read, and a `Value` whose number is not whole is lost while the others are carried. A `Values` that states the bounds MIDI fixes for the type of its control (0 to 127, or 0 to 16383) gives an entry without `range` and no loss: those bounds are the ones MIDI imposes. A `Patch@Number` that is not a whole number and a `ProgramChange` that is no program change number are lost at their line. So is the `Name` of a set or of a list of names that the export writes otherwise (`ChannelNameSet`, `ControlNameList`, `NoteNameList`, `PatchNameList` and the references to them). The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence. The date of the import the caller passes in that source (`imported_at`) is kept as the note `_imported_at` of the source added, its value unchanged, 0.7 having no field for it: a `_imported_at` the source already holds stays, and the date goes under `_imported_at_2` (then `_imported_at_3`, then the next number not taken). It is no loss, no date is invented, and the other keys of the source are kept.
 
 ## Elements and attributes
 
@@ -172,3 +172,56 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 ## Differences from the service
 
 The service of SyntHub is not readable from this repository: no pair of its outputs is frozen here, so no difference is listed yet. The equality with its exporter is proved where it is replaced by this package (osc-bridge, OB-20q.7), and each difference found there enters this section with its reason.
+
+## Round trip on public files
+
+The files are the first ten `.midnam` files in byte order of name in `share/patchfiles` of Ardour at the revision below. The rule reads the names alone, not the figures. The files are not kept in this repository. The test `partner_figures` replays the count on the files of the folder `OSD_PARTNER_FILES` names, as `<folder>/midnam/<last segment of the address, percent-decoded>`, and says it is skipped without it. Under `npm test`, a result is replayed from the cache while the value of the variable and the sources stay the same, and a file changed under the same path is not seen: the figures are proved by `OSD_PARTNER_FILES=<folder> npm run test:forcer -- osd-formats/tests/it/partner_figures.rs`.
+
+A file is imported, then the device is exported in the same format. A value is each attribute and each element text, under `Element@Attribute` or the element, counted once under its kind. `structure`: a kind this page classes as structure the import follows. `lost`: a loss of the import covers the value or a block that holds it, even when the export writes an equal one on its own, or the exported file does not hold it equal on the paired element. `carried`: every other. Equal is as the format reads it: a number written as text equals that number, an omitted attribute equals the default the format's document gives. The three columns of a kind add up to the number of its values in the files.
+
+A value belongs to its element. The key of a Control is its type and number; of a Note, its number; of a PatchBank, its name; of a Patch, its bank and its program change, else its number; of a list of value or patch names, the control or bank that uses it; of any other element, its parent with its name, number or channel, else its rank among its siblings. Elements of one key are paired in the order of the files, and an element left without a pair loses all its values.
+
+| Address | Revision | SHA-256 | Licence | Credit |
+|---|---|---|---|---|
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/ART_Multiverb_Alpha_2_0.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | 6ab3bb48c82aad85d18769eba301c770ba460293ce2b416e695b1f437788e12e | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Access_Virus_A.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | 2e4574f005c79048ca95a9c724060089bf4990e405e628161a0a4e00b5f2222e | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Access_Virus_B_KB_Indigo.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | c6bfecf74d5e89b0cf7678e4903d90a85eeb666f68c5ee7c9d2549b4f03bd394 | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Access_Virus_Rack.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | ed3ab729305430c0bfc30077db2d4cd1fa1a699010fdeff564539e1304bfe7af | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_DM5.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | 846cb4b585f2c6d6ff5691c5a01134bf9ce56c5092983f8ee2f6214d63267e4f | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_MIDIVerb_4.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | 72b33708632a780f5bfcaabf787cd1944c97f27d56a54d9f8ad0e9b030788c61 | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_MIDIVerb_II.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | 0b46b88b025669a559330721c48cc06d83bfab5ab2457aca640ffd8e8be1a35f | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_MIDIVerb_III.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | e422a1ff0cdbc55108c54395cadf4822c5636b3532627155a78f684919755e3c | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_MicroVerb4.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | ae615b1472b92b3f2e527f6425c887d186984a1da4cc18cc3d588c60c584970c | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+| <https://raw.githubusercontent.com/Ardour/ardour/eb8afaddfae2eedb6a8c34b546b1f0b310f09343/share/patchfiles/Alesis_NanoBass.midnam> | eb8afaddfae2eedb6a8c34b546b1f0b310f09343 | ac445c80ce01277fee5b194705fb1aadcb64eda5cc50c74af2e54dedf2beb92b | GPL-2.0-or-later | the Ardour project; the Author written in each file |
+
+| Kind | Carried | Lost | Structure |
+|---|---|---|---|
+| `Author` | 0 | 10 | 0 |
+| `AvailableChannel@Available` | 0 | 160 | 0 |
+| `AvailableChannel@Channel` | 0 | 160 | 0 |
+| `ChannelNameSet@Name` | 0 | 10 | 0 |
+| `ChannelNameSetAssign@Channel` | 0 | 145 | 0 |
+| `ChannelNameSetAssign@NameSet` | 0 | 145 | 0 |
+| `Control@Name` | 2 | 0 | 0 |
+| `Control@Number` | 2 | 0 | 0 |
+| `Control@Type` | 2 | 0 | 0 |
+| `ControlChange@Control` | 46 | 0 | 0 |
+| `ControlChange@Value` | 46 | 0 | 0 |
+| `ControlNameList@Name` | 0 | 1 | 0 |
+| `CustomDeviceMode@Name` | 0 | 10 | 0 |
+| `Manufacturer` | 10 | 0 | 0 |
+| `Model` | 10 | 2 | 0 |
+| `Note@Name` | 1097 | 184 | 0 |
+| `Note@Number` | 1097 | 184 | 0 |
+| `NoteGroup@Name` | 0 | 76 | 0 |
+| `NoteNameList@Name` | 0 | 21 | 0 |
+| `Patch@Name` | 0 | 3621 | 0 |
+| `Patch@Number` | 836 | 2785 | 0 |
+| `Patch@ProgramChange` | 3620 | 1 | 0 |
+| `PatchBank@Name` | 42 | 0 | 0 |
+| `PatchNameList@Name` | 2 | 0 | 0 |
+| `SysEx` | 0 | 1 | 0 |
+| `UsesControlNameList@Name` | 0 | 1 | 0 |
+| `UsesNoteNameList@Name` | 0 | 21 | 0 |
+| `UsesPatchNameList@Name` | 0 | 2 | 0 |
+| **Total** | 6812 | 7540 | 0 |

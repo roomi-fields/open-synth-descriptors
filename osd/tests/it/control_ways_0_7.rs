@@ -67,6 +67,11 @@ fn way(kind: &str, index: Value) -> Value {
     json!({"ctrlType": kind, "ctrlIndex": index})
 }
 
+/// A `sysex` way that gives the `id` of its parameter.
+fn sysex_id(id: i64) -> Value {
+    json!({"ctrlType": "sysex", "id": id})
+}
+
 fn with(mut way: Value, key: &str, value: Value) -> Value {
     way[key] = value;
     way
@@ -87,6 +92,11 @@ fn written(doc: &Value) -> Value {
 
 fn shape(w: &osd::Way) -> (String, Vec<i64>) {
     (w.ctrl_type.clone(), w.ctrl_index.clone().unwrap_or_default())
+}
+
+/// The kind of a `sysex` way, its `ctrlIndex` and its numbers `pr`, `p`, `c`, `r`, `id`.
+fn sysex_shape(w: &osd::Way) -> (String, Option<Vec<i64>>, [Option<i64>; 5]) {
+    (w.ctrl_type.clone(), w.ctrl_index.clone(), [w.pr, w.p, w.c, w.r, w.id])
 }
 
 // ---- the form of a way
@@ -221,7 +231,7 @@ fn a_params_entry_of_0_7_refuses_the_flat_fields_of_0_6_at_the_field() {
         ("recognize", json!("absolute")),
     ];
     for (field, value) in flat {
-        let mut entry = json!({"osc": "/a", "ways": [way("sysex", json!([5]))]});
+        let mut entry = json!({"osc": "/a", "ways": [sysex_id(5)]});
         entry[field] = value;
         refused(&params_doc(vec![entry]), FaultKind::UnknownField, &format!("/params/entries/0/{field}"));
     }
@@ -300,7 +310,7 @@ fn the_value_bits_rules_hold_on_every_way_of_a_control_at_the_way() {
 
 #[test]
 fn a_sysex_way_is_for_a_params_entry_and_the_kinds_of_midi_are_for_a_control() {
-    bad(&one(json!({"osc": "/a", "ways": [way("sysex", json!([16, 2, 0, 0]))]})), &format!("{}/ctrlType", way_at(0, 0)));
+    bad(&one(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0}]})), &format!("{}/ctrlType", way_at(0, 0)));
     for (kind, index) in [("cc", json!([7])), ("nrpn", json!([1, 2])), ("rpn", json!([1, 2])), ("pPress", json!([60])), ("note", json!([36])), ("chPress", Value::Null), ("pBend", Value::Null)] {
         let mut w = json!({"ctrlType": kind, "value_bits": 14});
         if kind == "cc" {
@@ -319,15 +329,15 @@ fn a_sysex_way_is_for_a_params_entry_and_the_kinds_of_midi_are_for_a_control() {
 fn a_params_entry_has_sysex_ways_with_the_numbers_of_its_frame_range_width_and_direction() {
     let d = params_doc(vec![
         json!({"osc": "/a", "default": 3, "ways": [
-            {"ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0], "range": [0, 100], "value_bits": 7, "transmit": "absolute", "recognize": "both"}
+            {"ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0, "range": [0, 100], "value_bits": 7, "transmit": "absolute", "recognize": "both"}
         ]}),
-        json!({"osc": "/b", "ways": [way("sysex", json!([5]))]}),
+        json!({"osc": "/b", "ways": [sysex_id(5)]}),
     ]);
     ok(&d);
     assert_eq!(written(&d), d);
     let entries = device(&d).params.unwrap().entries;
-    let ways: Vec<Vec<(String, Vec<i64>)>> = entries.iter().map(|e| e.ways().iter().map(shape).collect()).collect();
-    assert_eq!(ways, vec![vec![("sysex".to_string(), vec![16, 2, 0, 0])], vec![("sysex".to_string(), vec![5])]]);
+    let ways: Vec<Vec<_>> = entries.iter().map(|e| e.ways().iter().map(sysex_shape).collect()).collect();
+    assert_eq!(ways, vec![vec![("sysex".to_string(), None, [Some(16), Some(2), Some(0), Some(0), None])], vec![("sysex".to_string(), None, [None, None, None, None, Some(5)])]]);
 }
 
 // ---- the message claimed once, by side
@@ -577,7 +587,7 @@ fn the_half_goes_upward_on_a_reference_scale_below_zero_too() {
 
 #[test]
 fn the_default_of_a_params_entry_is_scaled_to_its_sysex_way() {
-    let d = params_doc(vec![json!({"osc": "/a", "scale": [0, 200], "ways": [with(way("sysex", json!([5])), "range", json!([0, 100]))]})]);
+    let d = params_doc(vec![json!({"osc": "/a", "scale": [0, 200], "ways": [with(sysex_id(5), "range", json!([0, 100]))]})]);
     let e = device(&d).params.unwrap().entries.remove(0);
     let w = e.ways().remove(0);
     assert_eq!((e.in_way(0, &w), e.in_way(100, &w), e.in_way(200, &w), e.from_way(50, &w)), (0, 50, 100, 100));
@@ -617,8 +627,8 @@ fn a_param_entry_of_0_6_reads_as_one_sysex_way() {
     let Descriptor::Device(d) = osd::read(&doc.to_string(), Kind::Device).unwrap() else { panic!("a device") };
     let entries = d.params.unwrap().entries;
     let first = entries[0].ways();
-    assert_eq!((first.len(), shape(&first[0]), first[0].range), (1, ("sysex".to_string(), vec![16, 2, 0, 0]), Some([0, 100])));
-    assert_eq!(shape(&entries[1].ways()[0]), ("sysex".to_string(), vec![5]));
+    assert_eq!((first.len(), sysex_shape(&first[0]), first[0].range), (1, ("sysex".to_string(), None, [Some(16), Some(2), Some(0), Some(0), None]), Some([0, 100])));
+    assert_eq!(sysex_shape(&entries[1].ways()[0]), ("sysex".to_string(), None, [None, None, None, None, Some(5)]));
 }
 
 // ---- the converter from 0.6
@@ -742,11 +752,11 @@ fn the_converter_writes_a_sysex_way_for_a_params_entry_and_keeps_the_rest_on_the
     assert_eq!(
         entries[0],
         json!({"osc": "/a", "default": 5, "values": [{"value": 1, "title": "a"}], "priority": 3, "ways": [
-            {"ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 1], "range": [0, 100], "transmit": "absolute", "recognize": "both"}
+            {"ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 1, "range": [0, 100], "transmit": "absolute", "recognize": "both"}
         ]})
     );
-    assert_eq!(entries[1], json!({"osc": "/b", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}]}));
-    assert_eq!(entries[2]["ways"], json!([{"ctrlType": "sysex", "ctrlIndex": [16, 2]}]));
+    assert_eq!(entries[1], json!({"osc": "/b", "ways": [{"ctrlType": "sysex", "id": 5}]}));
+    assert_eq!(entries[2]["ways"], json!([{"ctrlType": "sysex", "pr": 16, "p": 2}]));
 }
 
 #[test]

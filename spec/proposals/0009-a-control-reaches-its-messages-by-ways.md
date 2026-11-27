@@ -8,6 +8,10 @@
 
 Amended on 2026-11-25 with the precisions the building of 0.7 brought to the scaling, the `sysex` way, the controls that mix kinds of message and the controls with no way, and the rewritten examples; the same day, the numbers of a `sysex` way are bounded by the length of their list, so that no `id` a published version admits is refused or lost. This change of a `candidate` text puts it back to `draft` ([PROCESS.md](../PROCESS.md), section 2): the delay of 14 days starts again the day it enters `candidate` again.
 
+Amended on 2026-11-27: a `sysex` way gives its numbers as the fields `pr`, `p`, `c`, `r` and `id`, with no `ctrlIndex` and no note, so that no name is lost (a defect: `p` could be read as `pr`); a negative `id` is a number like the others.
+
+Amended on 2026-11-27: `transmit` and `recognize` are said to be read from the point of view of the device or the software described, as in M2-117-UM (the owner's decision).
+
 The owner answered the questions of the first draft on 2026-11-24; the answers are written into the text where they decide, and no question remains open (section "The owner's answers").
 
 ## What it changes
@@ -37,7 +41,8 @@ A way says one message and how it is reached:
 | Field | Says |
 |---|---|
 | `ctrlType` | the message kind: `cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`, `sysex` (for a `params` entry only) |
-| `ctrlIndex` | the numbers of the message, a list of integers, by kind (below); absent for `chPress` and `pBend` |
+| `ctrlIndex` | the numbers of a message of MIDI, a list of integers, by kind (below); absent for `chPress`, `pBend` and `sysex` |
+| `pr`, `p`, `c`, `r`, `id` | on a `sysex` way only: the numbers of the maker's frame, each under its name (below) |
 | `value_bits` | the width of the value: 7 or 14; required with `nrpn` and `rpn`, and with a `cc` that has an LSB (14); optional with a simple `cc` (7, the width its kind implies) |
 | `range` | lowest and highest value of the message, where needed |
 | `transmit` | `absolute`, `relative`, `both`, `none` (the four words of M2-117-UM v1.0, tables 6 and 12) |
@@ -85,19 +90,19 @@ The same formula holds in the other direction, the two ranges exchanged: a value
 | `pPress` | `[note]` | the note number, 0 to 127 |
 | `note` | `[note]` | the note number, 0 to 127 |
 | `chPress`, `pBend` | none: the field is absent, never an empty list | one message per channel |
-| `sysex` | one number, 0 or more, not bounded to a byte (`[id]`, or the `pr` of an entry that gives it alone); or two to four numbers, `[pr, p, c, r]`, each 0 to 255: the numbers of the 0.6 params entry that it gives, in that order | a `params` entry only (below) |
+| `sysex` | none: its numbers are the fields `pr`, `p`, `c`, `r` and `id` of the way (below) | a `params` entry only (below) |
 
 `nrpn_lsb_range` claims, as in 0.6, only the message of its own `ctrlIndex`, not the whole block: a reader MUST NOT claim the LSB numbers of the block. A reader MUST keep it as written and write it back.
 
 ### The ways of a `params` entry
 
-A `params` entry (a parameter read and written by SysEx) has `ways` like a control. Its way is of kind `sysex`: its `ctrlIndex` carries the numbers that address the parameter in the maker's frame, from the fields of the 0.6 entry: `pr`, `p`, `c`, `r` (each one byte, 0 to 255, only those the entry gives), or `id` (one integer, not limited to a byte). The length of the list says its bound, with no new field: a list of one number is 0 or more, whatever its size; a list of two to four numbers holds bytes; a reader refuses any other list, an empty one and one of five numbers too, as `BadValue` at `ctrlIndex`. The reason: 0.6 publishes an `id` not limited to a byte (`spec/0.6.md`, table of words). A `sysex` way carries `range`, `transmit` and `recognize`. It carries no context: a reader refuses `in` and `slice` on a way of a `params` entry as `UnknownField` at `/params/entries/N/ways/M/in` or `/slice` (cases `conformance/0.7/read/in-on-a-params-way-refused` and `conformance/0.7/read/slice-on-a-params-way-refused`). A 0.6 `params` entry has no `value_bits`, and the converter writes none on a `sysex` way. The entry keeps `osc`, `role`, `default`, `values`, `expects`, `section`, `transform`, `priority` and `step_count`. The kinds of MIDI (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`) are not those of a `params` way, and `sysex` is not that of a `cc_params` way.
+A `params` entry (a parameter read and written by SysEx) has `ways` like a control. Its way is of kind `sysex`: it gives each number that addresses the parameter in the maker's frame as a field under its name, from the fields of the 0.6 entry: `pr`, `p`, `c`, `r` (each one byte, 0 to 255) and `id` (any integer, negative too, as 0.6 publishes it, `spec/0.6.md`, table of words), only those the entry gives, and at least one. It has no `ctrlIndex`. A reader refuses a `sysex` way with none of the five numbers as `BadValue` at the way, a `ctrlIndex` on a `sysex` way as `UnknownField` at `ctrlIndex`, a byte outside 0 to 255 or a number that is not an integer as `BadValue` at the field, and any of the five on a way of a kind of MIDI as `UnknownField` at the field. Of several of these faults it reports the first in this order: a kind its table does not take, a field its kind does not hold, a number of a wrong value, none of the five numbers. A `sysex` way carries `range`, `transmit` and `recognize`. It carries no context: a reader refuses `in` and `slice` on a way of a `params` entry as `UnknownField` at `/params/entries/N/ways/M/in` or `/slice` (cases `conformance/0.7/read/in-on-a-params-way-refused` and `conformance/0.7/read/slice-on-a-params-way-refused`). A 0.6 `params` entry has no `value_bits`, and the converter writes none on a `sysex` way. The entry keeps `osc`, `role`, `default`, `values`, `expects`, `section`, `transform`, `priority` and `step_count`. The kinds of MIDI (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`) are not those of a `params` way, and `sysex` is not that of a `cc_params` way.
 
-The converter writes, for a 0.6 `params` entry: one way, `ctrlType: sysex`, `ctrlIndex` the numbers `pr`, `p`, `c`, `r` that the entry gives (or `[id]`, an `id` of 0 or more), the entry's `range` on the way, its `transmit` and `recognize` on the way; the rest stays on the entry. Where the numbers do not say which fields the entry gave (an `id` beside `pr`, `p`, `c` or `r`, numbers other than the first ones in order, or `pr` alone, which reads as an `id`), the way keeps those fields in its note `_flat`. A 0.6 `params` entry with none of `pr`, `p`, `c`, `r` and `id` gets `ways: []` and keeps its `range`, `transmit` and `recognize` on the entry. A negative `id` that is the only number of an entry has no place in a way: the converter never refuses it nor loses it; it writes `ways: []`, keeps `{ "id": -1 }` in the note `_flat` of the entry (`_flat_2`, `_flat_3` and so on, the first free, when the key is taken) and leaves `range`, `transmit` and `recognize` on the entry. A 0.6 text read and written again in 0.6 is unchanged. Cases of the suite: `conformance/0.7/read/sysex-way-of-one-number-beyond-a-byte-accepted`, `conformance/0.7/read/sysex-way-of-one-negative-number-refused`, `conformance/0.7/read/sysex-way-of-several-numbers-beyond-a-byte-refused`, `conformance/0.7/convert/params-id-beyond-a-byte-becomes-the-number-of-the-way`, `conformance/0.7/convert/params-pr-alone-keeps-its-name-in-a-note` and `conformance/0.7/convert/params-negative-id-alone-stays-a-note`.
+The converter writes, for a 0.6 `params` entry: one way, `ctrlType: sysex`, with each of `pr`, `p`, `c`, `r` and `id` that the entry gives under its name, the entry's `range` on the way, its `transmit` and `recognize` on the way; the rest stays on the entry. A 0.6 `params` entry with none of `pr`, `p`, `c`, `r` and `id` gets `ways: []` and keeps its `range`, `transmit` and `recognize` on the entry. A 0.6 text read and written again in 0.6 is unchanged. Cases of the suite: `conformance/0.7/read/sysex-way-with-id-beyond-a-byte-accepted`, `conformance/0.7/read/sysex-way-with-negative-id-accepted`, `conformance/0.7/read/sysex-way-byte-above-255-refused`, `conformance/0.7/read/sysex-way-byte-below-0-refused`, `conformance/0.7/read/sysex-way-byte-not-an-integer-refused`, `conformance/0.7/read/sysex-way-id-not-an-integer-refused`, `conformance/0.7/read/sysex-way-without-a-number-refused`, `conformance/0.7/read/ctrlindex-on-a-sysex-way-refused`, `conformance/0.7/read/sysex-number-on-a-way-of-midi-refused`, `conformance/0.7/convert/params-p-c-r-keep-their-names`, `conformance/0.7/convert/params-pr-alone-keeps-its-name`, `conformance/0.7/convert/params-id-beside-pr-keeps-both`, `conformance/0.7/convert/params-id-beyond-a-byte-becomes-the-id-of-the-way` and `conformance/0.7/convert/params-negative-id-alone-becomes-the-id-of-the-way`.
 
 What the mature references do: Property Exchange controller resources describe MIDI controller messages and have no kind for a SysEx parameter; MIDNAM neither. `sysex` is an OSD word, and the departure has its reason: a SysEx parameter is a control of the device, and putting it in a way lets one structure carry every control; the converter from 0.6 writes it without loss.
 
-The names of a way's fields are Property Exchange's: `ctrlType` for the kind and `ctrlIndex` for the numbers, a list of integers as in PE (one number for a CC or a note, two for an NRPN or an RPN). The kinds are PE's `ctrlType` words where PE has them (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`); `note` is OSD's.
+The names of a way's fields are Property Exchange's where it has them: `ctrlType` for the kind and, for the kinds of MIDI, `ctrlIndex` for the numbers, a list of integers as in PE (one number for a CC or a note, two for an NRPN or an RPN). The kinds are PE's `ctrlType` words where PE has them (`cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`); `note` is OSD's. PE has no SysEx kind, so `ctrlIndex` has no model there: a `sysex` way names its numbers `pr`, `p`, `c`, `r` and `id`, the names of 0.6 and of the frames of `params`, one meaning per field.
 
 Two ways of a control may differ in kind, numbers, width, range, direction and context: each is the way's own.
 
@@ -107,15 +112,16 @@ PE has no kind for a note, since its controllers are continuous (M2-117-UM). The
 
 A note number as the message of a control (`note`) and the same number as a polyphonic pressure (`pPress`) are two messages: their kinds differ, so they are not claimed against each other (see the rule below).
 
-### The order of the ways, and what a sender and a receiver do
+### The order of the ways, and what a tool that sends and a tool that listens do
 
 This is 0.6's rule of `also`, said on the list.
 
 - The ways are in the order written. A reader MUST NOT reorder them.
-- A **receiver** recognises every way whose `recognize` is not `none` as a message of the same control.
-- A **sender** picks the first way it can send: the first whose `transmit` is not `none`, whose kind and width it can write, and whose context holds (see the rule).
-- A way with `transmit: none` is still recognised if its `recognize` allows it; the sender skips it and takes the next.
-- A way with `recognize: none` is sent when its `transmit` allows it; the receiver does not take its message for this control.
+- `transmit` and `recognize` are read from the point of view of the device or the software the descriptor describes, as the controller list of M2-117-UM v1.0 (tables 6 and 12) says them of a device: `transmit` other than `none`, it sends the message; `recognize` other than `none`, it receives it.
+- A **tool that sends** to the device takes the first way it can write: the first whose `recognize` is not `none`, whose kind and width it can write, and whose context holds (see the rule).
+- A **tool that listens** to the device recognises every way whose `transmit` is not `none` as a message of the same control.
+- A way with `recognize: none` is still listened for if its `transmit` allows it; the tool that sends skips it and takes the next.
+- A way with `transmit: none` is sent to the device when its `recognize` allows it; the tool that listens does not expect its message from the device.
 - A way with both at `none` says a message the device neither sends nor takes for this control: a reader keeps it, a tool ignores it, and it claims nothing. The descriptor may name it for a source that lists it.
 - A way with **neither** `transmit` nor `recognize` written says nothing of its direction (as a midi.guide line does): it is both a sent and a recognised message, and **claims on both sides**. Only an explicit `none` removes a side. The absence is not `none`.
 
@@ -126,7 +132,7 @@ This is 0.6's rule of `also`, said on the list.
 0.6 says a message is claimed once (`spec/0.6.md:1145`). Proposal 0003 says: once by claims that can hold together. Here, written on the ways:
 
 - A **claim** is a way on one side: its message (`ctrlType`, channel, `ctrlIndex`) with its coordinates (the sets of `in`, and the interval of `slice`).
-- A way claims its message **on each side it works**: as a receiver when `recognize` is not `none`, as a sender when `transmit` is not `none`. A way with both at `none` claims nothing.
+- A way claims its message **on each side it works**: the side where the device receives it when `recognize` is not `none`, the side where it sends it when `transmit` is not `none`. A way with both at `none` claims nothing.
 - A way claims **the numbers it occupies**: `[7]` claims the CC number 7; `[7, 39]` claims the CC numbers 7 and 39 (a 14-bit CC occupies its MSB and its LSB). An NRPN or an RPN `[msb, lsb]` is one message; `[note]` claims the note.
 - **The same message in the same context** is: the same `ctrlType`, a `ctrlIndex` that shares a claimed number (for `cc`; for the other kinds, the same list), the same channel (or both with none), and contexts that overlap. Two contexts overlap unless a coordinate named by both has two sets with nothing in common; a coordinate that only one names leaves them overlapping.
 - **Two ways overlap only if they claim on the same side.** Two ways of the same message that claim on different sides are admitted.
@@ -144,10 +150,10 @@ Examples, on the NRPN `[0, 122]` with no channel:
 Examples, on the CC:
 
 - Refused, a number in common: a way `{ "ctrlType": "cc", "ctrlIndex": [39] }` (7 bits) against a way `{ "ctrlType": "cc", "ctrlIndex": [7, 39], "value_bits": 14 }`. Both claim the CC number 39 on the same sides.
-- Accepted, one way receives and the other sends the same CC: way 1 `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "absolute", "recognize": "none" }`, way 2 `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "none", "recognize": "absolute" }`. Way 1 claims the sender side, way 2 the receiver side.
-- Refused on the sender side: two ways `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "absolute", "recognize": "none" }`. Both claim the CC 7 as a sender.
+- Accepted, one way receives and the other sends the same CC: way 1 `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "absolute", "recognize": "none" }`, way 2 `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "none", "recognize": "absolute" }`. Way 1 claims the side where the device sends, way 2 the side where it receives.
+- Refused on the sender side: two ways `{ "ctrlType": "cc", "ctrlIndex": [7], "transmit": "absolute", "recognize": "none" }`. Both claim the CC 7 on the side where the device sends.
 
-The order of the ways stays the sender's rule: it takes the first sendable way whose context holds. A way whose context does not hold at the moment is skipped; the next is tried.
+The order of the ways stays the rule of the tool that sends: it takes the first way it can send whose context holds. A way whose context does not hold at the moment is skipped; the next is tried.
 
 `note` number 60 and `pPress` number 60 on one channel: different kinds, two messages, no claim between them.
 
@@ -169,11 +175,10 @@ For a 0.6 control the converter writes the following, losing no value: a block (
 | `transmit`, `recognize` of the entry | written on every way (0.6 has one value for the control) |
 | `values` (a dictionary label → integer) | the entry's `values`, a list of `{ "value": integer, "title": label }` in the order of the dictionary, as Property Exchange's `ctrlMapId` list gives `value` and `title`; the integers are in the reference scale (below) |
 | `expects`, `section`, `transform`, `role`, `default`, `priority`, `step_count` | the same fields of the entry, unchanged |
-| a `params` entry's `pr`, `p`, `c`, `r`, `id`, `range`, `transmit`, `recognize` | one way of kind `sysex` (above) |
+| a `params` entry's `pr`, `p`, `c`, `r`, `id`, `range`, `transmit`, `recognize` | one way of kind `sysex`, each number under its name (above) |
 | the scale | the range of the first way, written as `scale` on the control only if the control has a `default`, `values` or `step_count` and its first way is not the most precise; for a `range` that no way takes, that `range` (below) |
 | an entry that gives no message fully known | `ways: []`; its `range`, `transmit`, `recognize` and `nrpn_lsb_range` stay on the entry, unchanged, with no `scale` |
 | an NRPN or an RPN given by one number, a `cc_lsb` without `cc` | no way: the note `_incomplete` of the entry (below) |
-| a `params` entry whose only number is a negative `id` | `ways: []`, the `id` in the note `_flat` of the entry; `range`, `transmit`, `recognize` stay on the entry (above) |
 
 **The block the converter writes.** An entry of `cc_params` that gives `nrpn_lsb_range` and has a way in 0.7 has it written on one `nrpn` way and on no other: the way of the flat fields when they give both `nrpn_msb` and `nrpn_lsb`; else, when they give neither, the single `nrpn` way written from `also`. When no way can receive it (the flat fields give one number of an NRPN alone; or they give none, and `also` gives no `nrpn` way or several), the converter does not refuse the entry for it and chooses no way: it keeps the value, unchanged, on the entry under `_nrpn_lsb_range`, a note for people; when that key is taken, under `_nrpn_lsb_range_2`, `_nrpn_lsb_range_3` and so on, the first free. A control of 0.4 or 0.5 that mixes kinds of message follows its own rules (below). Cases of the suite, under `conformance/0.7/convert/`: `nrpn-block-goes-to-the-only-nrpn-way-of-also`, `nrpn-block-beside-a-cc-of-0-4-kept-as-note`, `nrpn-block-beside-a-cc-of-0-5-kept-as-note`, `nrpn-block-beside-a-cc-of-0-6-kept-as-note`, `nrpn-block-beside-also-without-nrpn-kept-as-note`, `nrpn-block-beside-two-nrpn-ways-of-also-kept-as-note` and `nrpn-block-note-takes-the-next-free-key`.
 
@@ -222,7 +227,7 @@ becomes, with every field in its place (`cc` in way 1's `ctrlIndex`, `range` in 
     "transmit": "absolute", "recognize": "none" } ] }
 ```
 
-The receiver recognises the NRPN (way 1) and not the CC (way 2). The sender skips way 1 (`transmit: none`) and sends the CC. Each way kept its own two values; nothing was merged.
+The device receives the NRPN (way 1) and does not send it; it sends the CC (way 2) and does not receive it. A tool that sends to the device takes way 1; a tool that listens to it recognises the CC. Each way kept its own two values; nothing was merged.
 
 #### A control of 0.4 or 0.5 that mixes kinds of message
 
@@ -303,11 +308,11 @@ Each with its input and its verdict.
 9. **A note and a polyphonic pressure of the same number.** Verdict: accepted, two messages.
 10. **A 7-bit CC against a 14-bit CC with a number in common.** A way `cc` `[39]` and a way `cc` `[7, 39]` with `value_bits: 14`. Verdict: refused as `BadValue` at the later way, naming the earlier.
 11. **One way receives, the other sends.** The same CC `[7]`: a way with `recognize: none` and `transmit: absolute`, a way with `transmit: none` and `recognize: absolute`. Verdict: accepted.
-12. **Two ways both sending the same message.** Two ways of the CC `[7]`, each with `recognize: none` and `transmit: absolute`. Verdict: refused as `BadValue` at the later way, on the sender side.
+12. **Two ways both sending the same message.** Two ways of the CC `[7]`, each with `recognize: none` and `transmit: absolute`. Verdict: refused as `BadValue` at the later way, on the side where the device sends.
 13. **A pressure way with an empty `ctrlIndex`.** `{ "ctrlType": "chPress", "ctrlIndex": [] }`. Verdict: refused as `BadValue` at `ctrlIndex`: the field is absent for `chPress` and `pBend`.
 14. **A way with neither direction.** Two ways of the CC `[7]` with no `transmit` and no `recognize`. Verdict: refused as `BadValue` at the later way: each claims both sides.
 15. **A reference scale.** A control with `default: 8192`, a 14-bit NRPN way and a 7-bit CC way. Verdict: valid; the reference is the NRPN (the most precise); the default is 8192 on the NRPN and 64 on the CC.
-16. **A `params` entry.** `ways: [ { "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0] } ]`. Verdict: valid; the same way on a `cc_params` entry is `BadValue`. In the suite: the conversion of a 0.6 `params` entry is `conformance/0.7/convert/params-entry-becomes-a-sysex-way`.
+16. **A `params` entry.** `ways: [ { "ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0 } ]`. Verdict: valid; the same way on a `cc_params` entry is `BadValue`. In the suite: the conversion of a 0.6 `params` entry is `conformance/0.7/convert/params-entry-becomes-a-sysex-way`.
 17. **A control with no way.** `ways: []`. Verdict: valid, with the warning `PartialControl` at the entry (`conformance/0.7/read/control-without-a-way-warned`).
 
 ### The flat fields and `also` do not exist in 0.7
@@ -338,7 +343,7 @@ The owner answered on 2026-11-24, with five answers; no question remains open.
 2. **The partners' data.** No count is needed, since no field disappears with its information (section "The round trip with the partners' data").
 3. **A way claims its message only on the side where it works** (section "The message claimed once, by side, with contexts").
 4. **The word `note`** is the kind of a note message, MIDI's word.
-5. **The names of a way's fields** are Property Exchange's: `ctrlType` for the kind and `ctrlIndex` for the numbers, a list of integers, not an object.
+5. **The names of a way's fields** are Property Exchange's: `ctrlType` for the kind and `ctrlIndex` for the numbers, a list of integers, not an object. A `sysex` way, which PE does not have, names its numbers `pr`, `p`, `c`, `r` and `id` (amendment of 2026-11-27).
 
 The owner decided two more points on 2026-11-24:
 

@@ -15,6 +15,7 @@ fn device(controls: &[Value]) -> osd::Device {
         .map(|(n, c)| {
             let mut c = c.clone();
             c["osc"] = json!(format!("/c{n}"));
+            c["title"] = json!(format!("c{n}"));
             c
         })
         .collect();
@@ -71,12 +72,13 @@ fn cell(record: &[String], column: &str) -> String {
     record[HEADER.iter().position(|h| *h == column).unwrap()].clone()
 }
 
-/// The device exported, its rows, the losses of its controls, and the device imported back.
+/// The device exported, its rows, the losses of its controls but those of a range the import
+/// adds (export_names_every_loss.rs and osd_field_tables.rs hold them), and the device imported back.
 fn round_trip(d: &osd::Device) -> (Vec<Vec<String>>, Vec<Loss>, osd::Device) {
     let out = export(&resolved(d.clone()), Format::MidiCsv).unwrap();
     let back = import(&out.value, Format::MidiCsv, &source()).unwrap();
     assert!(back.lost.is_empty(), "{:?}", back.lost);
-    let lost = out.lost.into_iter().filter(|l| l.place.starts_with("/cc_params")).collect();
+    let lost = out.lost.into_iter().filter(|l| l.place.starts_with("/cc_params") && !l.place.ends_with("/range")).collect();
     (parse(&out.value), lost, back.value)
 }
 

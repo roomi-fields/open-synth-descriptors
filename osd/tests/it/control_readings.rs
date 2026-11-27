@@ -71,7 +71,7 @@ fn a_reading_of_a_control_gives_its_state_its_firmware_and_leaves_the_rest_absen
 
 #[test]
 fn a_params_entry_carries_readings_like_a_cc_entry() {
-    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [
+    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [
         {"state": "to-confirm", "firmware": "2.0", "title": "Shape"}]}));
     let list = device(&d).params.unwrap().entries.remove(0).readings.expect("readings");
     assert_eq!((list[0].state, list[0].title.as_deref()), (ReadingState::ToConfirm, Some("Shape")));
@@ -170,7 +170,7 @@ fn the_source_of_a_control_reading_names_an_id_of_the_sources_of_the_file() {
 
 #[test]
 fn the_source_of_a_params_reading_names_an_id_of_the_sources_of_the_file() {
-    let mut d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [{"state": "valid", "firmware": "1", "source": "ghost"}]}));
+    let mut d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [{"state": "valid", "firmware": "1", "source": "ghost"}]}));
     assert_eq!(refused(&d), (FaultKind::BadValue, "/params/entries/0/readings/0/source".into()));
     d["sources"] = json!([{"type": "vendor-doc", "id": "ghost"}]);
     assert!(osd::read(&d.to_string(), Kind::Device).is_ok());
@@ -178,7 +178,7 @@ fn the_source_of_a_params_reading_names_an_id_of_the_sources_of_the_file() {
 
 #[test]
 fn the_faults_of_a_params_reading_are_at_its_own_place() {
-    let entry = |reading: Value| params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [reading]}));
+    let entry = |reading: Value| params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [reading]}));
     assert_eq!(refused(&entry(json!({"state": "nope", "firmware": "1"}))), (FaultKind::BadValue, "/params/entries/0/readings/0/state".into()));
     assert_eq!(refused(&entry(json!({"state": "valid"}))), (FaultKind::Missing, "/params/entries/0/readings/0/firmware".into()));
     assert_eq!(
@@ -245,7 +245,7 @@ fn without_a_scale_the_range_is_read_in_the_scale_of_the_most_precise_way() {
 
 #[test]
 fn a_range_of_a_control_whose_scale_is_not_known_is_not_checked() {
-    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [
+    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [
         {"state": "valid", "firmware": "1", "range": [0, 99999]}]}));
     let list = device(&d).params.unwrap().entries.remove(0).readings.unwrap();
     assert_eq!(list[0].range, Some([0, 99999]));
@@ -253,7 +253,7 @@ fn a_range_of_a_control_whose_scale_is_not_known_is_not_checked() {
 
 #[test]
 fn a_range_of_a_params_entry_with_a_scale_is_read_in_it() {
-    let entry = |range: Value| params_doc(json!({"osc": "/a", "scale": [0, 255], "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [
+    let entry = |range: Value| params_doc(json!({"osc": "/a", "scale": [0, 255], "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [
         {"state": "valid", "firmware": "1", "range": range}]}));
     assert!(osd::read(&entry(json!([0, 255])).to_string(), Kind::Device).is_ok());
     assert_eq!(refused(&entry(json!([0, 256]))), (FaultKind::BadValue, "/params/entries/0/readings/0/range".into()));
@@ -306,7 +306,7 @@ fn a_firmware_with_only_refuted_readings_gives_the_others_unless_refuted_is_aske
 
 #[test]
 fn a_params_entry_gives_the_readings_of_a_firmware_by_the_same_rule() {
-    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [5]}], "readings": [
+    let d = params_doc(json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 5}], "readings": [
         reading("to-confirm", "1", "c"), reading("valid", "1", "v"), reading("valid", "2", "w")]}));
     let e = device(&d).params.unwrap().entries.remove(0);
     let titles = |fw: &str| e.readings_for(fw, false).iter().map(|x| x.title.clone().unwrap()).collect::<Vec<_>>();

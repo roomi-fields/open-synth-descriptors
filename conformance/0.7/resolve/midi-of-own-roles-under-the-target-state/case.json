@@ -1,0 +1,55 @@
+{
+  "_about": "A midi_of file of 0.7 that names the state of the role vocabulary its target names gives a role to its own route; the result names that state and holds both roles.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "role_vocabulary": "1",
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "cutoff"
+          },
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/resonance",
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "resonance"
+          },
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                71
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of": "acme/b"
+  }
+}

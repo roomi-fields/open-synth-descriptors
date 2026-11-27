@@ -1,0 +1,65 @@
+{
+  "_about": "On a stock MIDI that names no state of the role vocabulary, two modules that name the same state resolve; the result names it and holds the roles of both.",
+  "resolve_assembly": "acme/build",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "role_vocabulary": "1",
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/resonance",
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "resonance"
+          },
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                71
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/level",
+          "role": {
+            "parts": [
+              {
+                "part": "output"
+              }
+            ],
+            "setting": "level"
+          },
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                72
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -109,7 +109,7 @@ An invented device, "Orbe". Its messages start with `F0 7D 10` and end with `F7`
     "set_frame": [240, 125, 16, 3, { "arg": "id" }, { "arg": "value" }, 247],
     "value_type": "u7",
     "entries": [
-      { "osc": "/voice/level", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [4], "range": [0, 127] }] }
+      { "osc": "/voice/level", "ways": [{ "ctrlType": "sysex", "id": 4, "range": [0, 127] }] }
     ]
   },
   "commands": [

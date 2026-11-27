@@ -20,7 +20,7 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 |---|---|---|---|
 | `FULL_PATH` | carried | the address of the node | OSCQueryProposal, "Attributes": FULL_PATH |
 | `CONTENTS` | carried | the containers below an address | OSCQueryProposal, "Attributes": CONTENTS |
-| `TYPE` | carried | the tags of the arguments of a method; the arrays of the type are lost | OSCQueryProposal, "Attributes": TYPE and "Type tags" |
+| `TYPE` | carried | the tags of the arguments of a method; the arrays of the type are lost, and so is a tag the export writes as another (`h` as `i`, `d` as `f`, `S` and `c` as `s`, `F` as `T`), named at the `TYPE` of the method | OSCQueryProposal, "Attributes": TYPE and "Type tags" |
 | `ACCESS` | carried | 2 for a command, 3 for a control; 1 is lost on import, nothing is read of 0 | OSCQueryProposal, "Attributes": ACCESS |
 | `RANGE` | carried | the bounds of each argument | OSCQueryProposal, "Attributes": RANGE |
 | `DESCRIPTION` | lost | the device node carries the credit of the sources on export; no other text is held | OSCQueryProposal, "Attributes": DESCRIPTION |
@@ -38,3 +38,23 @@ The fate is `carried` when the export writes it and the import reads it back, `l
 ## Differences from the service
 
 The service of SyntHub is not readable from this repository: no pair of its outputs is frozen here, so no difference is listed yet. The equality with its exporter is proved where it is replaced by this package (osc-bridge, OB-20q.7), and each difference found there enters this section with its reason.
+
+## Round trip on public files
+
+The files are the captures of a running OSCQuery program that gluon/oscq-inspector keeps in `tests/fixtures/` at the revision below, as its README lists them under "Real server captures", each namespace once (`max-hostinfo.json` is the same bytes as `max-root.json`, and `helper-hostinfo.json` is no namespace), that the import reads: Max 9 of Cycling '74. The rule reads where the files come from and whether they are read, not their figures. Two namespace files are refused and have no figure: [`helper-root.json`](https://raw.githubusercontent.com/gluon/oscq-inspector/5c79da2c3d0e5eac6613ff000e953d2ec0482501/tests/fixtures/helper-root.json), the capture of the Vidvox OSCQuery Helper (`InvalidFile` at `/CONTENTS/tuples/CONTENTS/first/RANGE`: the import asks one entry of `RANGE` per argument of `TYPE` and counts the arguments inside an array of the type one by one); and [`docs/example-http.json`](https://raw.githubusercontent.com/Cycling74/rnbo.oscquery.runner/09326e9f3acd1a54a8b9ea39c1b9314eb6d2f2f8/docs/example-http.json) of Cycling '74's runner (MIT), whose `EXTENDED_TYPE` is the text `list` beside an empty `TYPE`, where the proposal gives one entry per argument (`InvalidFile` at `/CONTENTS/rnbo/CONTENTS/inst/CONTENTS/0/CONTENTS/jack/CONTENTS/audio_ins/EXTENDED_TYPE`). The files are not kept in this repository. The test `partner_figures` replays the count on the files of the folder `OSD_PARTNER_FILES` names, as `<folder>/oscquery/<last segment of the address, percent-decoded>`, and says it is skipped without it. Under `npm test`, a result is replayed from the cache while the value of the variable and the sources stay the same, and a file changed under the same path is not seen: the figures are proved by `OSD_PARTNER_FILES=<folder> npm run test:forcer -- osd-formats/tests/it/partner_figures.rs`.
+
+A file is imported, then the device is exported in the same format. A value is each leaf of the JSON, under its attribute path inside its node, with list indices written N, counted once under its kind. `structure`: a kind this page classes as structure the import follows. `lost`: a loss of the import covers the value or a block that holds it, even when the export writes an equal one on its own, or the exported file does not hold it equal on the paired element. `carried`: every other. Equal is as the format reads it: a number written as text equals that number, an omitted attribute equals the default the format's document gives. The three columns of a kind add up to the number of its values in the files.
+
+A value belongs to its node, whose key is its address. Elements of one key are paired in the order of the files, and an element left without a pair loses all its values.
+
+| Address | Revision | SHA-256 | Licence | Credit |
+|---|---|---|---|---|
+| <https://raw.githubusercontent.com/gluon/oscq-inspector/5c79da2c3d0e5eac6613ff000e953d2ec0482501/tests/fixtures/max-root.json> | 5c79da2c3d0e5eac6613ff000e953d2ec0482501 | df3cf2d12655baafc878eed0bca1bb5b01b9c61468e5d7326ad3f35634f875cb | GPL-3.0-or-later | Julien Bayle, gluon/oscq-inspector |
+
+| Kind | Carried | Lost | Structure |
+|---|---|---|---|
+| `/ACCESS` | 0 | 30 | 0 |
+| `/FULL_PATH` | 12 | 24 | 0 |
+| `/TYPE` | 0 | 30 | 0 |
+| `/VALUE/N` | 0 | 30 | 0 |
+| **Total** | 12 | 114 | 0 |

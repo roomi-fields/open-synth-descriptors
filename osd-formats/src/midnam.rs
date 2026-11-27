@@ -43,6 +43,11 @@ fn segment(key: &str) -> String {
     key.replace('~', "~0").replace('/', "~1")
 }
 
+/// The names the export gives the set of names and the lists it writes.
+const SET_NAME: &str = "Names";
+const CONTROLS_NAME: &str = "Controls";
+const NOTES_NAME: &str = "Notes";
+
 // ---- import -----------------------------------------------------------------------------
 
 /// The loss of an element (`line N`, reason led by `Element`) or of one of its attributes
@@ -53,6 +58,14 @@ fn lost_element(losses: &mut Vec<Loss>, n: &Node, attr: Option<&str>, reason: &s
         Some(a) => format!("{}@{a}", n.name),
     };
     loss(losses, format!("line {}", n.line), format!("{what}: {reason}"));
+}
+
+/// Names the `Name` of a list, or of a reference to one, that the export does not write: it
+/// writes `written` there.
+fn lose_list_name(losses: &mut Vec<Loss>, n: &Node, written: &str, reason: &str) {
+    if n.attr("Name").is_some_and(|name| name != written) {
+        lost_element(losses, n, Some("Name"), reason);
+    }
 }
 
 /// A whole number written in an attribute.
@@ -152,6 +165,10 @@ fn patch_bank(n: usize, pb: &Node, patch_lists: &[&Node], losses: &mut Vec<Loss>
             format!("Bank {n}")
         }
     };
+    if let Some(u) = pb.kid("UsesPatchNameList") {
+        lost_element(losses, u, Some("Name"), "the reference to a list of patch names is resolved on import and not kept");
+    }
+    lose_list_name(losses, list, &bank_name, "the descriptor does not name a list of programs: the export names it after its bank");
     let patches: Vec<&Node> = list.kids("Patch").collect();
     if patches.is_empty() {
         lost_element(losses, pb, None, "a bank with no patch: the descriptor's bank holds at least one program");
@@ -165,10 +182,14 @@ fn patch_bank(n: usize, pb: &Node, patch_lists: &[&Node], losses: &mut Vec<Loss>
             first_number = number;
             first_pc = pc;
         }
-        if number != first_number.map(|f| f + i as i64) {
+        if number.is_none() {
+            lost_element(losses, p, Some("Number"), "not a whole number: the descriptor numbers the programs of a bank with whole numbers");
+        } else if number != first_number.map(|f| f + i as i64) {
             lost_element(losses, p, Some("Number"), "the numbers of a bank follow one another from the first: this one does not");
         }
-        if pc != first_pc.map(|f| f + i as i64) {
+        if pc.is_none() && p.attr("ProgramChange").is_some() {
+            lost_element(losses, p, Some("ProgramChange"), "not a program change number from 0 to 127");
+        } else if pc != first_pc.map(|f| f + i as i64) {
             lost_element(losses, p, Some("ProgramChange"), "the program changes of a bank follow one another from the first: this one does not");
         }
         if p.attr("Name") != Some(&patch_name(&bank_name, p.attr("Number").unwrap_or(""))) {
@@ -377,12 +398,15 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
                 }
             }
             "ChannelNameSet" => {
+                lose_list_name(&mut losses, c, SET_NAME, "the descriptor has one set of names, which it does not name");
                 for k in &c.children {
                     match k.name.as_str() {
                         "AvailableForChannels" => lost_element(&mut losses, k, None, "the descriptor does not say on which channels its names apply"),
                         "NoteNameList" => note_lists.push(k),
                         "ControlNameList" => control_lists.push(k),
                         "PatchBank" => banks_of.push(k),
+                        "UsesNoteNameList" => lose_list_name(&mut losses, k, NOTES_NAME, "the reference to a list of note names is not kept"),
+                        "UsesControlNameList" => lose_list_name(&mut losses, k, CONTROLS_NAME, "the reference to a list of control names is not kept"),
                         _ => {}
                     }
                 }
@@ -393,6 +417,13 @@ fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
             "ValueNameList" => value_lists.named.push(c),
             _ => {}
         }
+    }
+
+    for l in &control_lists {
+        lose_list_name(&mut losses, l, CONTROLS_NAME, "the descriptor does not name a list of controls");
+    }
+    for l in &note_lists {
+        lose_list_name(&mut losses, l, NOTES_NAME, "the descriptor does not name a list of notes");
     }
 
     let mut used = BTreeSet::new();
@@ -730,22 +761,22 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     w.open("CustomDeviceMode", &[("Name", "Default".into())]);
     w.open("ChannelNameSetAssignments", &[]);
     for c in 1..=16 {
-        w.empty("ChannelNameSetAssign", &[("Channel", c.to_string()), ("NameSet", "Names".into())]);
+        w.empty("ChannelNameSetAssign", &[("Channel", c.to_string()), ("NameSet", SET_NAME.into())]);
     }
     w.end("ChannelNameSetAssignments");
     w.end("CustomDeviceMode");
 
-    w.open("ChannelNameSet", &[("Name", "Names".into())]);
+    w.open("ChannelNameSet", &[("Name", SET_NAME.into())]);
     w.open("AvailableForChannels", &[]);
     for c in 1..=16 {
         w.empty("AvailableChannel", &[("Channel", c.to_string()), ("Available", "true".into())]);
     }
     w.end("AvailableForChannels");
     if !notes.is_empty() {
-        w.empty("UsesNoteNameList", &[("Name", "Notes".into())]);
+        w.empty("UsesNoteNameList", &[("Name", NOTES_NAME.into())]);
     }
     if !controls.is_empty() {
-        w.empty("UsesControlNameList", &[("Name", "Controls".into())]);
+        w.empty("UsesControlNameList", &[("Name", CONTROLS_NAME.into())]);
     }
     let banks = d.programs.as_ref().map(|p| p.banks.iter().flatten().flatten().collect::<Vec<_>>()).unwrap_or_default();
     if let Some(p) = &d.programs {
@@ -812,7 +843,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     w.end("ChannelNameSet");
 
     if !notes.is_empty() {
-        w.open("NoteNameList", &[("Name", "Notes".into())]);
+        w.open("NoteNameList", &[("Name", NOTES_NAME.into())]);
         for (number, name) in &notes {
             w.empty("Note", &[("Number", number.to_string()), ("Name", (*name).to_string())]);
         }
@@ -827,7 +858,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     let list_name = |n: usize| format!("Values {}", n + 1);
     if !controls.is_empty() {
-        w.open("ControlNameList", &[("Name", "Controls".into())]);
+        w.open("ControlNameList", &[("Name", CONTROLS_NAME.into())]);
         for c in &controls {
             let (kind, number) = c.binding.type_and_number();
             w.open("Control", &[("Type", kind.into()), ("Number", number), ("Name", c.name.clone())]);

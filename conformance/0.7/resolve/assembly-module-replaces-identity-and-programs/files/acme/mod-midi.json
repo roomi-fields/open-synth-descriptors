@@ -1,0 +1,34 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "midi_of": "acme/synth",
+  "identity": {
+    "reply_text": "modded"
+  },
+  "programs": {
+    "banks": [
+      {
+        "name": "B",
+        "size": 64
+      }
+    ]
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/y",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              2
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

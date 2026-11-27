@@ -30,11 +30,15 @@ param_path, outcome}` per setting, `outcome` being `equal`, `differ` or
 A reading case that expects a result may add `warnings` (from suite 1.5.0): the ordered list of
 `{kind, pointer}` the reader reports on the descriptor, none of which refuses it. `kind` is
 `PartialControl` (an entry of `cc_params` or `params` that reaches no message, at the entry: it is
-to be completed), `UnknownProvider` (a `provider` that the table of providers does not hold, at
-the field) or `UncreditedSource` (from 0.7: a source not carried as credit, an entry of the note
+to be completed), `UnconfirmedPlace` (0.6 and 0.7, from suite 1.16.0: a place of a sound transfer
+whose control that transfer places at places that differ, at the `control` of the place,
+`/sound_transfers/<n>/places/<m>/control`, one for each of these places, none for identical places
+nor for the places of two transfers), `UnknownProvider` (a `provider` that the table of providers
+does not hold, at the field) or `UncreditedSource` (from 0.7: a source not carried as credit, an entry of the note
 `_sources_2`, or of a later number, of a maker profile, a sound, a fingerprint, a firmware or an
 assembly, at the entry; at the note when it is not a list). Of a device, the controls come first, `cc_params`
-then `params`, then the sources, `sources` then `midi_of_sources`. Of another kind, the
+then `params`, then the sources, `sources` then `midi_of_sources`, then the `UnconfirmedPlace`
+places, by transfer then by place, in their order. Of another kind, the
 `UnknownProvider` of its `sources` come first, in their order, then the `UncreditedSource` of its
 notes `_sources_<n>`, by their number `n`, the entries of a note in their order; a sound gives all
 of its own before those of the assembly it was made on (`made_on`). A case that states no
@@ -150,7 +154,9 @@ path, at that part; a setting that does not apply to the last part, at the role.
 
 ## Vocabulary states (`0.6/vocabulary/<case>/`)
 
-- `vocabulary.json`: the state of the vocabulary of roles the case reads.
+- `vocabulary.json`: the state of the vocabulary of roles the case reads. From
+  state 2, a term may be a `value`, a choice of a selector, whose `applies_to`
+  names settings; the schema of the case is that of the state it says it is.
 - `case.json`: `_about`, what the case shows; then one of:
   - `result`: the state is valid; `terms` lists the names read;
   - `fault`: the refusal, by its `kind` and the JSON `pointer` of the value

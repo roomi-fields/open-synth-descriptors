@@ -11,6 +11,7 @@ use crate::frame::{FramePart, FrameToken};
 use crate::json::{at_least, closed, obj, object, words, At, Opt, STRING};
 use crate::{Device, Fault, FaultKind};
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet};
 
 #[cfg(test)]
 mod tests;
@@ -183,6 +184,36 @@ impl SoundTransfer {
     fn is_script(&self) -> bool {
         self.elements.is_script() || self.places.iter().flatten().any(|s| s.script.is_some())
     }
+
+    /// The controls this transfer places twice or more at places that differ (`from`, `length` or
+    /// `script`): the places contradict each other and none is taken as sure. Identical places do
+    /// not, and the places of another transfer are other facts.
+    fn contradicted_controls(&self) -> HashSet<&str> {
+        let mut first = HashMap::new();
+        let mut out = HashSet::new();
+        for s in self.places.iter().flatten() {
+            let place = (s.from, s.length, s.script.as_deref());
+            if *first.entry(s.control.as_str()).or_insert(place) != place {
+                out.insert(s.control.as_str());
+            }
+        }
+        out
+    }
+}
+
+/// The JSON pointer of the `control` of each place whose control its transfer places at places that
+/// differ, in the order of the transfers, then of their places.
+pub(crate) fn unconfirmed_places(device: &Device) -> Vec<String> {
+    let mut out = Vec::new();
+    for (n, t) in device.sound_transfers.iter().flatten().enumerate() {
+        let contradicted = t.contradicted_controls();
+        for (m, s) in t.places.iter().flatten().enumerate() {
+            if contradicted.contains(s.control.as_str()) {
+                out.push(format!("/sound_transfers/{n}/places/{m}/control"));
+            }
+        }
+    }
+    out
 }
 
 fn check_elements(e: &Elements, at: &At) -> Result<(), Fault> {
@@ -410,13 +441,17 @@ pub struct Setting {
 }
 
 /// The settings of the sound `index` of a message of the transfer `transfer`, in the order of the
-/// controls (`cc_params`, then `params`). A control with no role, no place, a place by bits or
-/// 7-bit words, a script or a place the data does not hold is absent: nothing is guessed. The
-/// refusals are those of `sound_identity`.
+/// controls (`cc_params`, then `params`). A control with no role, no place, places of the
+/// transfer that differ, a place by bits or 7-bit words, a script or a place the data does not
+/// hold is absent: nothing is guessed. The refusals are those of `sound_identity`.
 pub fn sound_settings(device: &Device, transfer: &str, message: &[u8], index: usize) -> Result<Vec<Setting>, Fault> {
     let (t, data) = sound_data(device, transfer, message, index)?;
     let mut out = Vec::new();
+    let contradicted = t.contradicted_controls();
     for (pointer, path) in crate::role::control_param_paths(device) {
+        if contradicted.contains(pointer.as_str()) {
+            continue;
+        }
         let Some(s) = t.places.iter().flatten().find(|s| s.control == pointer) else { continue };
         let (Some(from), Some(length), None) = (s.from, s.length, &s.script) else { continue };
         let (from, length) = (from as usize, length as usize);

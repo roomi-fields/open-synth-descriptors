@@ -16,18 +16,18 @@ the [discussions](https://github.com/roomi-fields/open-synth-descriptors/discuss
 
 A pull request adds one term to the next state (a new folder `schemas/vocabulary/<n+1>/`). It brings:
 
-- the name, the one-sentence definition, the type, `applies_to` for a setting, `stands_under` for a part that stands under others;
+- the name, the one-sentence definition, the type (`part`, `setting` or `value`), `applies_to` for a setting (the parts it is set on) and for a value (the settings it is a choice of), `stands_under` for a part that stands under others;
 - the makers' words, each with its origin;
-- the `source` (a controller of the MIDI 1.0 table, a row of a published table with its document), or the `shared_by` of two devices of two makers;
+- the `source` (a controller of the MIDI 1.0 table, a row of a published table with its document, a maker's manual included), or the `shared_by` of two devices of two makers;
 - the test that no existing term or maker's word says the same function: the term written with the existing terms (parts and a setting) does not say it, and no word of another term is its word.
 
-`cargo test -p osd` checks the whole state; the pull request is not mergeable until it passes. The vocabulary and its rule of entry are in [`spec/vocabulary/1.md`](spec/vocabulary/1.md).
+`cargo test -p osd` checks the whole state; the pull request is not mergeable until it passes. The vocabulary is in [`spec/vocabulary/1.md`](spec/vocabulary/1.md); the type `value` and the rule of entry from state 2 on, which asks for no number of makers, are in [`spec/vocabulary/2.md`](spec/vocabulary/2.md).
 
 ## How a state of the vocabulary is published
 
 A state is numbered (`1`, `2`…) and is a folder: `terms.json` and its schema `vocabulary.schema.json`. A published state is frozen: its checksum is recorded in `schemas/SHA256SUMS`, CI fails on any change, and the next state is a new folder. The vocabulary grows without a new version of the format. A state is published by a release of the project; `osd` holds each published state (`osd::VOCABULARY_STATES`) and reads it for as long as it exists. State 1 is under checksum: `schemas/SHA256SUMS` records its two files.
 
-A state only adds (`Vocabulary::check_successor`): a term of a state stays in the following ones, with its name and type; a term a later state replaces keeps its place and carries `replaced_by`.
+A state only adds, so that a role valid in a state stays valid in the next (`Vocabulary::check_successor`): a term of a state stays in the following ones, with its name and type, keeps every element of its `applies_to` and of its `stands_under`, and a part that opens a path still does; a term a later state replaces keeps its place and carries `replaced_by`. The check lets a definition, a source, a word or a `shared_by` change, which a correction published as a new state may carry ([`spec/ERRATA.md`](spec/ERRATA.md)).
 
 ## From an extension to a term
 

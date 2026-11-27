@@ -1,0 +1,47 @@
+{
+  "_about": "A midi_of file of 0.7 whose target names no state of the role vocabulary names the one its own roles are written with; the result names it.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "role_vocabulary": "2",
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/x",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/resonance",
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "resonance"
+          },
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                71
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "midi_of": "acme/b"
+  }
+}

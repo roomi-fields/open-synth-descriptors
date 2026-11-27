@@ -191,6 +191,7 @@ fn warn(asked: &str, descriptor: &osd::Descriptor) {
             osd::WarningKind::PartialControl => "the control gives no message: it is to be completed".to_string(),
             osd::WarningKind::UnknownProvider(id) => format!("the provider {id} is not in the table of providers of {}", osd::PROVIDERS_VERSION),
             osd::WarningKind::UncreditedSource => "the source is kept as a note and not carried as credit".to_string(),
+            osd::WarningKind::UnconfirmedPlace => "the sound transfer places this control at places that differ: to be confirmed".to_string(),
         };
         eprintln!("{asked}: warning at \"{}\": {said}", w.pointer);
     }

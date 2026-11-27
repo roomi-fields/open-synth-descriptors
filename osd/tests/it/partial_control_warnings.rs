@@ -37,7 +37,7 @@ fn heard(version: Version, osc: &str, cc: u8) -> Value {
 /// An entry of `params` with a message in the form of `version`.
 fn heard_param(version: Version, osc: &str, id: u8) -> Value {
     match version {
-        Version::V0_7 => json!({"osc": osc, "ways": [{"ctrlType": "sysex", "ctrlIndex": [id]}]}),
+        Version::V0_7 => json!({"osc": osc, "ways": [{"ctrlType": "sysex", "id": id}]}),
         _ => json!({"osc": osc, "id": id}),
     }
 }
@@ -80,6 +80,7 @@ fn warned(d: &Descriptor) -> Vec<(&'static str, Option<String>, String)> {
             WarningKind::PartialControl => ("PartialControl", None, w.pointer),
             WarningKind::UnknownProvider(id) => ("UnknownProvider", Some(id), w.pointer),
             WarningKind::UncreditedSource => ("UncreditedSource", None, w.pointer),
+            _ => panic!("no place of these devices is to be confirmed: {}", w.pointer),
         })
         .collect()
 }

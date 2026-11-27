@@ -120,7 +120,7 @@ fn a_0_7_control_with_a_way_refuses_the_fields_of_a_control_without_one_as_unkno
 
 #[test]
 fn a_0_7_params_entry_with_a_way_refuses_range_transmit_and_recognize_as_unknown_at_the_field() {
-    let entry = json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [1]}]});
+    let entry = json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 1}]});
     for (key, value) in params_fields() {
         let doc = params_device(Version::V0_7, vec![with(entry.clone(), key, value)]);
         refused(&doc, FaultKind::UnknownField, &format!("/params/entries/0/{key}"));
@@ -227,7 +227,7 @@ fn the_0_7_schema_refuses_the_fields_of_an_entry_without_a_way_beside_a_way_and_
     let schemas = common::Schemas::load("0.7");
     let valid = |doc: &Value| schemas.check(Kind::Device, doc).is_none();
     let cc = json!({"osc": "/a", "ways": [{"ctrlType": "cc", "ctrlIndex": [1]}]});
-    let sysex = json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "ctrlIndex": [1]}]});
+    let sysex = json!({"osc": "/a", "ways": [{"ctrlType": "sysex", "id": 1}]});
     // The entry with a way validates, and so does the one without: each refusal is of the field alone.
     assert!(valid(&cc_device(Version::V0_7, vec![cc.clone()])));
     assert!(valid(&cc_device(Version::V0_7, vec![json!({"osc": "/a", "ways": []})])));

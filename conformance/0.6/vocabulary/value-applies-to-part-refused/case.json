@@ -1,0 +1,5 @@
+{
+  "_about": "A value applies to settings: an applies_to that names a term that is not a setting, here a part, is refused at that entry.",
+  "schema_accepts": true,
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/applies_to/0" }
+}

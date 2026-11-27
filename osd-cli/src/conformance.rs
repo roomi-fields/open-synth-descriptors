@@ -112,6 +112,7 @@ fn warnings_of(d: &osd::Descriptor) -> Value {
                 osd::WarningKind::PartialControl => "PartialControl",
                 osd::WarningKind::UnknownProvider(_) => "UnknownProvider",
                 osd::WarningKind::UncreditedSource => "UncreditedSource",
+                osd::WarningKind::UnconfirmedPlace => "UnconfirmedPlace",
             };
             json!({"kind": kind, "pointer": w.pointer})
         })

@@ -711,7 +711,7 @@
           "items": {
             "$ref": "#/$defs/sound_setting"
           },
-          "description": "Where the value of each control lies in the data of a sound of this form: a list of places, each pointing to the control it sets. A control carries no place. Not the settings of a sound (sound.content.settings), the values by control address."
+          "description": "Where the value of each control lies in the data of a sound of this form: a list of places, each pointing to the control it sets. A control carries no place. Two places that name the same control and differ contradict each other: a reader keeps both, leaves the control out of the settings and warns of each (UnconfirmedPlace). Not the settings of a sound (sound.content.settings), the values by control address."
         }
       },
       "patternProperties": {
@@ -1279,19 +1279,24 @@
               "enum": [
                 "midi",
                 "osc"
-              ]
+              ],
+              "description": "The way the software is reached, midi or osc; it decides how the commands of the device are sent: by their frame in midi, by their forward in osc. 0.7 does not define what is sent of a command that writes only the form of the other transport."
             },
             "host": {
-              "type": "string"
+              "type": "string",
+              "description": "The address of the machine where the software listens for OSC."
             },
             "port": {
-              "type": "integer"
+              "type": "integer",
+              "description": "The port the software listens on for OSC."
             },
             "reply_port": {
-              "type": "integer"
+              "type": "integer",
+              "description": "The port the software sends its OSC messages to when it answers or pushes a change."
             },
             "passthrough_prefix": {
-              "type": "string"
+              "type": "string",
+              "description": "The first segment of the OSC addresses of a surface of the software that is not modelled command by command: everything under /<prefix>/... goes to it as it is, and what it sends back carries the prefix again."
             }
           },
           "patternProperties": {
@@ -1303,7 +1308,7 @@
           "required": [
             "kind"
           ],
-          "description": "How a software is reached (OSC host and ports)."
+          "description": "How a software is reached; without it, by MIDI."
         }
       },
       "patternProperties": {
@@ -1795,7 +1800,7 @@
           "items": {
             "$ref": "#/$defs/cc_way"
           },
-          "description": "The messages that reach the control, in the order of preference: a sender picks the first way it can send, a receiver recognises every way whose recognize is not none, a reader never reorders them. A way claims its message on each side where it works (transmit, recognize); a message is claimed once per side, across the ways and across the controls, and the reader refuses the later claim at the later way. An empty list says the message is not known yet: the control is partial, to be completed, and the reader warns of it."
+          "description": "The messages that reach the control, in the order of preference: a tool that sends to the device takes the first way it can write whose recognize is not none, a tool that listens to it recognises every way whose transmit is not none, a reader never reorders them. transmit and recognize are read from the point of view of the device or the software described (M2-117-UM): transmit, it sends the message; recognize, it receives it. A way claims its message on each side where it works (transmit, recognize); a message is claimed once per side, across the ways and across the controls, and the reader refuses the later claim at the later way. An empty list says the message is not known yet: the control is partial, to be completed, and the reader warns of it."
         },
         "readings": {
           "type": "array",
@@ -1856,7 +1861,7 @@
     },
     "direction": {
       "enum": ["absolute", "relative", "both", "none"],
-      "description": "Absolute values, relative values, both or none (the four words of M2-117-UM, tables 6 and 12)."
+      "description": "Absolute values, relative values, both or none (the four words of M2-117-UM, tables 6 and 12), from the point of view of the device or the software described: transmit, it sends the message; recognize, it receives it."
     },
     "cc_way": {
       "type": "object",
@@ -1956,16 +1961,36 @@
     },
     "sysex_way": {
       "type": "object",
-      "description": "One message that addresses a parameter of a params entry in the maker's frame: ctrlType sysex, ctrlIndex one number of 0 or more, not limited to a byte (the id, or the pr of an entry that gives it alone), or 2 to 4 numbers, each a byte (pr, p, c, r, only those the entry gives), with the range, the width and the direction of its value.",
+      "description": "One message that addresses a parameter of a params entry in the maker's frame: ctrlType sysex, its numbers each under its name (pr, p, c, r, each a byte, and id, any integer; at least one, only those the maker's frame takes), with the range, the width and the direction of its value.",
       "properties": {
         "ctrlType": { "const": "sysex" },
-        "ctrlIndex": {
-          "type": "array",
-          "items": { "type": "integer", "minimum": 0 },
-          "minItems": 1,
-          "maxItems": 4,
-          "if": { "minItems": 2 },
-          "then": { "items": { "maximum": 255 } }
+        "pr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "The pr byte of the maker's frame, the argument pr of the frames of params."
+        },
+        "p": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "The p byte of the maker's frame, the argument p of the frames of params."
+        },
+        "c": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "The c byte of the maker's frame, the argument c of the frames of params."
+        },
+        "r": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "The r byte of the maker's frame, the argument r of the frames of params."
+        },
+        "id": {
+          "type": "integer",
+          "description": "The parameter's own number in the maker's frame, the argument id of the frames of params: any integer, a negative one too."
         },
         "value_bits": { "enum": [7, 14] },
         "range": {
@@ -1984,7 +2009,14 @@
         }
       },
       "additionalProperties": false,
-      "required": ["ctrlType", "ctrlIndex"]
+      "required": ["ctrlType"],
+      "anyOf": [
+        { "required": ["pr"] },
+        { "required": ["p"] },
+        { "required": ["c"] },
+        { "required": ["r"] },
+        { "required": ["id"] }
+      ]
     },
     "param_entry": {
       "type": "object",
@@ -2074,7 +2106,7 @@
           "items": {
             "$ref": "#/$defs/sysex_way"
           },
-          "description": "The messages that address the parameter in the maker's frame, in the order of preference: ways of kind sysex, by `ctrlIndex` ([id], or [pr, p, c, r]). An empty list says the message is not known yet: the entry is partial, to be completed, and the reader warns of it."
+          "description": "The messages that address the parameter in the maker's frame, in the order of preference: ways of kind sysex, each with its numbers under their names (pr, p, c, r, id). An empty list says the message is not known yet: the entry is partial, to be completed, and the reader warns of it."
         },
         "readings": {
           "type": "array",

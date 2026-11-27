@@ -45,11 +45,6 @@ device #/$defs/control_reading/properties/state
 device #/$defs/device/dependentSchemas/stands_for/properties/kind
 device #/$defs/device/properties/device_id
 device #/$defs/device/properties/kind
-device #/$defs/device/properties/transport/properties/host
-device #/$defs/device/properties/transport/properties/kind
-device #/$defs/device/properties/transport/properties/passthrough_prefix
-device #/$defs/device/properties/transport/properties/port
-device #/$defs/device/properties/transport/properties/reply_port
 device #/$defs/device/properties/vendor
 device #/$defs/expr/oneOf/1/properties/arg
 device #/$defs/expr_binary_add/properties/add
@@ -120,7 +115,6 @@ device #/$defs/source/properties/commit
 device #/$defs/source/properties/imported_at
 device #/$defs/source/properties/notes
 device #/$defs/source/properties/url
-device #/$defs/sysex_way/properties/ctrlIndex
 device #/$defs/sysex_way/properties/ctrlType
 device #/$defs/sysex_way/properties/recognize
 device #/$defs/sysex_way/properties/transmit

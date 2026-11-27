@@ -18,7 +18,7 @@ The need. A device expects such a value in two's complement, sometimes with a by
 
 What a script does today. It codes the sign into the bytes. In 0.7 the script is the Lua of `commands[].script` (a script that changes the message before it is sent) or of `custom_commands[].script` (a script that builds the message).
 
-What is missing for sharing. The only signed type a frame writes in 0.7 is `s32`, whose bytes section 8.1 does not define. The short arguments (`u7`, `u14`) are unsigned, and an expression gives only values from 0 to 127. So a short signed value is coded in Lua, which a reader without Lua does not run.
+What is missing for sharing. The only signed type a frame writes in 0.7 is `s32`, whose bytes section 8.1 does not define; an `int` argument whose `range` goes below 0 may be signed too, but section 8.1 does not define what the element `{"arg": name}` writes for a value below 0. The short arguments (`u7`, `u14`) are unsigned, and an expression gives only values from 0 to 127. So a short signed value is coded in Lua, which a reader without Lua does not run.
 
 ## The change
 

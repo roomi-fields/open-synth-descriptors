@@ -1,0 +1,4 @@
+{
+  "_about": "A state of the vocabulary with values: a value is a choice of a selector, and its applies_to names the settings, of the same state, it is a choice of.",
+  "result": { "terms": ["filter", "filter-type", "oscillator", "waveform", "low-pass", "sine"] }
+}

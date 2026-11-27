@@ -1,0 +1,807 @@
+{
+  "$schema": "https://w3id.org/osd/vocabulary/2/vocabulary.schema.json",
+  "state": "2",
+  "_about": "State 2 of the vocabulary of roles: state 1, unchanged but for the elements added to its stands_under and applies_to, and the terms of drum machines and samplers (the track, the sample with its loop and slices, the drum instruments, where each starts and ends), the type of a filter, whether a part is on or off, the type of an effect, how far the own movement of an effect goes (its modulation depth, apart from depth, which keeps its meaning of state 1), and the type value, a choice of a selector, with the waveforms and the filter types. spec/vocabulary/2.md says each new term, where it stands and what it applies to.",
+  "terms": [
+    {
+      "name": "voice",
+      "type": "part",
+      "definition": "The sound generator that plays one note at a time or several, before its filter and its output.",
+      "words": [],
+      "source": [
+        { "controller": 5, "name": "Portamento Time" },
+        { "controller": 65, "name": "Portamento On/Off" },
+        { "controller": 84, "name": "Portamento Control" }
+      ]
+    },
+    {
+      "name": "sound",
+      "type": "part",
+      "definition": "The sound as a whole, what a program recalls.",
+      "words": [],
+      "source": [
+        { "controller": 70, "name": "Sound Controller 1 (Sound Variation)" }
+      ]
+    },
+    {
+      "name": "filter",
+      "type": "part",
+      "definition": "A filter that shapes the harmonic content of the sound.",
+      "stands_under": ["track", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" },
+        { "controller": 74, "name": "Brightness" }
+      ]
+    },
+    {
+      "name": "envelope",
+      "type": "part",
+      "definition": "An envelope that shapes a setting of the part it stands under over the life of a note.",
+      "stands_under": ["filter", "amplifier", "oscillator", "voice", "track", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "words": [],
+      "source": [
+        { "controller": 72, "name": "Sound Controller 3 (Release Time)" },
+        { "controller": 73, "name": "Sound Controller 4 (Attack Time)" }
+      ]
+    },
+    {
+      "name": "output",
+      "type": "part",
+      "definition": "The output of the instrument, where the sound leaves it.",
+      "words": [],
+      "source": [
+        { "controller": 7, "name": "Channel Volume" },
+        { "controller": 8, "name": "Balance" },
+        { "controller": 10, "name": "Pan" }
+      ]
+    },
+    {
+      "name": "effect",
+      "type": "part",
+      "definition": "An effect unit, numbered when the instrument has several.",
+      "words": [
+        { "word": "Tremolo", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Celeste", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Phaser", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" }
+      ]
+    },
+    {
+      "name": "performance",
+      "type": "part",
+      "definition": "What a player moves while playing, apart from the notes.",
+      "words": [],
+      "source": [
+        { "controller": 11, "name": "Expression Controller" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Yamaha", "device": "DX7" }
+      ]
+    },
+    {
+      "name": "oscillator",
+      "type": "part",
+      "definition": "A source of a repeating waveform at a pitch, numbered when the instrument has several.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "noise",
+      "type": "part",
+      "definition": "A source of noise, which has no pitch.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "mixer",
+      "type": "part",
+      "definition": "The stage that sets the level of each source before the filter.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "amplifier",
+      "type": "part",
+      "definition": "The stage that sets the level of the sound over time, after the filter.",
+      "stands_under": ["track", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "at_top": true,
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "lfo",
+      "type": "part",
+      "definition": "A low-frequency oscillator that moves a setting of the part it stands under, numbered when the instrument has several.",
+      "stands_under": ["oscillator", "filter", "amplifier", "track"],
+      "at_top": true,
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "delay",
+      "type": "part",
+      "definition": "A kind of effect that repeats the sound after a time.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "reverb",
+      "type": "part",
+      "definition": "A kind of effect that adds the tail of a room to the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "chorus",
+      "type": "part",
+      "definition": "A kind of effect that thickens the sound with slightly detuned and delayed copies of it.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Korg", "device": "minilogue xd" }
+      ]
+    },
+    {
+      "name": "equalizer",
+      "type": "part",
+      "definition": "A kind of effect that raises or lowers the level of ranges of frequencies of the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Yamaha", "device": "Montage" },
+        { "maker": "Korg", "device": "Kronos" }
+      ]
+    },
+    {
+      "name": "arpeggiator",
+      "type": "part",
+      "definition": "A part that plays the notes of a held chord one after the other.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-60" },
+        { "maker": "Sequential", "device": "Prophet-6" }
+      ]
+    },
+    {
+      "name": "sequencer",
+      "type": "part",
+      "definition": "A part that plays a recorded series of notes and values in time.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "TR-808" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "vibrato",
+      "type": "part",
+      "definition": "A periodic variation of the pitch of the sound.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "JV-1080" },
+        { "maker": "Yamaha", "device": "MU-80" }
+      ]
+    },
+    {
+      "name": "portamento-time",
+      "type": "setting",
+      "definition": "How long a note takes to glide to the next one.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 5, "name": "Portamento Time" }]
+    },
+    {
+      "name": "portamento",
+      "type": "setting",
+      "definition": "Whether notes glide from one to the next, on or off.",
+      "applies_to": ["voice"],
+      "words": [],
+      "source": [{ "controller": 65, "name": "Portamento On/Off" }]
+    },
+    {
+      "name": "portamento-start",
+      "type": "setting",
+      "definition": "The note from which the next glide starts.",
+      "applies_to": ["voice"],
+      "words": [{ "word": "Portamento Control", "origin": "MIDI 1.0" }],
+      "source": [{ "controller": 84, "name": "Portamento Control" }]
+    },
+    {
+      "name": "variation",
+      "type": "setting",
+      "definition": "Which variation of the sound plays, among those it holds.",
+      "applies_to": ["sound"],
+      "words": [],
+      "source": [
+        { "controller": 70, "name": "Sound Controller 1 (Sound Variation)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 70, "name": "Sound Controller 1 (Sound Variation)" }
+      ]
+    },
+    {
+      "name": "resonance",
+      "type": "setting",
+      "definition": "How much the filter emphasises the frequencies around its cutoff.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Timbre/Harmonic Intensity", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 71, "name": "Sound Controller 2 (Timbre/Harmonic Intensity)" }
+      ]
+    },
+    {
+      "name": "cutoff",
+      "type": "setting",
+      "definition": "The frequency above which the filter lets less of the sound through.",
+      "applies_to": ["filter"],
+      "words": [{ "word": "Brightness", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 74, "name": "Brightness" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 74, "name": "Sound Controller 5 (Brightness)" }
+      ]
+    },
+    {
+      "name": "attack-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to rise when a note starts.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "controller": 73, "name": "Sound Controller 4 (Attack Time)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 73, "name": "Sound Controller 4 (Attack Time)" }
+      ]
+    },
+    {
+      "name": "release-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to fall when a note ends.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "controller": 72, "name": "Sound Controller 3 (Release Time)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 72, "name": "Sound Controller 3 (Release Time)" }
+      ]
+    },
+    {
+      "name": "level",
+      "type": "setting",
+      "definition": "How loud a part is, the output as a whole or one source or effect in it.",
+      "applies_to": ["output", "oscillator", "noise", "mixer", "effect", "delay", "reverb", "chorus", "equalizer", "track", "sample", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "words": [
+        { "word": "Channel Volume", "origin": "MIDI 1.0" },
+        { "word": "Volume", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 7, "name": "Channel Volume" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 7, "name": "Volume" }
+      ]
+    },
+    {
+      "name": "balance",
+      "type": "setting",
+      "definition": "How the output leans between its left and right sides.",
+      "applies_to": ["output"],
+      "words": [],
+      "source": [
+        { "controller": 8, "name": "Balance" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 8, "name": "Balance" }
+      ]
+    },
+    {
+      "name": "pan",
+      "type": "setting",
+      "definition": "Where the output sits between left and right.",
+      "applies_to": ["output", "track", "sample", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "words": [],
+      "source": [
+        { "controller": 10, "name": "Pan" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 10, "name": "Pan" }
+      ]
+    },
+    {
+      "name": "expression",
+      "type": "setting",
+      "definition": "A level a player moves, which scales the output within the level already set.",
+      "applies_to": ["performance"],
+      "words": [{ "word": "Expression Controller", "origin": "MIDI 1.0" }],
+      "source": [
+        { "controller": 11, "name": "Expression Controller" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 11, "name": "Expression" }
+      ]
+    },
+    {
+      "name": "depth",
+      "type": "setting",
+      "definition": "How much of an effect, or of the vibrato, is applied to the sound.",
+      "applies_to": ["effect", "reverb", "chorus", "vibrato"],
+      "words": [
+        { "word": "Reverb Send Level", "origin": "M2-104-UM v1.1.2" },
+        { "word": "Chorus Send Level", "origin": "M2-104-UM v1.1.2" }
+      ],
+      "source": [
+        { "controller": 91, "name": "Effects 1 Depth" },
+        { "controller": 92, "name": "Effects 2 Depth" },
+        { "controller": 93, "name": "Effects 3 Depth" },
+        { "controller": 94, "name": "Effects 4 Depth" },
+        { "controller": 95, "name": "Effects 5 Depth" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 91, "name": "Effects 1 Depth (Reverb Send Level)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 92, "name": "Effects 2 Depth (formerly Tremolo Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 93, "name": "Effects 3 Depth (Chorus Send Level)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 94, "name": "Effects 4 Depth (formerly Celeste [Detune] Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 95, "name": "Effects 5 Depth (formerly Phaser Depth)" },
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 77, "name": "Sound Controller 8 (Vibrato Depth)" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "JV-1080" },
+        { "maker": "Yamaha", "device": "MU-80" }
+      ]
+    },
+    {
+      "name": "waveform",
+      "type": "setting",
+      "definition": "The shape of the repeating wave an oscillator or an lfo produces.",
+      "applies_to": ["oscillator", "lfo"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "pitch",
+      "type": "setting",
+      "definition": "The pitch of a note, or of what an oscillator sounds.",
+      "applies_to": ["voice", "oscillator", "track", "sample", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "words": [{ "word": "Pitch 7.25", "origin": "M2-104-UM v1.1.2" }],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 3, "name": "Pitch 7.25" }
+      ],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "detune",
+      "type": "setting",
+      "definition": "How far a part is tuned away from its nominal pitch.",
+      "applies_to": ["oscillator", "voice"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "decay-time",
+      "type": "setting",
+      "definition": "How long the envelope takes to fall to its sustain level after its peak.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 75, "name": "Sound Controller 6 (Decay Time)" }
+      ],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "sustain-level",
+      "type": "setting",
+      "definition": "The level the envelope holds while a note is held.",
+      "applies_to": ["envelope"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Moog", "device": "Minimoog Model D" },
+        { "maker": "Roland", "device": "Juno-106" }
+      ]
+    },
+    {
+      "name": "rate",
+      "type": "setting",
+      "definition": "How fast a part cycles or steps, in time or in frequency.",
+      "applies_to": ["lfo", "vibrato", "arpeggiator", "sequencer"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 76, "name": "Sound Controller 7 (Vibrato Rate)" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "delay-time",
+      "type": "setting",
+      "definition": "How long a part waits before it acts, or how long an effect holds the sound back.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer", "vibrato"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 78, "name": "Sound Controller 9 (Vibrato Delay)" }
+      ],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "feedback",
+      "type": "setting",
+      "definition": "How much of the output of an effect returns to its input.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "mix",
+      "type": "setting",
+      "definition": "How much of the effect is heard against the dry sound.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Korg", "device": "minilogue xd" },
+        { "maker": "Elektron", "device": "Digitakt" }
+      ]
+    },
+    {
+      "name": "amount",
+      "type": "setting",
+      "definition": "How strongly a part moves the setting it is routed to.",
+      "applies_to": ["envelope", "lfo"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Sequential", "device": "Prophet-5" }
+      ]
+    },
+    {
+      "name": "modulation",
+      "type": "setting",
+      "definition": "How far the player moves the modulation control, which sends a part's movement to the sound.",
+      "applies_to": ["performance"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 1, "name": "Modulation" }
+      ],
+      "shared_by": [
+        { "maker": "Roland", "device": "Juno-106" },
+        { "maker": "Yamaha", "device": "DX7" }
+      ]
+    },
+    {
+      "name": "breath",
+      "type": "setting",
+      "definition": "How hard the player blows into a breath controller.",
+      "applies_to": ["performance"],
+      "words": [],
+      "source": [
+        { "document": "M2-104-UM v1.1.2", "table": "22", "number": 2, "name": "Breath" }
+      ],
+      "shared_by": [
+        { "maker": "Yamaha", "device": "DX7" },
+        { "maker": "Yamaha", "device": "VL1" },
+        { "maker": "Akai", "device": "EWI" }
+      ]
+    },
+    {
+      "name": "track",
+      "type": "part",
+      "definition": "A lane of the instrument that holds its own sound and what is played with it, numbered when the instrument has several.",
+      "words": [],
+      "shared_by": [
+        { "maker": "Elektron", "device": "Digitakt II" },
+        { "maker": "Novation", "device": "Circuit Rhythm" }
+      ]
+    },
+    {
+      "name": "sample",
+      "type": "part",
+      "definition": "A recording that the instrument plays back, numbered when the instrument has several.",
+      "stands_under": ["track", "kick", "snare", "clap", "hi-hat", "tom", "cymbal"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "sample" }
+      ]
+    },
+    {
+      "name": "loop",
+      "type": "part",
+      "definition": "The portion of a sample that playback repeats, numbered when the sample has several.",
+      "stands_under": ["sample"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "loop_start", "name": "loop_start" },
+        { "document": "SFZ format (sfzformat.com)", "table": "loop_end", "name": "loop_end" }
+      ]
+    },
+    {
+      "name": "slice",
+      "type": "part",
+      "definition": "One of the portions a sample is cut into to be played apart, numbered from the first.",
+      "stands_under": ["sample"],
+      "words": [],
+      "shared_by": [
+        { "maker": "Elektron", "device": "Digitakt II" },
+        { "maker": "Novation", "device": "Circuit Rhythm" }
+      ]
+    },
+    {
+      "name": "kick",
+      "type": "part",
+      "definition": "The bass drum of a drum kit, or the sound a device offers in its place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [{ "word": "Bass Drum", "origin": "General MIDI Level 1" }],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 35, "name": "Acoustic Bass Drum" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 36, "name": "Bass Drum 1" }
+      ]
+    },
+    {
+      "name": "snare",
+      "type": "part",
+      "definition": "The snare drum of a drum kit, or the sound a device offers in its place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 38, "name": "Acoustic Snare" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 40, "name": "Electric Snare" }
+      ]
+    },
+    {
+      "name": "clap",
+      "type": "part",
+      "definition": "A clap of hands, or the sound a device offers in its place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [{ "word": "Hand Clap", "origin": "General MIDI Level 1" }],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 39, "name": "Hand Clap" }
+      ]
+    },
+    {
+      "name": "hi-hat",
+      "type": "part",
+      "definition": "The two cymbals of a drum kit played closed, open or with the pedal, or the sound a device offers in their place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 42, "name": "Closed Hi Hat" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 44, "name": "Pedal Hi-Hat" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 46, "name": "Open Hi-Hat" }
+      ]
+    },
+    {
+      "name": "tom",
+      "type": "part",
+      "definition": "A tom drum of a drum kit, from low to high, or the sound a device offers in its place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 41, "name": "Low Floor Tom" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 43, "name": "High Floor Tom" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 45, "name": "Low Tom" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 47, "name": "Low-Mid Tom" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 48, "name": "Hi Mid Tom" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 50, "name": "High Tom" }
+      ]
+    },
+    {
+      "name": "cymbal",
+      "type": "part",
+      "definition": "A cymbal of a drum kit other than the hi-hat, or the sound a device offers in its place, numbered when the instrument has several.",
+      "stands_under": ["track"],
+      "at_top": true,
+      "words": [],
+      "source": [
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 49, "name": "Crash Cymbal 1" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 51, "name": "Ride Cymbal 1" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 52, "name": "Chinese Cymbal" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 55, "name": "Splash Cymbal" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 57, "name": "Crash Cymbal 2" },
+        { "document": "General MIDI System Level 1 (MIDI Association, RP-003)", "table": "Percussion Key Map", "number": 59, "name": "Ride Cymbal 2" }
+      ]
+    },
+    {
+      "name": "start",
+      "type": "setting",
+      "definition": "The point of a sample, or of a portion of it, where playback begins.",
+      "applies_to": ["sample", "loop", "slice"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "offset", "name": "offset" },
+        { "document": "SFZ format (sfzformat.com)", "table": "loop_start", "name": "loop_start" }
+      ]
+    },
+    {
+      "name": "end",
+      "type": "setting",
+      "definition": "The point of a sample, or of a portion of it, where playback stops.",
+      "applies_to": ["sample", "loop", "slice"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "end", "name": "end" },
+        { "document": "SFZ format (sfzformat.com)", "table": "loop_end", "name": "loop_end" }
+      ]
+    },
+    {
+      "name": "filter-type",
+      "type": "setting",
+      "definition": "Which frequencies a filter lets through, one choice among the types it offers.",
+      "applies_to": ["filter"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "fil_type" }
+      ]
+    },
+    {
+      "name": "enabled",
+      "type": "setting",
+      "definition": "Whether a part is on or off.",
+      "applies_to": ["oscillator", "effect", "delay", "reverb", "chorus", "equalizer", "track"],
+      "words": [],
+      "source": [
+        { "document": "LV2 core (lv2plug.in/ns/lv2core)", "table": "designations", "name": "lv2:enabled" }
+      ]
+    },
+    {
+      "name": "effect-type",
+      "type": "setting",
+      "definition": "Which effect, or which kind of effect, a part runs, one choice among those it offers.",
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "type", "name": "type" }
+      ]
+    },
+    {
+      "name": "modulation-depth",
+      "type": "setting",
+      "definition": "How far the own movement of an effect goes, such as the sweep a chorus makes, apart from how much of the effect is applied or heard.",
+      "applies_to": ["effect", "chorus"],
+      "words": [],
+      "source": [
+        { "document": "Novation Peak User Guide (userguides.novationmusic.com)", "table": "Chorus pages", "name": "Chorus Depth" }
+      ]
+    },
+    {
+      "name": "sine",
+      "type": "value",
+      "definition": "A wave of a single frequency, without harmonics.",
+      "applies_to": ["waveform"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*sine" }
+      ]
+    },
+    {
+      "name": "triangle",
+      "type": "value",
+      "definition": "A wave that rises and falls in straight lines.",
+      "applies_to": ["waveform"],
+      "words": [{ "word": "*tri", "origin": "SFZ (sfzformat.com, opcode sample, ARIA)" }],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*triangle" },
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*tri" }
+      ]
+    },
+    {
+      "name": "sawtooth",
+      "type": "value",
+      "definition": "A wave that moves in a straight line one way and jumps back.",
+      "applies_to": ["waveform"],
+      "words": [{ "word": "*saw", "origin": "SFZ (sfzformat.com, opcode sample, ARIA)" }],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*saw" }
+      ]
+    },
+    {
+      "name": "square",
+      "type": "value",
+      "definition": "A wave that alternates between a high level and a low level, each held for half of its period.",
+      "applies_to": ["waveform"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*square" }
+      ]
+    },
+    {
+      "name": "noise-wave",
+      "type": "value",
+      "definition": "The choice of a waveform selector that gives noise, which has no pitch, in place of a repeating wave.",
+      "applies_to": ["waveform"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "sample", "name": "*noise" }
+      ]
+    },
+    {
+      "name": "low-pass",
+      "type": "value",
+      "definition": "A filter type that lets through the frequencies below its cutoff and weakens those above.",
+      "applies_to": ["filter-type"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "lpf_1p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "lpf_2p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "lpf_2p_sv" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "lpf_4p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "lpf_6p" }
+      ]
+    },
+    {
+      "name": "high-pass",
+      "type": "value",
+      "definition": "A filter type that lets through the frequencies above its cutoff and weakens those below.",
+      "applies_to": ["filter-type"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "hpf_1p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "hpf_2p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "hpf_2p_sv" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "hpf_4p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "hpf_6p" }
+      ]
+    },
+    {
+      "name": "band-pass",
+      "type": "value",
+      "definition": "A filter type that lets through the frequencies around its cutoff and weakens the others.",
+      "applies_to": ["filter-type"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "bpf_1p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "bpf_2p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "bpf_2p_sv" }
+      ]
+    },
+    {
+      "name": "band-reject",
+      "type": "value",
+      "definition": "A filter type that weakens the frequencies around its cutoff and lets through the others.",
+      "applies_to": ["filter-type"],
+      "words": [],
+      "source": [
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "brf_1p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "brf_2p" },
+        { "document": "SFZ format (sfzformat.com)", "table": "fil_type", "name": "brf_2p_sv" }
+      ]
+    }
+  ]
+}

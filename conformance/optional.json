@@ -9,5 +9,6 @@
   "0.6/read/sound-transfer-name-script-data-by-positions",
   "0.6/read/sound-transfer-name-script-outside-data",
   "0.6/read/sound-transfer-packed-7bit",
-  "0.6/read/sound-transfer-transport-scripts"
+  "0.6/read/sound-transfer-transport-scripts",
+  "0.7/read/control-placed-twice-in-a-transfer-accepted"
 ]

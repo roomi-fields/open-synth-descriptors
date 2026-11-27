@@ -49,12 +49,10 @@
         "ways": [
           {
             "ctrlType": "sysex",
-            "ctrlIndex": [
-              16,
-              2,
-              0,
-              0
-            ],
+            "pr": 16,
+            "p": 2,
+            "c": 0,
+            "r": 0,
             "in": {
               "part": "track1"
             }

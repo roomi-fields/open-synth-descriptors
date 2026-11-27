@@ -42,9 +42,7 @@
           "ways": [
             {
               "ctrlType": "sysex",
-              "ctrlIndex": [
-                16
-              ]
+              "pr": 16
             }
           ]
         },

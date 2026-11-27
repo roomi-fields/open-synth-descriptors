@@ -73,3 +73,7 @@ The fate is `written` when the export writes the function, `lost` otherwise. The
 | `extractPatchesFromBank` | lost | cutting a bank dump is code | Adaptation Programming Guide, § Extracting the patches from a bank dump, 9e2522c |
 | `convertPatchesToBankDump` | lost | building a bank dump is code | Adaptation Programming Guide, § Bank Dump Capability, 9e2522c |
 | `friendlyBankName` | lost | the bank names are not turned into a function | Adaptation Programming Guide, § Better bank names, 9e2522c |
+
+## Round trip on public files
+
+There is no round trip: the format is not imported, the export alone is offered, so this page gives no figure.

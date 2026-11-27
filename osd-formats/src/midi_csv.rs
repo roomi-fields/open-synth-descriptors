@@ -2,6 +2,7 @@
 //! each column is written in docs/midi-csv.md.
 
 use crate::csv;
+use crate::losses::{Became, Control};
 use crate::importer::{adopt_identity, blank_device, check_new_id, check_source, read_back, slug, unique, used_addresses, way_claims, Claim};
 use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
 use osd::{CcEntry, CcParams, Device, Polarity, Resolved, Source, Way};
@@ -114,14 +115,28 @@ fn lost(losses: &mut Vec<(usize, Loss)>, line: usize, column: usize, reason: &st
     losses.push((column, Loss { place: cell_place(line, column), reason: reason.to_string() }));
 }
 
+/// The losses of a row left with no way: the row itself, so that each of its cells is named, then
+/// the cells that say why.
+fn drop_row(losses: &mut Vec<Loss>, line: usize, mut cells: Vec<(usize, Loss)>) {
+    losses.push(Loss { place: format!("line {line}"), reason: "the row is left with no way: it is no control, and none of its cells is carried".to_string() });
+    cells.sort_by_key(|(column, _)| *column);
+    losses.extend(cells.into_iter().map(|(_, l)| l));
+}
+
 fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
+    read_back(device_of(text, source)?.0)
+}
+
+/// The device a file gives, before the reader of `osd` judges it, and the row each of its controls
+/// is read from.
+fn device_of(text: &str, source: &Source) -> Result<(Translated<Device>, Vec<usize>), Fault> {
     let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
-    let (entries, losses) = read(text, &mut identity, &mut used, &mut BTreeSet::new(), None)?;
+    let Rows { entries, from, losses } = read(text, &mut identity, &mut used, &mut BTreeSet::new(), None)?;
     let (vendor, name) = identity;
     let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
     device.cc_params = Some(CcParams { channel: None, entries, remarks: Default::default() });
-    read_back(Translated { value: device, lost: losses })
+    Ok((Translated { value: device, lost: losses }, from))
 }
 
 /// Adds the controls of `text` to `base`, which keeps its identity and its other blocks; a base
@@ -135,7 +150,7 @@ fn import_into(base: Device, text: &str, source: &Source) -> Result<Translated<D
     let mut used = used_addresses(&base);
     let channel = base.cc_params.as_ref().and_then(|c| c.channel);
     let mut taken = claimed_by(&base);
-    let (entries, losses) = read(text, &mut identity, &mut used, &mut taken, channel)?;
+    let Rows { entries, losses, .. } = read(text, &mut identity, &mut used, &mut taken, channel)?;
     adopt_identity(&mut base, identity);
     base.cc_params.get_or_insert_with(|| CcParams { channel: None, entries: Vec::new(), remarks: Default::default() }).entries.extend(entries);
     base.sources.get_or_insert_with(Vec::new).push(source.clone());
@@ -153,7 +168,15 @@ pub(crate) fn claimed_by(base: &Device) -> BTreeSet<Claim> {
     out
 }
 
-fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>, taken: &mut BTreeSet<Claim>, channel: Option<u8>) -> Result<(Vec<CcEntry>, Vec<Loss>), Fault> {
+/// What the rows of a file give: their controls, the row (0 for the one under the header) each is
+/// read from, and the cells lost.
+struct Rows {
+    entries: Vec<CcEntry>,
+    from: Vec<usize>,
+    losses: Vec<Loss>,
+}
+
+fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>, taken: &mut BTreeSet<Claim>, channel: Option<u8>) -> Result<Rows, Fault> {
     let records = csv::parse(text).map_err(|u| invalid(format!("line {}", u.0), "a quoted cell is not closed"))?;
     let Some(head) = records.first() else {
         return Err(invalid("line 1", "the file is empty: the header of the format is missing"));
@@ -162,8 +185,8 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
         return Err(invalid("line 1", format!("the header is not the format's: {}", HEADER.join(","))));
     }
 
-    let (mut entries, mut losses) = (Vec::new(), Vec::new());
-    for record in &records[1..] {
+    let (mut entries, mut from, mut losses) = (Vec::new(), Vec::new(), Vec::new());
+    for (row, record) in records[1..].iter().enumerate() {
         let (line, cells) = (record.line, &record.cells);
         if cells.len() != HEADER.len() {
             return Err(invalid(format!("line {line}"), format!("{} cells, the header has {}", cells.len(), HEADER.len())));
@@ -200,8 +223,7 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             lost(&mut row_losses, line, column, "an NRPN needs its MSB and its LSB: this way is left out");
             has_nrpn = false;
             if cc.is_none() {
-                row_losses.sort_by_key(|(column, _)| *column);
-                losses.extend(row_losses.into_iter().map(|(_, l)| l));
+                drop_row(&mut losses, line, row_losses);
                 continue;
             }
         }
@@ -221,8 +243,7 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             has_nrpn = false;
         }
         if cc.is_none() && !has_nrpn {
-            row_losses.sort_by_key(|(column, _)| *column);
-            losses.extend(row_losses.into_iter().map(|(_, l)| l));
+            drop_row(&mut losses, line, row_losses);
             continue;
         }
         taken.extend(if cc.is_some() { cc_claims } else { Vec::new() });
@@ -398,9 +419,10 @@ fn read(text: &str, identity: &mut (String, String), used: &mut BTreeSet<String>
             entry
         };
         entries.push(control(ways, cc_default.or(nrpn_default), used));
+        from.push(row);
     }
 
-    Ok((entries, losses))
+    Ok(Rows { entries, from, losses })
 }
 
 // ---- export -----------------------------------------------------------------------------
@@ -415,6 +437,38 @@ fn gone(losses: &mut Vec<Loss>, place: String, reason: &str) {
     losses.push(Loss { place, reason: reason.to_string() });
 }
 
+/// Why the import of the CSV written does not give a field back, by its pointer; `added`: the
+/// descriptor given does not hold it.
+fn why_not_back(pointer: &str, added: bool) -> String {
+    let field = pointer.rsplit('/').next().unwrap_or_default();
+    let reason = match field {
+        _ if pointer.starts_with("/device/name") || pointer.starts_with("/device/vendor") => "a row names the device and its manufacturer: the import reads none from a file without a row it takes",
+        "osc_prefix" => "the CSV has no column for it: the import builds the prefix from the name of the device",
+        "osc" => "the CSV has no column for an address: the import builds it from the section and the name",
+        "title" if added => "the row needs a name: the export writes the address, which the import reads as the title",
+        "value_bits" => "the CSV has no column for the width of a value: the import writes 14 bits for a 14-bit CC pair or an NRPN, none for a CC of one number",
+        "range" if added => "the import adds this range, read from the bounds columns: one range of a row goes to both ways",
+        "range" | "scale" | "default" => "the bounds and default columns do not give it back as it is",
+        _ if added => "the import of the CSV adds it: the descriptor given does not hold it",
+        _ if pointer.starts_with("/cc_params/entries/") && pointer.matches('/').count() == 3 => "no row of the file comes back as this control at this place",
+        _ if pointer.starts_with("/cc_params") => "the CSV has no column for it",
+        _ => "the CSV carries controls only",
+    };
+    reason.to_string()
+}
+
+/// What each row came back as: the row of index `n` holds the control of that index, with the
+/// ways `rows[n]`; `from` holds the row each control of `back` was read from.
+fn became(rows: &[Vec<(usize, &str)>], back: &Device, from: &[usize]) -> Became {
+    let controls = back.cc_params.iter().flat_map(|c| &c.entries).zip(from).enumerate();
+    let controls = controls.map(|(k, (entry, &row))| {
+        let at = |kind: &str| entry.ways.iter().position(|w| w.ctrl_type == kind);
+        let ways = rows[row].iter().filter_map(|&(given, kind)| Some((given, at(kind)?))).collect();
+        Control { given: row, back: k, ways }
+    });
+    Became { controls: controls.collect(), commands: Vec::new() }
+}
+
 fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     if d.sources.as_ref().is_none_or(|s| s.is_empty()) {
@@ -427,44 +481,16 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let mut losses = Vec::new();
     let mut out = csv::line(&HEADER);
     gone(&mut losses, "/sources".to_string(), "the CSV has no column for the credit or the licence of the sources");
-
-    // The blocks of the device, in the order of its schema.
-    let info = &d.device;
-    for (pointer, present) in [
-        ("/device/revision", info.revision.is_some()),
-        ("/identity/manufacturerId", d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some())),
-        ("/device/device_id", info.device_id.is_some()),
-        ("/device/rate_limit_hz", info.rate_limit_hz.is_some()),
-        ("/device/kind", info.kind.is_some()),
-        ("/device/transport", info.transport.is_some()),
-    ] {
-        if present {
-            gone(&mut losses, pointer.to_string(), "the CSV has no column for it");
-        }
+    if d.identity.as_ref().is_some_and(|i| i.manufacturer_id.is_some()) {
+        gone(&mut losses, "/identity/manufacturerId".to_string(), "the CSV has no column for it");
     }
-    for key in info.remarks.keys() {
-        gone(&mut losses, format!("/device/{key}"), "the CSV has no column for it");
-    }
-    for (pointer, present) in [
-        ("/capabilities", d.capabilities.is_some()),
-        ("/midi_of", d.midi_of.is_some()),
-        ("/loads_sounds_of", d.loads_sounds_of.is_some()),
-        ("/identity", d.identity.is_some()),
-        ("/programs", d.programs.is_some()),
-        ("/sysex", d.sysex.is_some()),
-    ] {
-        if present {
-            gone(&mut losses, pointer.to_string(), "the CSV carries controls only");
-        }
-    }
+    // The losses of the order of the ways of a control: they say the order only, and join the list
+    // after the comparison, so that none of them stands for a field the control loses.
+    let mut reordered = Vec::new();
+    // The ways each row holds, by control: the way given and its kind.
+    let mut rows: Vec<Vec<(usize, &str)>> = Vec::new();
 
     if let Some(cc) = &d.cc_params {
-        if cc.channel.is_some() {
-            gone(&mut losses, "/cc_params/channel".to_string(), "the CSV has no column for a channel");
-        }
-        for key in cc.remarks.keys() {
-            gone(&mut losses, format!("/cc_params/{key}"), "the CSV has no column for it");
-        }
         for (n, e) in cc.entries.iter().enumerate() {
             let at = |field: &str| format!("/cc_params/entries/{n}/{field}");
             lose_what_no_way_says(e, n, &mut losses);
@@ -492,6 +518,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 }
             }
             let (cc_way, nrpn_way) = (cc_at.map(|m| &ways[m]), nrpn_at.map(|m| &ways[m]));
+            rows.push([(cc_at, "cc"), (nrpn_at, "nrpn")].into_iter().filter_map(|(m, kind)| Some((m?, kind))).collect());
             if let Some(w) = cc_way {
                 put(&mut row, CC_MSB, index(w, 0));
                 put(&mut row, CC_LSB, index(w, 1));
@@ -501,9 +528,6 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             if let Some(w) = nrpn_way {
                 put(&mut row, NRPN_MSB, index(w, 0));
                 put(&mut row, NRPN_LSB, index(w, 1));
-                if w.nrpn_lsb_range.is_some() {
-                    gone(&mut losses, at(&format!("ways/{}/nrpn_lsb_range", nrpn_at.unwrap_or_default())), "the CSV has no column for it");
-                }
             }
             put(&mut row, ORIENTATION, e.polarity.map(|o| if o == Polarity::Bipolar { "centered" } else { "0-based" }));
             // The ranges of the row. The import gives the one range of a row to both ways: when
@@ -550,7 +574,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                     if cc_way.is_some() {
                         order_kept = nrpn_at < cc_at;
                         if cc_at < nrpn_at {
-                            gone(&mut losses, format!("/cc_params/entries/{n}"), "the CSV does not say the order of the ways: the default in the NRPN column makes the import put the NRPN first");
+                            gone(&mut reordered, format!("/cc_params/entries/{n}"), "the CSV does not say the order of the ways: the default in the NRPN column makes the import put the NRPN first");
                         }
                     }
                 } else if cc_way.is_some() || nrpn_way.is_some() {
@@ -579,21 +603,8 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             }
             if let (Some(c), Some(r)) = (cc_at, nrpn_at) {
                 if r < c && !order_kept {
-                    gone(&mut losses, format!("/cc_params/entries/{n}"),"the CSV does not say the order of the ways: the import puts the CC first");
+                    gone(&mut reordered, format!("/cc_params/entries/{n}"), "the CSV does not say the order of the ways: the import puts the CC first");
                 }
-            }
-            for (field, present) in [
-                ("channel", e.channel.is_some()),
-                ("expects", e.expects.is_some()),
-                ("transform", e.transform.is_some()),
-                ("transform_reverse", e.transform_reverse.is_some()),
-            ] {
-                if present {
-                    gone(&mut losses, at(field), "the CSV has no column for it");
-                }
-            }
-            for key in e.remarks.keys() {
-                gone(&mut losses, at(key), "the CSV has no column for it");
             }
             // A control with no way writes its row, which no import takes for a control, and the
             // fields only such an entry carries.
@@ -616,23 +627,11 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
 
-    for (pointer, present) in [
-        ("/params", d.params.is_some()),
-        ("/commands", d.commands.is_some()),
-        ("/triggers", d.triggers.is_some()),
-        ("/midi_out", d.midi_out.is_some()),
-        ("/midi_in", d.midi_in.is_some()),
-        ("/replies", d.replies.is_some()),
-        ("/subscriptions", d.subscriptions.is_some()),
-        ("/custom_commands", d.custom_commands.is_some()),
-        ("/_coverage", d.coverage.is_some()),
-    ] {
-        if present {
-            gone(&mut losses, pointer.to_string(), "the CSV carries controls only");
-        }
-    }
-    for key in d.remarks.keys() {
-        gone(&mut losses, format!("/{key}"), "the CSV has no column for it");
-    }
+    // Every field the CSV read back does not give is named.
+    let back = device_of(&out, &Source::default()).ok();
+    let became = back.as_ref().map_or_else(Became::default, |(t, lines)| became(&rows, &t.value, lines));
+    crate::losses::name_what_does_not_come_back(d, back.as_ref().map(|(t, _)| &t.value), &became, &mut losses, why_not_back);
+    losses.append(&mut reordered);
+    crate::losses::in_the_order_of(d, &mut losses);
     Ok(Translated { value: out, lost: losses })
 }

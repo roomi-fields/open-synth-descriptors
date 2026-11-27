@@ -4,7 +4,7 @@
 
 ## 1 What a proposal is
 
-A proposal asks for a change of OSD: a new version of the format, a term of the vocabulary of roles, or the passage of an extension of [schemas/extensions.md](../schemas/extensions.md) to a term of a later state. One proposal is one file, `spec/proposals/<n>-<name>.md`, written from [the template](proposals/TEMPLATE.md). A published version never changes: a proposal accepted for a version enters the text of the next one, never the text of a published one. A correction that restates the text needs no proposal; a correction that states a meaning the text did not give is a proposal.
+A proposal asks for a change of OSD: a new version of the format, a term of the vocabulary of roles, or the passage of an extension of [schemas/extensions.md](../schemas/extensions.md) to a term of a later state. One proposal is one file, `spec/proposals/<n>-<name>.md`, written from [the template](proposals/TEMPLATE.md). Each proposal has a number of its own, made of digits: a proposal takes the first free one when it enters main, and one already on main keeps its own. A published version never changes: a proposal accepted for a version enters the text of the next one, never the text of a published one. A correction that restates the text needs no proposal; a correction that states a meaning the text did not give is a proposal.
 
 ## 2 The states
 

@@ -53,7 +53,7 @@ fn with_ways(want: &mut Value) {
         let list = want.get_mut(block).and_then(|b| b.get_mut("entries")).and_then(Value::as_array_mut);
         for entry in list.into_iter().flatten().filter_map(Value::as_object_mut) {
             let mut way = if let Some(n) = entry.remove(flat) {
-                json!({"ctrlType": kind, "ctrlIndex": [n]})
+                if kind == "sysex" { json!({"ctrlType": kind, "id": n}) } else { json!({"ctrlType": kind, "ctrlIndex": [n]}) }
             } else if let (Some(msb), Some(lsb)) = (entry.remove("nrpn_msb"), entry.remove("nrpn_lsb")) {
                 json!({"ctrlType": "nrpn", "ctrlIndex": [msb, lsb]})
             } else {

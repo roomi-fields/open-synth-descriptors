@@ -1,0 +1,33 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "identity": {
+    "reply_text": "stock"
+  },
+  "programs": {
+    "banks": [
+      {
+        "name": "A",
+        "size": 128
+      }
+    ]
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/x",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              1
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

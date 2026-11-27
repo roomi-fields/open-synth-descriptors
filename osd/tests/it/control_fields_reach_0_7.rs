@@ -928,15 +928,9 @@ fn every_field_of_a_params_entry_reaches_0_7_in_its_place() {
                         lost.push(format!("{key} of the way"));
                     }
                 }
-                let both = entry.get("pr").is_some() && entry.get("id").is_some();
-                for (place, key) in ["pr", "p", "c", "r", "id"].into_iter().enumerate() {
-                    let Some(n) = entry.get(key) else { continue };
-                    let found = match key {
-                        "id" if both => way["_flat"]["id"] == *n,
-                        "id" => way["ctrlIndex"] == json!([n]),
-                        _ => way["ctrlIndex"][place] == *n,
-                    };
-                    if !found {
+                // Each number under its own name, and none the entry does not give.
+                for key in ["pr", "p", "c", "r", "id"] {
+                    if way.get(key) != entry.get(key) {
                         lost.push(key.to_string());
                     }
                 }

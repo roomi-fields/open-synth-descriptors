@@ -1,0 +1,8 @@
+{
+  "_about": "`pr`, `p`, `c` and `r` of a `sysex` way are bytes: 256 is BadValue at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/params/entries/0/ways/0/p"
+  }
+}

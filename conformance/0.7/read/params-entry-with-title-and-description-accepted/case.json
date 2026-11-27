@@ -31,7 +31,7 @@
       "entries": [
         {
           "osc": "/osc1/shape",
-          "ways": [{ "ctrlType": "sysex", "ctrlIndex": [5] }],
+          "ways": [{ "ctrlType": "sysex", "id": 5 }],
           "title": "Shape",
           "description": "The wave shape."
         }

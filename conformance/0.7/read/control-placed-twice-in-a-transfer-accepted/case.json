@@ -1,0 +1,201 @@
+{
+  "_about": "Two places of one transfer that name the same control and differ are both kept, in their order, and warned as `UnconfirmedPlace` at the `control` of each: neither is taken as sure, so the control is no setting of a sound and a comparison does not list it. Two identical places do not contradict each other: the setting is given, with no warning.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "role_vocabulary": "1",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ],
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              }
+            ],
+            "setting": "cutoff"
+          }
+        },
+        {
+          "osc": "/fenv",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                73
+              ]
+            }
+          ],
+          "role": {
+            "parts": [
+              {
+                "part": "filter"
+              },
+              {
+                "part": "envelope"
+              }
+            ],
+            "setting": "attack-time"
+          }
+        },
+        {
+          "osc": "/pan",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                10
+              ]
+            }
+          ],
+          "role": {
+            "parts": [
+              {
+                "part": "output"
+              }
+            ],
+            "setting": "pan"
+          }
+        }
+      ]
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 2,
+            "length": 4
+          }
+        },
+        "places": [
+          {
+            "control": "/cc_params/entries/0",
+            "from": 0,
+            "length": 1
+          },
+          {
+            "control": "/cc_params/entries/0",
+            "from": 2,
+            "length": 1
+          },
+          {
+            "control": "/cc_params/entries/1",
+            "from": 1,
+            "length": 1
+          },
+          {
+            "control": "/cc_params/entries/2",
+            "from": 3,
+            "length": 1
+          },
+          {
+            "control": "/cc_params/entries/2",
+            "from": 3,
+            "length": 1
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "kind": "UnconfirmedPlace",
+      "pointer": "/sound_transfers/0/places/0/control"
+    },
+    {
+      "kind": "UnconfirmedPlace",
+      "pointer": "/sound_transfers/0/places/1/control"
+    }
+  ],
+  "identity_support": [
+    {
+      "pointer": "/sound_transfers/0",
+      "without_lua": true
+    }
+  ],
+  "settings": [
+    {
+      "transfer": "single",
+      "index": 0,
+      "message": "f0 42 05 06 07 08 f7",
+      "settings": [
+        {
+          "control": "/cc_params/entries/1",
+          "param_path": "/Filter/Envelope/AttackTime",
+          "value": 6
+        },
+        {
+          "control": "/cc_params/entries/2",
+          "param_path": "/Output/Pan",
+          "value": 8
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "transfer": "single",
+      "a": {
+        "index": 0,
+        "message": "f0 42 05 06 07 08 f7"
+      },
+      "b": {
+        "index": 0,
+        "message": "f0 42 09 06 0a 09 f7"
+      },
+      "result": [
+        {
+          "control": "/cc_params/entries/1",
+          "param_path": "/Filter/Envelope/AttackTime",
+          "outcome": "equal"
+        },
+        {
+          "control": "/cc_params/entries/2",
+          "param_path": "/Output/Pan",
+          "outcome": "differ"
+        }
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "pointer": "/cc_params/entries/0/role",
+      "meaning": "known",
+      "paramPath": "/Filter/Cutoff"
+    },
+    {
+      "pointer": "/cc_params/entries/1/role",
+      "meaning": "known",
+      "paramPath": "/Filter/Envelope/AttackTime"
+    },
+    {
+      "pointer": "/cc_params/entries/2/role",
+      "meaning": "known",
+      "paramPath": "/Output/Pan"
+    }
+  ]
+}

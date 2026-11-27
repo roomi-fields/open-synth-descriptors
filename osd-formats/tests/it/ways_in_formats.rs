@@ -60,7 +60,7 @@ fn midnam_names_a_note_or_a_sysex_or_a_pressure_way_in_the_losses_and_never_refu
 #[test]
 fn midnam_names_the_sysex_way_of_a_params_entry_in_the_losses() {
     let d = device_with(json!({
-        "params": {"get_frame": [240, 247], "set_frame": [240, 247], "value_type": "u7", "entries": [{"osc": "/p", "ways": [way("sysex", json!([5]))]}]}
+        "params": {"get_frame": [240, 247], "set_frame": [240, 247], "value_type": "u7", "entries": [{"osc": "/p", "ways": [{"ctrlType": "sysex", "id": 5}]}]}
     }));
     let (_, lost) = exported_midnam(&d);
     assert!(lost.iter().any(|l| l.place.starts_with("/params/entries/0")), "{lost:?}");
@@ -142,7 +142,8 @@ fn the_csv_writes_the_first_cc_way_and_names_the_ways_it_has_no_column_for() {
 
 #[test]
 fn the_electra_preset_writes_the_first_way_it_carries_and_names_the_others() {
-    let d = device6(json!([{"osc": "/filter/cutoff", "ways": [json!({"ctrlType": "chPress"}), way("cc", json!([74])), way("cc", json!([75]))]}]));
+    let cc74 = json!({"ctrlType": "cc", "ctrlIndex": [74], "value_bits": 7});
+    let d = device6(json!([{"osc": "/filter/cutoff", "ways": [json!({"ctrlType": "chPress"}), cc74, way("cc", json!([75]))]}]));
     let t = export(&d, Format::ElectraOne).expect("a way the format does not say is a loss, not a refusal");
     let p: Value = serde_json::from_str(&t.value).unwrap();
     let message = &p["controls"][0]["values"][0]["message"];

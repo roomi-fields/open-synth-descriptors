@@ -356,10 +356,12 @@ fn an_nrpn_beside_a_7_bit_cc_without_a_range_comes_back_nrpn_first_with_its_scal
 }
 
 #[test]
-fn an_nrpn_then_7_bit_cc_control_without_a_range_with_a_default_up_to_127_loses_no_order_default_or_range() {
+fn an_nrpn_then_7_bit_cc_control_without_a_range_with_a_default_up_to_127_loses_no_order_or_default() {
     let controls = nrpn_beside_a_7_bit_cc(true);
     let out = export(&resolved(device_of_controls(&controls)), Format::MidiCsv).unwrap();
-    let of_controls: Vec<&osd_formats::Loss> = out.lost.iter().filter(|l| l.place.starts_with("/cc_params")).collect();
+    // The losses at a control as a whole (the order of its ways) and at its default.
+    let of_controls: Vec<&osd_formats::Loss> =
+        out.lost.iter().filter(|l| l.place.starts_with("/cc_params") && (l.place.matches('/').count() == 3 || l.place.ends_with("/default"))).collect();
     assert!(of_controls.is_empty(), "{of_controls:?}");
 }
 
@@ -368,7 +370,8 @@ fn a_cc_then_nrpn_control_without_a_range_with_a_default_up_to_127_on_the_nrpn_n
     let controls = nrpn_beside_a_7_bit_cc(false);
     let out = export(&resolved(device_of_controls(&controls)), Format::MidiCsv).unwrap();
     let back = import(&out.value, Format::MidiCsv, &source()).unwrap();
-    let of_controls: Vec<&osd_formats::Loss> = out.lost.iter().filter(|l| l.place.starts_with("/cc_params")).collect();
+    // The losses at a control as a whole.
+    let of_controls: Vec<&osd_formats::Loss> = out.lost.iter().filter(|l| l.place.starts_with("/cc_params") && l.place.matches('/').count() == 3).collect();
     let places: Vec<&str> = of_controls.iter().map(|l| l.place.as_str()).collect();
     let expected: Vec<String> = (0..controls.len()).map(|n| format!("/cc_params/entries/{n}")).collect();
     assert_eq!(places, expected);

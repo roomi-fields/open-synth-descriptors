@@ -8,7 +8,7 @@
 
 use crate::common;
 
-const TEXTS: [&str; 2] = ["spec/0.6.md", "spec/vocabulary/1.md"];
+const TEXTS: [&str; 3] = ["spec/0.6.md", "spec/vocabulary/1.md", "spec/vocabulary/2.md"];
 const CLASSES: [&str; 3] = ["descriptor", "reader", "converter"];
 const SUBJECTS: [&str; 4] = ["descriptor", "reader", "converter", "publisher"];
 const KEYWORDS: [&str; 3] = ["MUST", "SHOULD", "MAY"];

@@ -1,9 +1,9 @@
 //! The vocabulary of roles: data under `schemas/vocabulary/<state>/` (its own
 //! schema `vocabulary.schema.json`, its terms `terms.json`), a numbered state
 //! never changed once published, each term of one name, one definition of one
-//! sentence, a type (`part` or `setting`), the makers' words that mean it each
-//! with its origin, and a `source`, the MIDI 1.0 controllers it comes from. A
-//! `setting` lists the parts it `applies_to`. `osd::read_vocabulary` checks a
+//! sentence, a type (`part`, `setting` or `value`), the makers' words that mean
+//! it each with its origin, and a `source`, the MIDI 1.0 controllers it comes
+//! from. A `setting` lists the parts it `applies_to`, a `value` the settings. `osd::read_vocabulary` checks a
 //! state, `osd::vocabulary_state` holds the published ones, and a state's
 //! successor only adds (`Vocabulary::check_successor`).
 
@@ -132,7 +132,7 @@ fn a_term_without_a_source_is_refused_at_the_source() {
 }
 
 #[test]
-fn a_term_is_a_part_or_a_setting_and_nothing_else() {
+fn a_term_of_a_type_outside_part_setting_and_value_is_refused_at_its_type() {
     let t = term("resonance", "knob", (71, "Sound Controller 2 (Timbre/Harmonic Intensity)"), &[]);
     refused(&with_last(t), FaultKind::BadValue, "/terms/4/type");
 }
@@ -213,10 +213,20 @@ fn a_vocabulary_that_is_not_json_or_lacks_its_terms_is_refused() {
 
 // The schema of the vocabulary states what a schema can: shapes and lists.
 
-fn state_validator() -> jsonschema::Validator {
-    let schema: Value = serde_json::from_str(&repo_file("schemas/vocabulary/1/vocabulary.schema.json")).unwrap();
-    assert_eq!(schema["$id"], STATE_SCHEMA);
+/// The validator of the schema of a state, from its folder.
+fn validator_of(state: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_str(&repo_file(&format!("schemas/vocabulary/{state}/vocabulary.schema.json"))).unwrap();
+    assert_eq!(schema["$id"], format!("https://w3id.org/osd/vocabulary/{state}/vocabulary.schema.json"));
     jsonschema::options().build(&schema).unwrap()
+}
+
+/// The validator of the schema of the state a document says it is.
+fn schema_of(doc: &Value) -> jsonschema::Validator {
+    validator_of(doc["state"].as_str().unwrap_or_else(|| panic!("no state: {doc}")))
+}
+
+fn state_validator() -> jsonschema::Validator {
+    validator_of("1")
 }
 
 fn schema_paths(doc: &Value) -> Vec<String> {
@@ -263,14 +273,23 @@ fn the_schema_of_the_vocabulary_accepts_a_valid_state_and_refuses_each_malformed
 /// `valid-state` holds a state read as it is, with `result` in its case.json
 /// and `fault` in each refused case's, `schema_accepts: true` when only the
 /// reader refuses it.
-const VOCABULARY_CASES: [(&str, &str, &str, bool); 6] = [
+const VOCABULARY_CASES: [(&str, &str, &str, bool); 12] = [
     ("duplicate-name-refused", "BadValue", "/terms/4/name", true),
     ("duplicate-word-refused", "BadValue", "/terms/4/words/0/word", true),
     ("word-without-origin-refused", "Missing", "/terms/4/words/0/origin", false),
     ("composition-refused", "BadValue", "/terms/4", true),
     ("applies-to-absent-refused", "BadValue", "/terms/4/applies_to/0", true),
     ("definition-two-sentences-refused", "BadValue", "/terms/4/definition", false),
+    ("value-applies-to-missing-refused", "Missing", "/terms/4/applies_to", false),
+    ("value-applies-to-empty-refused", "BadValue", "/terms/4/applies_to", false),
+    ("value-applies-to-part-refused", "BadValue", "/terms/4/applies_to/0", true),
+    ("value-stands-under-refused", "BadValue", "/terms/4/stands_under", false),
+    ("value-at-top-refused", "BadValue", "/terms/4/at_top", false),
+    ("setting-applies-to-value-refused", "BadValue", "/terms/4/applies_to/0", true),
 ];
+
+/// The cases that hold a valid state.
+const VALID_VOCABULARY_CASES: [&str; 2] = ["valid-state", "value-state-valid"];
 
 fn parent(pointer: &str) -> &str {
     pointer.rsplit_once('/').map_or("", |(p, _)| p)
@@ -279,21 +298,28 @@ fn parent(pointer: &str) -> &str {
 #[test]
 fn the_vocabulary_conformance_cases_hold_a_valid_state_and_each_refusal_at_its_pointer() {
     let root = common::repo().join("conformance/0.6/vocabulary");
-    let validator = state_validator();
     let mut failures = Vec::new();
     let read_case = |name: &str| -> (String, Value) {
         let dir = format!("conformance/0.6/vocabulary/{name}");
         (repo_file(&format!("{dir}/vocabulary.json")), serde_json::from_str(&repo_file(&format!("{dir}/case.json"))).unwrap())
     };
-    // The valid state reads and validates.
-    let (text, case) = read_case("valid-state");
-    assert!(case.get("result").is_some() && case.get("fault").is_none(), "{case}");
-    if let Err(f) = osd::read_vocabulary(&text) {
-        failures.push(format!("valid-state: {f}"));
-    }
-    let doc: Value = serde_json::from_str(&text).unwrap();
-    if !validator.is_valid(&doc) {
-        failures.push("valid-state: the schema refuses it".into());
+    // Each valid state reads, with the terms its case states, and validates.
+    for name in VALID_VOCABULARY_CASES {
+        let (text, case) = read_case(name);
+        assert!(case.get("result").is_some() && case.get("fault").is_none(), "{case}");
+        match osd::read_vocabulary(&text) {
+            Ok(v) => {
+                let terms: Vec<&str> = v.terms.iter().map(|t| t.name.as_str()).collect();
+                if case["result"]["terms"] != json!(terms) {
+                    failures.push(format!("{name}: reads {terms:?}"));
+                }
+            }
+            Err(f) => failures.push(format!("{name}: {f}")),
+        }
+        let doc: Value = serde_json::from_str(&text).unwrap();
+        if !schema_of(&doc).is_valid(&doc) {
+            failures.push(format!("{name}: the schema refuses it"));
+        }
     }
     for (name, kind, pointer, reader_only) in VOCABULARY_CASES {
         let (text, case) = read_case(name);
@@ -311,14 +337,14 @@ fn the_vocabulary_conformance_cases_hold_a_valid_state_and_each_refusal_at_its_p
             Err(_) => {}
         }
         let doc: Value = serde_json::from_str(&text).unwrap();
-        let paths: Vec<String> = validator.iter_errors(&doc).map(|e| e.instance_path().to_string()).collect();
+        let paths: Vec<String> = schema_of(&doc).iter_errors(&doc).map(|e| e.instance_path().to_string()).collect();
         let ok = if reader_only { paths.is_empty() } else { paths.iter().any(|p| p == pointer || p == parent(pointer)) };
         if !ok {
             failures.push(format!("{name}: schema errors {paths:?}"));
         }
     }
     let names: BTreeSet<String> = std::fs::read_dir(&root).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
-    let want: BTreeSet<String> = VOCABULARY_CASES.iter().map(|c| c.0.to_string()).chain(["valid-state".to_string()]).collect();
+    let want: BTreeSet<String> = VOCABULARY_CASES.iter().map(|c| c.0).chain(VALID_VOCABULARY_CASES).map(str::to_string).collect();
     assert_eq!(names, want);
     common::report("vocabulary cases failed", failures);
 }
@@ -358,7 +384,7 @@ fn the_vocabulary_states_osd_holds_are_the_folders_under_schemas_vocabulary() {
         assert!(osd::read_vocabulary(&text).is_ok(), "{s}");
         let doc: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(doc["state"], json!(s));
-        assert!(state_validator().is_valid(&doc), "{s}: the schema refuses it");
+        assert!(validator_of(s).is_valid(&doc), "{s}: the schema refuses it");
     }
     assert!(osd::vocabulary_state("999").is_none());
     assert!(osd::vocabulary_state("").is_none());

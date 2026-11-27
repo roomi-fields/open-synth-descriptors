@@ -78,4 +78,4 @@ release is published: [`docs/RELEASE.md`](docs/RELEASE.md).
 CC0 1.0 for the schemas, conformance cases, examples and documents
 ([`LICENSE`](LICENSE)); MIT or Apache-2.0 for the reader and the command
 ([`LICENSE-MIT`](LICENSE-MIT), [`LICENSE-APACHE`](LICENSE-APACHE)).
-Published by [SynthHub](https://synthhub.roomi-fields.com/).
+Published by [SyntHub](https://synthub.roomi-fields.com/).

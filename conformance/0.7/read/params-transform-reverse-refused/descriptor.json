@@ -6,6 +6,6 @@
     "get_frame": [240, 247],
     "set_frame": [240, 247],
     "value_type": "u7",
-    "entries": [{ "osc": "/b", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [3] }], "transform": "x * 2", "transform_reverse": "x // 2" }]
+    "entries": [{ "osc": "/b", "ways": [{ "ctrlType": "sysex", "id": 3 }], "transform": "x * 2", "transform_reverse": "x // 2" }]
   }
 }

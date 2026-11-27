@@ -577,7 +577,9 @@ fn the_cc_of_a_row_whose_cc_lsb_equals_it_is_claimed_once_for_the_rows_after_it(
     for (by, list, lost) in by_both(&[twin, again, as_lsb, other]) {
         let titles: Vec<_> = list.iter().filter_map(|e| e.title.as_deref()).collect();
         assert_eq!(titles, ["Twin", "Other"], "{by}");
-        assert_eq!(places(&lost), ["line 2, column cc_lsb", "line 3, column cc_msb", "line 4, column cc_msb"], "{by}");
+        // The rows after the first are left with no way: each is named at its line, then at the cell
+        // that says why.
+        assert_eq!(places(&lost), ["line 2, column cc_lsb", "line 3", "line 3, column cc_msb", "line 4", "line 4, column cc_msb"], "{by}");
     }
 }
 

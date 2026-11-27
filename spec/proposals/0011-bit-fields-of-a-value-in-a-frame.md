@@ -66,12 +66,14 @@ A reader SHOULD warn of a command whose frame writes an argument by fields that 
 
 - `u14_msb` is written `bits: [13, 7]`;
 - `u14_lsb` is written `bits: [6, 0]`, or as the element alone when the highest value of the argument is 127 or less;
-- the element alone, with or without `add`, writes an argument or a bound value whose highest value is 127 or less; on an argument of a command that `bits` can write and that can go above 127, a reader of 0.8 refuses it, as `BadValue` at the element, and the argument is written by fields;
+- the element alone, with or without `add`, writes an argument or a bound value whose highest value is 127 or less (what it writes for a value below 0, which section 8.1 of 0.7 does not define, this draft does not say); on an argument of a command that `bits` can write and that can go above 127, a reader of 0.8 refuses it, as `BadValue` at the element, and the argument is written by fields;
 - a reader of 0.8 refuses `u14_msb` and `u14_lsb` at those three places, as `BadValue` at `encoding`.
 
 At every other place the two encodings stay as in 0.7, and `bits` is refused, so each place keeps one writing.
 
 The other encodings stay as they are. `s32` writes a whole signed value in its own bytes; `ascii` and `bytes` write a text or a list of bytes, which have no bits to choose. None of the three takes `bits`.
+
+**Open point.** Section 8.1 of 0.7 does not define the bytes that `ascii` and `bytes` write. The text of 0.8 has to say them; this draft proposes none.
 
 **`add`.** It keeps its meaning of section 8.1: it is added to the byte, here the field, and wraps on 7 bits. It carries nothing from one field to the next.
 
@@ -99,7 +101,7 @@ The places are the eight of section 8.1, `programs.after[]` (of the form of `bef
 
 **Reading a value back is not covered.** A `capture` keeps one byte. A value that a device sends over several bytes is not put together by this form: a reply that needs it stays a script (`replies[].script`). The places of a value in the data of a sound (section 12.1) keep their own form, whole bytes or a script.
 
-**Open point.** Section 8.1 of 0.7 does not say which bytes the element `{"arg": "value"}` writes in `params.set_frame` under each `value_type`, nor what the element alone writes for a number of an entry above 127. This draft leaves the element alone as 0.7 has it in `params.get_frame` and `params.set_frame`, and `bits` writes exactly its field under any `value_type`. The text of 0.8 has to say those bytes before this proposal is accepted; the fields that repeat the element alone there have then to be refused.
+**Open point.** Section 8.1 of 0.7 does not say which bytes the element `{"arg": "value"}` writes in `params.set_frame` under each `value_type`, nor what the element alone writes for a value below 0 or above 127, a number of an entry above 127 included. This draft leaves the element alone as 0.7 has it in `params.get_frame` and `params.set_frame`, and `bits` writes exactly its field under any `value_type`. The text of 0.8 has to say those bytes before this proposal is accepted; the fields that repeat the element alone there have then to be refused.
 
 ### Example
 

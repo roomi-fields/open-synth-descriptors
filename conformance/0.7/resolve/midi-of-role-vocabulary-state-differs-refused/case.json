@@ -1,0 +1,9 @@
+{
+  "_about": "A midi_of file of 0.7 that names another state of the role vocabulary than its target is refused at /role_vocabulary, in the file that writes it.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/role_vocabulary"
+  }
+}

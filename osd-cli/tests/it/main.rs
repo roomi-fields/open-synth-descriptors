@@ -22,5 +22,6 @@ mod program;
 mod providers;
 mod resolve;
 mod uncredited_sources;
+mod unconfirmed_places;
 mod validate;
 mod ways;

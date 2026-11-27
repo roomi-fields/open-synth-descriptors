@@ -1,0 +1,4 @@
+{
+  "_about": "A value is no part of a path: a value that writes stands_under is refused at it.",
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/stands_under" }
+}

@@ -168,12 +168,13 @@ fn the_fields_0_7_moves_or_removes_leave_the_base_without_a_loss() {
 
 #[test]
 fn only_what_the_file_could_not_say_is_a_loss_on_a_base_before_0_7() {
-    // CC 20 is claimed by the control the base holds: the way of the file is the one loss.
+    // CC 20 is claimed by the control the base holds: the row of the file, left with no way, is the
+    // one loss, named at its line then at its cell.
     let file = csv(&[row(&[("manufacturer", "Lofty"), ("device", "Trundler"), ("section", "Filter"), ("parameter_name", "Again"), ("cc_msb", "20")])]);
     for base in [base_0_4(), base_0_5(), base_0_6()] {
         let out = joined(&base, &file, Format::MidiCsv);
         let places: Vec<&str> = out.lost.iter().map(|l| l.place.as_str()).collect();
-        assert_eq!(places, ["line 2, column cc_msb"], "{:?}", base.schema);
+        assert_eq!(places, ["line 2", "line 2, column cc_msb"], "{:?}", base.schema);
     }
 }
 

@@ -1,0 +1,4 @@
+{
+  "_about": "A value applies to one setting at least: an empty applies_to is refused.",
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/applies_to" }
+}

@@ -1,0 +1,9 @@
+{
+  "_about": "The target of the MIDI file of a module is the MIDI accumulated: after a module that names a state of the role vocabulary, a module that names another is refused at /role_vocabulary, in its MIDI file.",
+  "resolve_assembly": "acme/build",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/b-midi",
+    "pointer": "/role_vocabulary"
+  }
+}

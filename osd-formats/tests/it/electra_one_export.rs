@@ -135,7 +135,8 @@ fn the_pages_and_slots_fill_in_order_12_pots_3_control_sets_and_12_pages() {
 
 #[test]
 fn a_device_with_more_controls_than_a_preset_holds_exports_the_first_432_and_names_the_rest() {
-    let entries: Vec<Value> = (0..440).map(|n| cc_entry(&format!("/c{n}"), None, n % 128)).collect();
+    // One message each: a control that repeats the message of an earlier one does not come back.
+    let entries: Vec<Value> = (0..440).map(|n| json!({"osc": format!("/c{n}"), "nrpn_msb": n / 128, "nrpn_lsb": n % 128})).collect();
     let (p, lost) = exported(&device(json!(entries), json!([])));
     assert_eq!(p["controls"].as_array().unwrap().len(), 432);
     assert_eq!(violations(&p), Vec::<String>::new());
@@ -144,6 +145,14 @@ fn a_device_with_more_controls_than_a_preset_holds_exports_the_first_432_and_nam
         assert!(lost.iter().any(|l| l.place == place && !l.reason.is_empty()), "{place} not in the losses");
     }
     assert!(lost.iter().all(|l| l.place != "/cc_params/entries/431"));
+}
+
+#[test]
+fn a_control_that_repeats_the_message_of_an_earlier_one_is_named_since_the_import_does_not_give_it_back() {
+    let entries = json!([cc_entry("/a", None, 20), cc_entry("/b", None, 20), cc_entry("/c", None, 21)]);
+    let (_, lost) = exported(&device(entries, json!([])));
+    assert!(lost.iter().any(|l| l.place == "/cc_params/entries/1" && !l.reason.is_empty()), "{lost:?}");
+    assert!(lost.iter().all(|l| l.place != "/cc_params/entries/0" && l.place != "/cc_params/entries/2"), "{lost:?}");
 }
 
 #[test]
@@ -158,8 +167,9 @@ fn the_commands_after_the_controls_that_overflow_are_named_in_the_losses() {
 
 #[test]
 fn what_the_preset_cannot_carry_is_in_the_losses_by_its_json_pointer() {
-    let entries = json!([{"osc": "/a", "cc": 1, "orientation": "centered"}, {"osc": "/b", "cc": 2}]);
-    let (_, lost) = exported(&device(entries, json!([])));
+    let way = |n: u64| json!([{"ctrlType": "cc", "ctrlIndex": [n], "value_bits": 7}]);
+    let entries = json!([{"osc": "/a", "title": "A", "ways": way(1), "polarity": "bipolar"}, {"osc": "/b", "title": "B", "ways": way(2)}]);
+    let (_, lost) = exported(&device6(entries));
     let loss = lost.iter().find(|l| l.place == "/cc_params/entries/0/polarity").unwrap_or_else(|| panic!("{lost:?}"));
     assert!(!loss.reason.is_empty());
     assert!(lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/1")), "{lost:?}");

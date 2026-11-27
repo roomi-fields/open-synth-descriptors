@@ -8,6 +8,7 @@ mod base;
 mod credit;
 mod csv;
 mod importer;
+mod losses;
 mod xml;
 
 use std::fmt;

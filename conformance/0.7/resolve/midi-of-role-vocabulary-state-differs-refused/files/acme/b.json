@@ -1,0 +1,31 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "Synth",
+    "osc_prefix": "/synth"
+  },
+  "role_vocabulary": "1",
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/cutoff",
+        "role": {
+          "parts": [
+            {
+              "part": "filter"
+            }
+          ],
+          "setting": "cutoff"
+        },
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              74
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 //! document of destiny, docs/midnam.md, has a line for each element and attribute.
 
 use crate::common::midnam::*;
+use crate::common::partner::outside_section;
 use crate::common::xml::Node;
 use std::collections::BTreeSet;
 
@@ -21,9 +22,9 @@ fn declared_names() -> BTreeSet<String> {
 }
 
 fn doc_lines() -> Vec<Vec<String>> {
-    std::fs::read_to_string(DOC)
-        .unwrap_or_else(|e| panic!("{DOC}: {e}"))
-        .lines()
+    let page = std::fs::read_to_string(DOC).unwrap_or_else(|e| panic!("{DOC}: {e}"));
+    outside_section(&page)
+        .into_iter()
         .filter(|l| l.trim_start().starts_with('|'))
         .map(|l| l.trim().trim_matches('|').split('|').map(|c| c.trim().trim_matches('`').to_string()).collect())
         .collect()

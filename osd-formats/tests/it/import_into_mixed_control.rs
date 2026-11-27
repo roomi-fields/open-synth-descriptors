@@ -129,7 +129,7 @@ fn assert_row_on_the_mixed_control(cells: &[(&str, &str)], places: &[&str], adde
 
 #[test]
 fn a_row_that_gives_again_the_cc_of_a_mixed_control_loses_that_way_at_cc_msb() {
-    assert_row_on_the_mixed_control(&[("cc_msb", "1")], &["line 2, column cc_msb"], &[]);
+    assert_row_on_the_mixed_control(&[("cc_msb", "1")], &["line 2", "line 2, column cc_msb"], &[]);
     assert_row_on_the_mixed_control(
         &[("cc_msb", "1"), ("nrpn_msb", "3"), ("nrpn_lsb", "4")],
         &["line 2, column cc_msb"],
@@ -140,7 +140,7 @@ fn a_row_that_gives_again_the_cc_of_a_mixed_control_loses_that_way_at_cc_msb() {
 #[test]
 fn a_row_that_gives_again_the_nrpn_of_a_mixed_control_loses_that_way_at_nrpn_msb() {
     let nrpn = [("nrpn_msb", "1"), ("nrpn_lsb", "2")];
-    assert_row_on_the_mixed_control(&nrpn, &["line 2, column nrpn_msb"], &[]);
+    assert_row_on_the_mixed_control(&nrpn, &["line 2", "line 2, column nrpn_msb"], &[]);
     assert_row_on_the_mixed_control(
         &[("cc_msb", "74"), nrpn[0], nrpn[1]],
         &["line 2, column nrpn_msb"],
@@ -152,7 +152,7 @@ fn a_row_that_gives_again_the_nrpn_of_a_mixed_control_loses_that_way_at_nrpn_msb
 fn a_row_that_gives_again_both_messages_of_a_mixed_control_loses_each_at_its_cell() {
     assert_row_on_the_mixed_control(
         &[("cc_msb", "1"), ("nrpn_msb", "1"), ("nrpn_lsb", "2")],
-        &["line 2, column cc_msb", "line 2, column nrpn_msb"],
+        &["line 2", "line 2, column cc_msb", "line 2, column nrpn_msb"],
         &[],
     );
 }

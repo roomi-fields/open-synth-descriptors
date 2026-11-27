@@ -477,11 +477,6 @@ pub fn entry(table: &str, at: &str, given: &Object, old: &Object, new: &Object) 
         let named = pointer(at, &key);
         expected.push((key, range, named));
     }
-    if let Some(id) = negative_id_alone(old).filter(|_| table == "params") {
-        let key = free_key(old, "_flat");
-        let named = pointer(at, &key);
-        expected.push((key, serde_json::json!({ "id": id }), named));
-    }
     if let Some(scale) = scale(table, old, &ways) {
         expected.push(("scale".into(), scale, pointer(at, "scale")));
     }
@@ -684,38 +679,20 @@ fn ways_of_control(entry: &Object) -> Vec<Object> {
     ways
 }
 
-/// The one `sysex` way of an entry of `params`: `pr`, `p`, `c`, `r` as given, else
-/// `id`, when it is 0 or more. Where the numbers alone do not say which fields
-/// were given (an `id` beside them, numbers other than the first ones, or `pr`
-/// alone, which reads as an `id`), the way keeps the fields in its note `_flat`.
+/// The one `sysex` way of an entry of `params`: each of `pr`, `p`, `c`, `r` and `id` the
+/// entry gives, under its own name, whatever the sign of an `id`; none for an entry
+/// that gives none of them (5.3.3).
 fn ways_of_param(entry: &Object) -> Vec<Object> {
-    const NUMBERS: [&str; 4] = ["pr", "p", "c", "r"];
-    let given: Vec<&str> = NUMBERS.into_iter().filter(|k| entry.contains_key(*k)).collect();
-    let index: Vec<Value> = match given.is_empty() {
-        true => entry.get("id").filter(|_| negative_id_alone(entry).is_none()).cloned().into_iter().collect(),
-        false => given.iter().map(|k| entry[*k].clone()).collect(),
-    };
-    if index.is_empty() {
+    let numbers: Object = ["pr", "p", "c", "r", "id"].into_iter().filter_map(|k| entry.get(k).map(|v| (k.to_string(), v.clone()))).collect();
+    if numbers.is_empty() {
         return Vec::new();
     }
     let mut way = Object::new();
     way.insert("ctrlType".into(), "sysex".into());
-    way.insert("ctrlIndex".into(), index.into());
-    if !given.is_empty() && (entry.contains_key("id") || given != NUMBERS[..given.len()] || given == ["pr"]) {
-        let fields = given.iter().copied().chain(["id"]);
-        let flat: Object = fields.filter_map(|k| entry.get(k).map(|v| (k.to_string(), v.clone()))).collect();
-        way.insert("_flat".into(), flat.into());
-    }
+    way.extend(numbers);
     way.extend(entry.get("range").map(|r| ("range".to_string(), r.clone())));
     way.extend(direction(entry));
     vec![way]
-}
-
-/// The `id` of an entry of `params` that no way can hold: negative, and the one
-/// number the entry gives. The entry keeps it in its note `_flat` (5.3.3).
-fn negative_id_alone(entry: &Object) -> Option<&Value> {
-    let alone = !["pr", "p", "c", "r"].into_iter().any(|k| entry.contains_key(k));
-    entry.get("id").filter(|id| alone && id.as_i64().is_some_and(|n| n < 0))
 }
 
 /// The `nrpn_lsb_range` the entry keeps as a note: it has ways and none

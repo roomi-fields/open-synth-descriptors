@@ -65,6 +65,7 @@ fn warned(d: &Descriptor) -> Vec<(String, String)> {
             osd::WarningKind::UnknownProvider(id) => (w.pointer, id),
             osd::WarningKind::PartialControl => panic!("no control of these devices is partial: {}", w.pointer),
             osd::WarningKind::UncreditedSource => panic!("a device keeps no source out of its credit: {}", w.pointer),
+            _ => panic!("no place of these devices is to be confirmed: {}", w.pointer),
         })
         .collect()
 }

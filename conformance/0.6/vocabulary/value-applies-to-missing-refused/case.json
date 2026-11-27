@@ -1,0 +1,4 @@
+{
+  "_about": "A value says the settings it is a choice of: a value without applies_to is refused as Missing at it.",
+  "fault": { "kind": "Missing", "pointer": "/terms/4/applies_to" }
+}

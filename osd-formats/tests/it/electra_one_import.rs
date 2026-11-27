@@ -111,7 +111,9 @@ fn a_sysex_message_becomes_a_command_with_its_bytes_name_and_section() {
     assert_eq!(commands[1]["frame"], json!([240, 1, 247]));
     assert!(commands[1].get("section").is_none());
     assert_eq!(entries(&d).len(), 1);
-    assert!(lost.iter().all(|l| !l.place.starts_with("/controls/0/values/0/message")), "{lost:?}");
+    // The device of a message is the setting of the controller; the rest of the message is carried.
+    let of_message = |p: &str| p.starts_with("/controls/0/values/0/message") && !p.ends_with("/deviceId");
+    assert!(lost.iter().all(|l| !of_message(&l.place)), "{lost:?}");
 }
 
 #[test]

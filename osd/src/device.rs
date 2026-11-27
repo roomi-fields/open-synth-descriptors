@@ -543,8 +543,7 @@ fn check_fields_of_a_partial_control(d: &Device) -> Result<(), Fault> {
     Ok(())
 }
 
-/// The controls of a device of 0.7: a way of a `cc_params` entry is a message of MIDI
-/// and one of a `params` entry a SysEx parameter, the `default` and the named values lie in the
+/// The controls of a device of 0.7: the `default` and the named values lie in the
 /// reference scale, and a message is claimed once by side (`spec/0.7.md`).
 fn check_controls_0_7(d: &Device) -> Result<(), Fault> {
     check_fields_of_a_partial_control(d)?;
@@ -553,10 +552,6 @@ fn check_controls_0_7(d: &Device) -> Result<(), Fault> {
     for (at, ways, scale, default, values, readings, sysex) in cc.chain(params) {
         for (m, w) in ways.iter().enumerate() {
             check_contexts_of_way(d, w, &format!("{at}/ways/{m}"), sysex)?;
-            if (w.ctrl_type == "sysex") != sysex {
-                let rule = if sysex { "a params entry is reached by sysex ways" } else { "a cc_params entry is reached by the kinds of MIDI: sysex is for a params entry" };
-                return Err(Fault { kind: FaultKind::BadValue, file: None, pointer: format!("{at}/ways/{m}/ctrlType"), rule: rule.into() });
-            }
         }
         let Some([lo, hi]) = scale else { continue };
         if let Some(v) = default.filter(|v| *v < lo || *v > hi) {
@@ -1392,7 +1387,7 @@ object! {
         "role" role: Option<Role> = Opt(obj()),
         /// The messages that reach the control, in the order of preference (0.7); empty when the
         /// message is not known yet: the control is partial, to be completed.
-        "ways" ways: Vec<Way> = list(obj()),
+        "ways" ways: Vec<Way> = list(WayOf { sysex: false }),
     }
     kept {
         /// The flat message fields a text before 0.7 gave on the control, held where its ways alone
@@ -1506,8 +1501,18 @@ object! {
         /// The kind of the message: `cc`, `nrpn`, `rpn`, `chPress`, `pPress`, `pBend`, `note`, or
         /// `sysex` for a `params` entry.
         "ctrlType" ctrl_type: String = matching(|s| KINDS.contains(&s), "one of cc, nrpn, rpn, chPress, pPress, pBend, note, sysex"),
-        /// The numbers of the message, by kind: absent for `chPress` and `pBend`.
+        /// The numbers of the message, by kind: absent for `chPress`, `pBend` and `sysex`.
         "ctrlIndex" ctrl_index: Option<Vec<i64>> = Opt(list(INTEGER)),
+        /// The `pr` byte of the maker's frame, on a `sysex` way only, as `p`, `c`, `r` and `id`.
+        "pr" pr: Option<i64> = Opt(FRAME_BYTE),
+        /// The `p` byte of the maker's frame.
+        "p" p: Option<i64> = Opt(FRAME_BYTE),
+        /// The `c` byte of the maker's frame.
+        "c" c: Option<i64> = Opt(FRAME_BYTE),
+        /// The `r` byte of the maker's frame.
+        "r" r: Option<i64> = Opt(FRAME_BYTE),
+        /// The parameter's own number in the maker's frame, any integer.
+        "id" id: Option<i64> = Opt(INTEGER),
         /// The width of the value: 7 or 14.
         "value_bits" value_bits: Option<i64> = Opt(INTEGER),
         /// Lowest and highest value of the message.
@@ -1526,29 +1531,58 @@ object! {
     check check_way
 }
 
+/// A byte of the maker's frame.
+const FRAME_BYTE: crate::json::Int<i64> = int(0, 255);
+
+/// The fields that give the numbers of a `sysex` way.
+pub(crate) const SYSEX_NUMBERS: [&str; 5] = ["pr", "p", "c", "r", "id"];
+
+/// A way of an entry of `params` (`sysex`) or of `cc_params`. Its unknown keys are refused first,
+/// then a kind its table does not take, then a field its kind does not hold, and last its values
+/// (`spec/0.7.md` 5.3.3, the order of the faults of a way).
+struct WayOf {
+    sysex: bool,
+}
+
+impl Codec for WayOf {
+    type T = Way;
+    fn read(&self, v: &Value, at: &At) -> Result<Way, Fault> {
+        let o = crate::json::keys(v, at, Way::KEYS)?;
+        if let Some(kind) = o.get("ctrlType").and_then(Value::as_str).filter(|k| KINDS.contains(k)) {
+            if (kind == "sysex") != self.sysex {
+                let rule = if self.sysex { "a params entry is reached by sysex ways" } else { "a cc_params entry is reached by the kinds of MIDI: sysex is for a params entry" };
+                return Err(At::Key(at, "ctrlType").bad(rule));
+            }
+            let foreign: &[&str] = if self.sysex { &["ctrlIndex"] } else { &SYSEX_NUMBERS };
+            if let Some(key) = foreign.iter().find(|k| o.contains_key(**k)) {
+                return Err(At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field of a {kind} way")));
+            }
+        }
+        Way::read(v, at)
+    }
+    fn write(&self, t: &Way) -> Option<Value> {
+        Some(t.write())
+    }
+}
+
 /// The numbers of a way follow its kind, and its width follows its kind and its numbers
-/// (`spec/0.7.md`, `ctrlIndex` and `value_bits`).
+/// (`spec/0.7.md`, `ctrlIndex` and `value_bits`). A `sysex` way gives at least one of its five.
 fn check_way(w: &Way, at: &At) -> Result<(), Fault> {
+    if w.ctrl_type == "sysex" && [w.pr, w.p, w.c, w.r, w.id].iter().all(Option::is_none) {
+        return Err(at.bad("a sysex way gives at least one of pr, p, c, r, id"));
+    }
     let index_at = At::Key(at, "ctrlIndex");
-    // A `sysex` way of one number gives the parameter's own number, which is not limited to a byte.
-    let alone = w.ctrl_type == "sysex" && w.ctrl_index.as_ref().is_some_and(|i| i.len() == 1);
     let (count, top): (&[usize], i64) = match w.ctrl_type.as_str() {
         "cc" => (&[1, 2], 127),
         "nrpn" | "rpn" => (&[2], 127),
         "pPress" | "note" => (&[1], 127),
-        "sysex" if alone => (&[1], i64::MAX),
-        "sysex" => (&[1, 2, 3, 4], 255),
         _ => (&[], 0),
     };
     match (&w.ctrl_index, count.is_empty()) {
         (Some(_), true) => return Err(index_at.bad("absent: this kind has no numbers")),
         (None, false) => return Err(index_at.fault(FaultKind::Missing, "ctrlIndex is required: the numbers of the message")),
         (Some(i), false) if !count.contains(&i.len()) || i.iter().any(|n| *n < 0 || *n > top) => {
-            let rule = if w.ctrl_type == "sysex" {
-                "1 integer of 0 or more, or 2 to 4 integers from 0 to 255".to_string()
-            } else {
-                format!("{} integers from 0 to {top}", count.iter().map(usize::to_string).collect::<Vec<_>>().join(" or "))
-            };
+            let rule = format!("{} integers from 0 to {top}", count.iter().map(usize::to_string).collect::<Vec<_>>().join(" or "));
             return Err(index_at.bad(rule));
         }
         _ => {}
@@ -1739,14 +1773,7 @@ object! {
         "role" role: Option<Role> = Opt(obj()),
         /// The messages that address the parameter, `sysex` ways (0.7); empty when the message is
         /// not known yet: the entry is partial, to be completed.
-        "ways" ways: Vec<Way> = list(obj()),
-    }
-    kept {
-        /// The key of the note that holds the `id` of a text before 0.7 no way can carry (a negative
-        /// `id`, the one number of its entry). No key of any version: only the writing of an older
-        /// version reads it.
-        #[doc(hidden)]
-        flat_id: Option<String>
+        "ways" ways: Vec<Way> = list(WayOf { sysex: true }),
     }
 }
 
@@ -2329,7 +2356,7 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     }
     // The reader models the form of 0.7: the controls of an older text are read in their own form,
     // with its checks, and lifted to ways.
-    let (mut lifted, kept, kept_ids) = crate::flat::lift(o, schema, at)?;
+    let (mut lifted, kept) = crate::flat::lift(o, schema, at)?;
     move_manufacturer_id(&mut lifted);
     let rules = take_port_names(&mut lifted, at)?;
     let renamed = Value::Object(rename_key(&lifted, LEGACY_SOURCES, "sources"));
@@ -2342,9 +2369,6 @@ pub(crate) fn read_device(v: &Value, at: &At) -> Result<Device, Fault> {
     put_port_rules(device.identity.as_mut(), rules);
     for (entry, flat) in device.cc_params.iter_mut().flat_map(|t| &mut t.entries).zip(kept) {
         entry.flat = flat;
-    }
-    for (entry, id) in device.params.iter_mut().flat_map(|t| &mut t.entries).zip(kept_ids) {
-        entry.flat_id = id;
     }
     // `provider` is a field from 0.7: before, it is a key of the source like another.
     for source in device.sources.iter_mut().flatten() {
@@ -2483,8 +2507,7 @@ pub(crate) fn write_device(d: &Device) -> Value {
         Value::Object(o) if d.schema < Some(Version::V0_7) => {
             let mut v = Value::Object(rename_key(&o, "sources", LEGACY_SOURCES));
             let kept = d.cc_params.iter().flat_map(|t| &t.entries).map(|e| e.flat.as_deref()).collect::<Vec<_>>();
-            let kept_ids = d.params.iter().flat_map(|t| &t.entries).map(|e| e.flat_id.as_deref()).collect::<Vec<_>>();
-            crate::flat::flatten(&mut v, d.schema, &kept, &kept_ids);
+            crate::flat::flatten(&mut v, d.schema, &kept);
             manufacturer_id_to_device(&mut v);
             port_rules_to_names(&mut v);
             v

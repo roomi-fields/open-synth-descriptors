@@ -1,0 +1,59 @@
+{
+  "_about": "Two places of one transfer that name the same control are both carried to 0.7, unchanged and in their order.",
+  "convert": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "sound_transfers": [
+      {
+        "id": "single",
+        "carries": "sound",
+        "match_frame": [
+          240,
+          66,
+          "any",
+          "any",
+          "any",
+          "any",
+          247
+        ],
+        "elements": {
+          "data": {
+            "from": 2,
+            "length": 4
+          }
+        },
+        "places": [
+          {
+            "control": "/cc_params/entries/0",
+            "from": 0,
+            "length": 1
+          },
+          {
+            "control": "/cc_params/entries/0",
+            "from": 2,
+            "length": 1
+          }
+        ]
+      }
+    ]
+  }
+}

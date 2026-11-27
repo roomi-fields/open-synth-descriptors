@@ -16,6 +16,11 @@ fn cell(record: &[String], column: &str) -> String {
     record[HEADER.iter().position(|h| *h == column).unwrap()].clone()
 }
 
+/// The losses but those of a title the export wrote from the address: these controls have none.
+fn but_titles(lost: &[osd_formats::Loss]) -> impl Iterator<Item = &osd_formats::Loss> {
+    lost.iter().filter(|l| !l.place.ends_with("/title"))
+}
+
 #[test]
 fn a_device_exports_the_header_and_one_row_per_cc_params_entry() {
     let d = device(
@@ -66,11 +71,13 @@ fn every_block_a_device_holds_that_the_csv_cannot_carry_is_in_the_losses_by_its_
 }
 
 #[test]
-fn a_device_with_only_a_sysex_block_loses_exactly_that_block() {
+fn a_device_with_only_a_sysex_block_loses_the_block_and_what_a_csv_without_a_row_does_not_give_back() {
     let t = export(&device(r#", "sysex": {"header": [240], "footer": [247]}"#), Format::MidiCsv).unwrap();
     let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
     places.sort();
-    assert_eq!(places, ["/sources", "/sysex"]);
+    // No row says the device's name, manufacturer or prefix, and the import adds `cc_params`.
+    assert_eq!(places, ["/cc_params", "/device/name", "/device/osc_prefix", "/device/vendor", "/sources", "/sysex"]);
+    assert!(t.lost.iter().all(|l| !l.reason.is_empty()), "{:?}", t.lost);
 }
 
 #[test]
@@ -176,7 +183,7 @@ fn the_default_of_a_control_with_only_an_nrpn_goes_to_the_nrpn_default_cell() {
     let t = export(&d, Format::MidiCsv).unwrap();
     let r = &parse(&t.value)[1];
     assert_eq!((cell(r, "nrpn_default_value"), cell(r, "cc_default_value")), ("100".into(), "".into()));
-    assert!(!t.lost.iter().any(|l| l.place != "/sources"), "{:?}", t.lost);
+    assert!(!but_titles(&t.lost).any(|l| l.place != "/sources"), "{:?}", t.lost);
 }
 
 #[test]
@@ -218,7 +225,7 @@ fn a_control_with_a_cc_and_an_nrpn_way_gives_one_row_with_both_in_their_columns(
     let r = &records[1];
     assert_eq!((cell(r, "cc_msb"), cell(r, "cc_min_value"), cell(r, "cc_max_value")), ("74".into(), "0".into(), "127".into()));
     assert_eq!((cell(r, "nrpn_msb"), cell(r, "nrpn_lsb"), cell(r, "nrpn_min_value"), cell(r, "nrpn_max_value")), ("1".into(), "2".into(), "0".into(), "16383".into()));
-    assert!(t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0")), "{:?}", t.lost);
+    assert!(but_titles(&t.lost).all(|l| !l.place.starts_with("/cc_params/entries/0")), "{:?}", t.lost);
 }
 
 #[test]
@@ -234,7 +241,7 @@ fn the_nrpn_way_written_before_the_cc_way_still_gives_the_cc_and_the_nrpn_in_the
     assert_eq!((cell(r, "cc_msb"), cell(r, "cc_max_value")), ("74".into(), "127".into()));
     assert_eq!((cell(r, "nrpn_msb"), cell(r, "nrpn_lsb"), cell(r, "nrpn_max_value")), ("1".into(), "2".into(), "16383".into()));
     assert!(
-        t.lost.iter().all(|l| !l.place.starts_with("/cc_params/entries/0") || l.reason.contains("order of the ways")),
+        but_titles(&t.lost).all(|l| !l.place.starts_with("/cc_params/entries/0") || l.reason.contains("order of the ways")),
         "{:?}",
         t.lost
     );
@@ -250,7 +257,7 @@ fn a_second_nrpn_way_is_a_loss_at_its_pointer_and_the_first_nrpn_still_fills_its
     let records = parse(&t.value);
     assert_eq!(records.len(), 2);
     assert_eq!((cell(&records[1], "cc_msb"), cell(&records[1], "nrpn_msb"), cell(&records[1], "nrpn_lsb")), ("74".into(), "1".into(), "2".into()));
-    let at: Vec<_> = t.lost.iter().filter(|l| l.place.starts_with("/cc_params/entries/0")).collect();
+    let at: Vec<_> = but_titles(&t.lost).filter(|l| l.place.starts_with("/cc_params/entries/0")).collect();
     assert_eq!(at.len(), 1, "{:?}", t.lost);
     assert_eq!(at[0].place, "/cc_params/entries/0/ways/2");
     assert!(!at[0].reason.is_empty());
@@ -265,7 +272,7 @@ fn a_second_cc_way_and_an_rpn_way_are_losses_at_their_pointers() {
     let t = export(&d, Format::MidiCsv).unwrap();
     let records = parse(&t.value);
     assert_eq!((records.len(), cell(&records[1], "cc_msb"), cell(&records[1], "cc_lsb")), (2, "74".into(), "".into()));
-    let mut places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).filter(|p| p.starts_with("/cc_params/entries/0")).collect();
+    let mut places: Vec<&str> = but_titles(&t.lost).map(|l| l.place.as_str()).filter(|p| p.starts_with("/cc_params/entries/0")).collect();
     places.sort();
     assert_eq!(places, ["/cc_params/entries/0/ways/1", "/cc_params/entries/0/ways/2"]);
 }

@@ -1,6 +1,7 @@
 //! The table of the triggers CSV's columns, in docs/midi-triggers-csv.md: one line per column of
 //! the header the export writes, saying where it goes or why it is lost.
 
+use crate::common::partner::outside_section;
 use crate::common::{device_from, resolved, source, trigger_csv, trigger_row, TRIGGER_HEADER};
 use osd_formats::{export, import, Format};
 
@@ -14,9 +15,9 @@ fn written_header() -> Vec<String> {
 
 /// The cells of the lines of a Markdown table, the first cell stripped of its backticks.
 fn table_lines() -> Vec<Vec<String>> {
-    std::fs::read_to_string(TABLE)
-        .unwrap_or_else(|e| panic!("{TABLE}: {e}"))
-        .lines()
+    let page = std::fs::read_to_string(TABLE).unwrap_or_else(|e| panic!("{TABLE}: {e}"));
+    outside_section(&page)
+        .into_iter()
         .filter(|l| l.trim_start().starts_with('|'))
         .map(|l| l.trim().trim_matches('|').split('|').map(|c| c.trim().trim_matches('`').to_string()).collect())
         .collect()

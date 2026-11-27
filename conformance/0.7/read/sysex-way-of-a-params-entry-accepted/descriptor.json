@@ -6,7 +6,7 @@
     "set_frame": [240, 67, { "arg": "pr" }, { "arg": "p" }, { "arg": "c" }, { "arg": "r" }, { "arg": "value" }, 247],
     "value_type": "u7",
     "entries": [
-      { "osc": "/osc1/shape", "ways": [{ "ctrlType": "sysex", "ctrlIndex": [16, 2, 0, 0] }] }
+      { "osc": "/osc1/shape", "ways": [{ "ctrlType": "sysex", "pr": 16, "p": 2, "c": 0, "r": 0 }] }
     ]
   }
 }

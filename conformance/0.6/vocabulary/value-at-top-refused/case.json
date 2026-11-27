@@ -1,0 +1,4 @@
+{
+  "_about": "A value is no part of a path: a value that writes at_top is refused at it.",
+  "fault": { "kind": "BadValue", "pointer": "/terms/4/at_top" }
+}

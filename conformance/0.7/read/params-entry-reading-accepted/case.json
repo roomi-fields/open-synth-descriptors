@@ -34,9 +34,7 @@
           "ways": [
             {
               "ctrlType": "sysex",
-              "ctrlIndex": [
-                5
-              ]
+              "id": 5
             }
           ],
           "readings": [
