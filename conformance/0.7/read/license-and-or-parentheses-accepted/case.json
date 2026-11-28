@@ -1,0 +1,17 @@
+{
+  "_about": "An SPDX expression with AND, OR and nested operands in parentheses is read and written back as written; a parenthesis separates an operator as a space does.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "community-re",
+        "license": "(MIT OR Apache-2.0) AND (CC-BY-4.0 OR(CC0-1.0))"
+      }
+    ]
+  }
+}

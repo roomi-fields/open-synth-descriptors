@@ -18,7 +18,7 @@ fn spoils() -> Vec<(&'static str, Change)> {
     for kind in kinds {
         out.push(("type", Box::new(move |s| s.kind = kind.to_string())));
     }
-    for license in ["cc by", "mit", "None", "Public-Domain", "noassertion", "CC BY 4.0"] {
+    for license in ["cc by", "None", "Public-Domain", "noassertion", "CC BY 4.0"] {
         out.push(("license", Box::new(move |s| s.license = Some(license.to_string()))));
     }
     for provider in ["Not Well Formed".to_string(), "-acme".to_string(), "acme--co".to_string(), String::new(), "a".repeat(65)] {
@@ -180,6 +180,35 @@ fn every_import_carries_a_source_the_reader_accepts_as_given() {
             assert_eq!(t.value.sources, Some(vec![expected]), "{context}");
         }
     }
+}
+
+#[test]
+fn every_import_and_import_into_carry_a_license_id_in_lower_case_as_written() {
+    for license in ["curl", "mit", "free", "zlib-acknowledgement", "0BSD", "mit OR isc"] {
+        for (format, text, mut source) in samples() {
+            source.license = Some(license.to_string());
+            let context = format!("{} {license}", format.name());
+            let t = import(&text, format, &source).unwrap_or_else(|f| panic!("{context}: {f}"));
+            assert_carried(t.value, license, &context);
+        }
+        for (format, text) in joinable() {
+            let mut source = common::source();
+            source.license = Some(license.to_string());
+            for (version, base) in [("0.7", plain_base()), ("0.4", old_base())] {
+                let context = format!("{} {license} into {version}", format.name());
+                let t = import_into(base, &text, format, &source).unwrap_or_else(|f| panic!("{context}: {f}"));
+                assert_carried(t.value, license, &context);
+            }
+        }
+    }
+}
+
+/// The last source of `device` has `license`, and the descriptor written is read.
+fn assert_carried(device: osd::Device, license: &str, context: &str) {
+    let last = device.sources.as_ref().and_then(|s| s.last()).expect("an import adds a source");
+    assert_eq!(last.license.as_deref(), Some(license), "{context}");
+    let written = osd::write(&osd::Descriptor::Device(Box::new(device)));
+    osd::read(&written, osd::Kind::Device).unwrap_or_else(|f| panic!("{context}: {f}"));
 }
 
 #[test]

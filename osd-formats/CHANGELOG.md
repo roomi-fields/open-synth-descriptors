@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- `import` and `import_into` take a source whose licence id starts in lowercase or with a digit (`curl`, `mit`, `0BSD`) and write it as given in the 0.7 descriptor; they still refuse `cc by` and `None`. The KnobKraft export judges an expression of such ids by its unchanged rules, the case of the ids ignored: `mit OR GPL-2.0-only` is allowed, with no line and no loss; `curl` stays not recognised.
+
+- The KnobKraft export judges the licence of a source as an SPDX expression: an `OR` is allowed under the AGPL-3.0 when one branch is, an `AND` when all are, a licence `WITH` an exception when the licence alone is (else not recognised), and `X+` or `X-or-later` when X or a later version of it is allowed (`GPL-2.0-or-later` is now allowed). A warning cites the whole expression.
+
+- The OSCQuery export writes one method per trigger, with `ACCESS` 2 and `TYPE` `I` (the Impulse of OSC 1.1) and no argument, so a device of triggers only no longer gives an empty namespace. In place of the one loss at `/triggers`, it names each field of a trigger the method does not carry (`/triggers/entries/N/<field>`), each `_` key of an entry and of the block, and, at `/triggers/entries/N`, a trigger whose address is taken. The OSCQuery import reads a writable method whose `TYPE` is exactly `I` back as a command with no argument, not as a trigger, and names the tag at its `TYPE`; until now it imported no such method.
+
+- `midi-triggers-csv` export: it imports the file it writes and names in the losses every field of the device given that comes back missing, changed or added, in the order of the descriptor, as the `midi-csv` export does. Newly named: `/sources`, always (so `credit_to_carry` gives one line per source), an `osc` and an `osc_prefix` the import builds otherwise, `role_vocabulary`, `contexts`, `sound_transfers`, `resources`, `midi_of_sources`, `device.stands_for` and `device.fidelity`, and `device.name` and `device.vendor` of a device with no trigger.
+
+- `midi-triggers-csv` import: a file that gives no entry (a header alone, or rows that are all lost) gives a device without a `triggers` block; it gave an empty one.
+
+- `electra-one` import: `offValue` and `onValue` of a pad whose range is carried are now named too, each at its pointer: the range is carried, but no pad is written back. The range read is unchanged.
+
+- `oscquery` import: a `RANGE` and an `EXTENDED_TYPE` whose arrays are nested as the brackets of the `TYPE`, and a `RANGE` object or an `EXTENDED_TYPE` text written alone, which holds for each argument, are now read (they were refused). Newly named in the losses: a bound or a name of a nested array that the export writes back at another place, a `null` of a `RANGE` it does not write back at its place, an entry of an `EXTENDED_TYPE` array that is no text, a value written alone that an argument does not take, the `TYPE` of no tag of a command and what stands beside it, and each container below the device's that leads to no command.
+
+- `midnam` import: a named value outside the range of its control is a loss at the line of its `Value` (it was on the whole `Values`), and the grouping of a `NoteGroup` is a loss of `NoteGroup@Name` (it was on the whole group).
+
+- Corrected round-trip figures: MIDNAM carries 7180 values and loses 7172 (the 184 names and 184 numbers of the notes of the groups, counted lost before, are carried: all 1281 `Note@Name` and 1281 `Note@Number` are); OSCQuery, now on two public files, with the namespace of the RNBO runner, carries 70 and loses 303.
+
 - The page of each importable format (`docs/<format>.md`, « Round trip on public files ») publishes the round-trip figures on public files of the partner: the values carried, lost and structure by kind, with each file's address at a pinned revision, SHA-256, licence and credit. The files are not in the repository: a test replays the count on the folder `OSD_PARTNER_FILES` names. The MIDI 2.0 page says no public file was found; the Deluge and KnobKraft pages say there is no round trip.
 
 - Converters now name in the losses what they lost silently: `midi-csv` import, a row left with no way, at its line; `midnam` import, a `Patch@Number` that is not a whole number, a `ProgramChange` that is no program change number, and the `Name` of a set or list of names the export writes otherwise; `electra-one` import, `offValue` and `onValue` of a pad whose range is the whole scale; `electra-one` export, a command whose parameter number a source keeps; `oscquery` import, a type tag the export writes as another.

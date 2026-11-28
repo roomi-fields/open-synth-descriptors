@@ -1,0 +1,92 @@
+{
+  "_about": "In a chain of `midi_of`, a kept reading of a file with `midi_of` is judged on the joined device: it may name an `id` that only the file asked for writes, or that only the end of the chain writes; its reading of a command or of a control the join discards, replaced at the same address, is not judged. The end of the chain, with no `midi_of`, names its own source.",
+  "resolve": "acme/a",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "midi_of": "acme/b",
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "readings": [
+            {
+              "state": "valid",
+              "firmware": "1.2",
+              "source": "only-a"
+            }
+          ],
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        },
+        {
+          "osc": "/resonance",
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                71
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "commands": [
+      {
+        "osc": "/c",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "only-c"
+          }
+        ]
+      },
+      {
+        "osc": "/kept",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "only-a"
+          }
+        ]
+      },
+      {
+        "osc": "/union",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "only-c"
+          }
+        ]
+      },
+      {
+        "osc": "/replaced"
+      }
+    ],
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "only-a"
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "id": "only-c"
+      }
+    ]
+  }
+}

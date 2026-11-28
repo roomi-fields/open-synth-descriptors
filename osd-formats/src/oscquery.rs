@@ -5,7 +5,7 @@
 use crate::credit::{credit_text, uncarried_source_fields};
 use crate::importer::check_source;
 use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated};
-use osd::{Address, ArgType, Command, Device, Resolved, Segment, Source};
+use osd::{Address, ArgType, Command, Device, Resolved, Segment, Source, Trigger};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
@@ -47,6 +47,97 @@ fn tags(ty: &str) -> Vec<char> {
     ty.chars().filter(|c| !matches!(c, '[' | ']')).collect()
 }
 
+/// The brackets of a TYPE: a tag, or what stands between two brackets.
+enum Shape {
+    Tag,
+    Array(Vec<Shape>),
+}
+
+/// The shapes of a TYPE, `None` when its brackets do not pair.
+fn shapes(ty: &str) -> Option<Vec<Shape>> {
+    let mut open: Vec<Vec<Shape>> = Vec::new();
+    let mut here = Vec::new();
+    for c in ty.chars() {
+        match c {
+            '[' => open.push(std::mem::take(&mut here)),
+            ']' => {
+                let inner = std::mem::replace(&mut here, open.pop()?);
+                here.push(Shape::Array(inner));
+            }
+            _ => here.push(Shape::Tag),
+        }
+    }
+    open.is_empty().then_some(here)
+}
+
+/// What a RANGE or an EXTENDED_TYPE says of one argument, and its place below the attribute
+/// (`/1/0`; empty for a value written alone, which holds for each argument).
+struct Entry<'a> {
+    place: String,
+    value: &'a Value,
+}
+
+/// The entry of each argument of `ty` in the attribute at `at` (OSCQueryProposal, "Other notes on
+/// attributes"): the value itself when it is written alone; else an array holding one entry per
+/// tag, or nested as the brackets of the TYPE are.
+fn entries<'a>(value: &'a Value, ty: &str, at: &str) -> Result<Vec<Entry<'a>>, Fault> {
+    let count = tags(ty).len();
+    let Some(items) = value.as_array() else {
+        return Ok((0..count).map(|_| Entry { place: String::new(), value }).collect());
+    };
+    let rule = "one entry per argument of TYPE, in arrays as the brackets of the TYPE when it holds any array";
+    if !items.iter().any(Value::is_array) {
+        if items.len() != count {
+            return Err(invalid(at, rule));
+        }
+        return Ok(items.iter().enumerate().map(|(i, value)| Entry { place: format!("/{i}"), value }).collect());
+    }
+    let Some(shapes) = shapes(ty) else {
+        return Err(invalid(at, "the brackets of the TYPE do not pair: no array follows them"));
+    };
+    let mut out = Vec::new();
+    follow(items, &shapes, at, "", &mut out)?;
+    Ok(out)
+}
+
+/// Reads the items of an array beside the shapes of the brackets it stands for.
+fn follow<'a>(items: &'a [Value], shapes: &[Shape], at: &str, place: &str, out: &mut Vec<Entry<'a>>) -> Result<(), Fault> {
+    if items.len() != shapes.len() {
+        return Err(invalid(format!("{at}{place}"), "the array has not the length of the brackets of the TYPE it stands for"));
+    }
+    for (i, (value, shape)) in items.iter().zip(shapes).enumerate() {
+        let place = format!("{place}/{i}");
+        match (shape, value.as_array()) {
+            (Shape::Tag, None) => out.push(Entry { place, value }),
+            (Shape::Array(inner), Some(items)) => follow(items, inner, at, &place, out)?,
+            (Shape::Tag, Some(_)) => return Err(invalid(format!("{at}{place}"), "an array where the TYPE has one tag")),
+            (Shape::Array(_), None) => return Err(invalid(format!("{at}{place}"), "the TYPE has brackets here: an array is expected")),
+        }
+    }
+    Ok(())
+}
+
+/// The rules of one entry of a RANGE: null or an object, numeric bounds, MIN not above MAX.
+fn check_bounds(entry: &Value, at: &str) -> Result<(), Fault> {
+    if entry.is_null() {
+        return Ok(());
+    }
+    let Some(e) = entry.as_object() else {
+        return Err(invalid(at, "a RANGE entry is null or an object"));
+    };
+    for key in ["MIN", "MAX"] {
+        if e.get(key).is_some_and(|v| !v.is_number()) {
+            return Err(invalid(format!("{at}/{key}"), format!("{key} is a number")));
+        }
+    }
+    if let (Some(lo), Some(hi)) = (e.get("MIN").and_then(Value::as_f64), e.get("MAX").and_then(Value::as_f64)) {
+        if lo > hi {
+            return Err(invalid(at, "MIN is above MAX"));
+        }
+    }
+    Ok(())
+}
+
 /// Refuses a node that breaks the proposal, at the JSON pointer of the value that breaks it.
 fn check_node(node: &Value, path: &str, ptr: &str) -> Result<(), Fault> {
     let Some(o) = node.as_object() else {
@@ -75,37 +166,29 @@ fn check_node(node: &Value, path: &str, ptr: &str) -> Result<(), Fault> {
         if access == Some(0) {
             return Err(invalid(format!("{ptr}/TYPE"), "a container (ACCESS 0) has no type"));
         }
-        types = Some(tags(s));
+        types = Some(s);
     }
     if let Some(r) = o.get("RANGE") {
-        let (Some(items), Some(t)) = (r.as_array(), &types) else {
-            return Err(invalid(format!("{ptr}/RANGE"), "RANGE is an array with one entry per argument of TYPE"));
-        };
-        if items.len() != t.len() {
-            return Err(invalid(format!("{ptr}/RANGE"), "RANGE has one entry per argument of TYPE"));
-        }
-        for (i, it) in items.iter().enumerate() {
-            if it.is_null() {
-                continue;
-            }
-            let Some(e) = it.as_object() else {
-                return Err(invalid(format!("{ptr}/RANGE/{i}"), "a RANGE entry is null or an object"));
-            };
-            for key in ["MIN", "MAX"] {
-                if e.get(key).is_some_and(|v| !v.is_number()) {
-                    return Err(invalid(format!("{ptr}/RANGE/{i}/{key}"), format!("{key} is a number")));
+        let at = format!("{ptr}/RANGE");
+        let form = "RANGE is an object that holds for each argument of TYPE, or an array of the entries of its arguments";
+        match (r, types) {
+            (Value::Object(_), Some(_)) => check_bounds(r, &at)?,
+            (Value::Array(_), Some(ty)) => {
+                for entry in entries(r, ty, &at)? {
+                    check_bounds(entry.value, &format!("{at}{}", entry.place))?;
                 }
             }
-            if let (Some(lo), Some(hi)) = (e.get("MIN").and_then(Value::as_f64), e.get("MAX").and_then(Value::as_f64)) {
-                if lo > hi {
-                    return Err(invalid(format!("{ptr}/RANGE/{i}"), "MIN is above MAX"));
-                }
-            }
+            _ => return Err(invalid(at, form)),
         }
     }
-    if let (Some(e), Some(t)) = (o.get("EXTENDED_TYPE"), &types) {
-        if e.as_array().map(Vec::len) != Some(t.len()) {
-            return Err(invalid(format!("{ptr}/EXTENDED_TYPE"), "EXTENDED_TYPE has one entry per argument of TYPE"));
+    if let (Some(e), Some(ty)) = (o.get("EXTENDED_TYPE"), types) {
+        let at = format!("{ptr}/EXTENDED_TYPE");
+        match e {
+            Value::String(_) => {}
+            Value::Array(_) => {
+                entries(e, ty, &at)?;
+            }
+            _ => return Err(invalid(at, "EXTENDED_TYPE is a text that holds for each argument of TYPE, or an array of the names of its arguments")),
         }
     }
     match o.get("CONTENTS") {
@@ -198,12 +281,105 @@ fn osc_of(path: &str) -> Option<Value> {
     Some(Value::Array(parts))
 }
 
+/// The TYPE of a method that takes an event with no value: the Impulse of OSC 1.1.
+const IMPULSE: &str = "I";
+
+/// The command a method of type `I` makes: no argument and no frame. The tag is not kept, and what
+/// the node says of its argument is named, a RANGE or an EXTENDED_TYPE written alone included.
+fn impulse_command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<Loss>) -> Option<Value> {
+    let osc = command_osc(ptr, relative, losses)?;
+    loss(losses, format!("{ptr}/TYPE"), "the impulse tag of TYPE is not kept: the command has no argument, and the export of that command writes no TYPE");
+    let unbounded = "an impulse has no value: the command has no argument to bound";
+    let holds_a_key = |v: &Value| v.as_object().is_some_and(|e| !e.is_empty());
+    match o.get("RANGE") {
+        Some(Value::Array(entries)) => {
+            for (i, _) in entries.iter().enumerate().filter(|(_, e)| holds_a_key(e)) {
+                loss(losses, format!("{ptr}/RANGE/{i}"), unbounded);
+            }
+        }
+        Some(alone) if holds_a_key(alone) => loss(losses, format!("{ptr}/RANGE"), unbounded),
+        _ => {}
+    }
+    let unnamed = "an impulse has no value: the command has no argument to name";
+    match o.get("EXTENDED_TYPE") {
+        Some(Value::Array(entries)) => {
+            for i in 0..entries.len() {
+                loss(losses, format!("{ptr}/EXTENDED_TYPE/{i}"), unnamed);
+            }
+        }
+        Some(_) => loss(losses, format!("{ptr}/EXTENDED_TYPE"), unnamed),
+        None => {}
+    }
+    Some(json!({"osc": osc}))
+}
+
+/// The `osc` of the command of a method; a path with braces that are no capture makes none.
+fn command_osc(ptr: &str, relative: &str, losses: &mut Vec<Loss>) -> Option<Value> {
+    let osc = osc_of(relative);
+    if osc.is_none() {
+        loss(losses, ptr, "the path has braces that are no capture ({name}, letters, digits and _, one per piece of text): the method is not imported");
+    }
+    osc
+}
+
+/// The bounds an entry of a RANGE gives its argument; what it holds beside them, and bounds the
+/// descriptor cannot hold, are losses at the entry.
+fn bounds_read(entry: &Map<String, Value>, at: &str, losses: &mut Vec<Loss>) -> Option<[i64; 2]> {
+    for (key, value) in entry.iter().filter(|(k, _)| *k != "MIN" && *k != "MAX") {
+        let reason = if key == "VALS" { vals_loss(value) } else { "the descriptor has no field for it" };
+        loss(losses, format!("{at}/{}", segment(key)), reason);
+    }
+    match (entry.get("MIN"), entry.get("MAX")) {
+        (Some(lo), Some(hi)) => match (whole(lo), whole(hi)) {
+            (Some(lo), Some(hi)) => return Some([lo, hi]),
+            _ => loss(losses, at, "the bounds are not whole numbers: the descriptor's range holds whole numbers"),
+        },
+        (None, None) => {}
+        _ => loss(losses, at, "a range needs both its MIN and its MAX"),
+    }
+    None
+}
+
+/// Names an entry the descriptor takes from another place than the one the export, which writes
+/// one entry per argument, writes it back at. A value written alone has no place of its own.
+fn lose_place(entry: &Entry, argument: usize, at: &str, losses: &mut Vec<Loss>) {
+    if !entry.place.is_empty() && entry.place != format!("/{argument}") {
+        let attribute = at.rsplit('/').next().unwrap_or_default();
+        loss(losses, format!("{at}{}", entry.place), format!("the arrays are not kept: the export writes this entry at {attribute}/{argument}"));
+    }
+}
+
+/// Names each null of a RANGE the export does not give back at its place: it writes one entry
+/// per argument, null for an argument without bounds, and no RANGE when none has any.
+fn lose_nulls(entries: &[Entry], args: &[Value], at: &str, losses: &mut Vec<Loss>) {
+    let written = args.iter().any(|a| a.get("range").is_some());
+    for entry in entries.iter().filter(|e| e.value.is_null()) {
+        let argument = entry.place.strip_prefix('/').and_then(|i| i.parse::<usize>().ok());
+        let back = written && argument.and_then(|i| args.get(i)).is_some_and(|a| a.get("range").is_none());
+        if !back {
+            loss(losses, format!("{at}{}", entry.place), "the export does not write this null back at its place: it writes one entry per argument, and no RANGE when no argument has bounds");
+        }
+    }
+}
+
 /// The command a method makes, `None` when its type has no argument type in the descriptor.
 fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<Loss>) -> Option<Value> {
     let ty = o.get("TYPE").and_then(Value::as_str).unwrap_or("");
+    if ty == IMPULSE {
+        return impulse_command(o, ptr, relative, losses);
+    }
     if ty.contains(['[', ']']) {
         loss(losses, format!("{ptr}/TYPE"), "the arrays of the type are not kept: their arguments are read one after the other");
     }
+    let count = tags(ty).len();
+    let (names_at, ranges_at) = (format!("{ptr}/EXTENDED_TYPE"), format!("{ptr}/RANGE"));
+    // The check of the node has read both attributes beside the TYPE.
+    let of_arguments = |key: &str, at: &str| o.get(key).and_then(|v| entries(v, ty, at).ok()).unwrap_or_default();
+    let (names, ranges) = (of_arguments("EXTENDED_TYPE", &names_at), of_arguments("RANGE", &ranges_at));
+    // A RANGE written alone is read once, for all the arguments.
+    let alone = o.get("RANGE").and_then(Value::as_object).filter(|_| count > 0).and_then(|e| bounds_read(e, &ranges_at, losses));
+    // Why a text written alone does not name every argument.
+    let mut unnamed = None;
     let mut args = Vec::new();
     let mut used: Vec<String> = Vec::new();
     // The tags the export writes otherwise: several tags read as one argument type.
@@ -223,40 +399,59 @@ fn command(o: &Map<String, Value>, ptr: &str, relative: &str, losses: &mut Vec<L
             rewritten.push(format!("{tag} comes back as {}", tag_of(read_as)));
         }
         let mut name = format!("arg{}", i + 1);
-        if let Some(n) = o.get("EXTENDED_TYPE").and_then(|e| e.get(i)).and_then(Value::as_str) {
-            if name_ok(n) && !used.iter().any(|u| u == n) {
-                name = n.to_string();
-            } else {
-                loss(losses, format!("{ptr}/EXTENDED_TYPE/{i}"), format!("{n:?} is no name for an argument (letters, digits and _, each once): {name} is written"));
+        if let Some(entry) = names.get(i) {
+            match entry.value.as_str() {
+                Some(n) if name_ok(n) && !used.iter().any(|u| u == n) => {
+                    name = n.to_string();
+                    lose_place(entry, i, &names_at, losses);
+                }
+                Some(n) => {
+                    let reason = format!("{n:?} is no name for this argument (letters, digits and _, each once): {name} is written");
+                    if entry.place.is_empty() {
+                        unnamed.get_or_insert(reason);
+                    } else {
+                        loss(losses, format!("{names_at}{}", entry.place), reason);
+                    }
+                }
+                // A value written alone is a text: this entry has a place in an array.
+                None => loss(losses, format!("{names_at}{}", entry.place), format!("an entry that is no text names no argument: {name} is written")),
             }
         }
         used.push(name.clone());
         let mut arg = Map::new();
         arg.insert("name".into(), json!(name));
         arg.insert("type".into(), json!(kind));
-        if let Some(entry) = o.get("RANGE").and_then(|r| r.get(i)).and_then(Value::as_object) {
-            let at = format!("{ptr}/RANGE/{i}");
-            for key in entry.keys().filter(|k| *k != "MIN" && *k != "MAX") {
-                let reason = if key == "VALS" { vals_loss(&entry["VALS"]) } else { "the descriptor has no field for it" };
-                loss(losses, format!("{at}/{}", segment(key)), reason);
-            }
-            match (entry.get("MIN"), entry.get("MAX")) {
-                (Some(lo), Some(hi)) => match (whole(lo), whole(hi)) {
-                    (Some(lo), Some(hi)) => {
-                        arg.insert("range".into(), json!([lo, hi]));
-                    }
-                    _ => loss(losses, at, "the bounds are not whole numbers: the descriptor's range holds whole numbers"),
-                },
-                (None, None) => {}
-                _ => loss(losses, at, "a range needs both its MIN and its MAX"),
+        if let Some(entry) = ranges.get(i) {
+            let range = if entry.place.is_empty() {
+                alone
+            } else {
+                let at = format!("{ranges_at}{}", entry.place);
+                let range = entry.value.as_object().and_then(|e| bounds_read(e, &at, losses));
+                if range.is_some() {
+                    lose_place(entry, i, &ranges_at, losses);
+                }
+                range
+            };
+            if let Some(range) = range {
+                arg.insert("range".into(), json!(range));
             }
         }
         args.push(Value::Object(arg));
     }
-    let Some(osc) = osc_of(relative) else {
-        loss(losses, ptr, "the path has braces that are no capture ({name}, letters, digits and _, one per piece of text): the method is not imported");
-        return None;
-    };
+    lose_nulls(&ranges, &args, &ranges_at, losses);
+    if count == 0 {
+        if o.contains_key("TYPE") {
+            loss(losses, format!("{ptr}/TYPE"), "a TYPE of no tag gives no argument: the export writes no TYPE");
+        }
+        for (key, at) in [("EXTENDED_TYPE", &names_at), ("RANGE", &ranges_at)] {
+            if o.contains_key(key) {
+                loss(losses, at.as_str(), "the TYPE has no argument that takes it");
+            }
+        }
+    } else if let Some(reason) = unnamed {
+        loss(losses, names_at, reason);
+    }
+    let osc = command_osc(ptr, relative, losses)?;
     if !rewritten.is_empty() {
         loss(losses, format!("{ptr}/TYPE"), format!("the descriptor does not keep these type tags, and the export writes others: {}", rewritten.join(", ")));
     }
@@ -287,10 +482,18 @@ fn visit(node: &Value, ptr: &str, prefix: &str, commands: &mut Vec<Value>, losse
         None if !has_contents => loss(losses, format!("{ptr}/ACCESS"), "the node has no ACCESS: it is neither a container nor a method"),
         None => {}
     }
+    let before = commands.len();
     if let Some(children) = o.get("CONTENTS").and_then(Value::as_object) {
         for (k, c) in children {
             visit(c, &format!("{ptr}/CONTENTS/{}", segment(k)), prefix, commands, losses);
         }
+    }
+    let container = match o.get("ACCESS").and_then(Value::as_i64) {
+        Some(access) => access == 0,
+        None => has_contents,
+    };
+    if container && commands.len() == before {
+        loss(losses, ptr, "no method of this container gives a command: the export, which writes the containers of the commands, does not write it");
     }
 }
 
@@ -554,6 +757,39 @@ fn command_node(n: usize, c: &Command, prefix: &str, losses: &mut Vec<Loss>) -> 
     Some((address, method(&full, &types, &ranges, names)))
 }
 
+/// The method of a trigger, an event with no value; every other field of the entry is named at
+/// its place. The descriptor has no field for the arguments of a trigger: none is written.
+fn trigger_node(n: usize, t: &Trigger, prefix: &str, losses: &mut Vec<Loss>) -> Value {
+    let at = format!("/triggers/entries/{n}");
+    let [low, high] = t.note_range;
+    let note_range = if t.note.is_none() && low < high {
+        "the namespace has no attribute for it: the method does not say which note of the range to play"
+    } else {
+        "the namespace has no attribute for it"
+    };
+    for (field, present, reason) in [
+        ("title", t.title.is_some(), "the namespace has no attribute for it"),
+        ("description", t.description.is_some(), "the namespace has no attribute for it"),
+        ("sound", true, "the namespace has no attribute for it: the import reads the method back as a command, not as a trigger"),
+        ("section", t.section.is_some(), "the namespace has no attribute for it"),
+        ("channel", t.channel.is_some(), "the namespace has no attribute for it"),
+        ("channel_mode", t.channel_mode.is_some(), "the namespace has no attribute for it"),
+        ("note_range", true, note_range),
+        ("note", t.note.is_some(), "the namespace has no attribute for it"),
+        ("velocity_usage", t.velocity_usage.is_some(), "the namespace has no attribute for it"),
+        ("comments", t.comments.is_some(), "the namespace has no attribute for it"),
+    ] {
+        if present {
+            loss(losses, format!("{at}/{field}"), reason);
+        }
+    }
+    for key in t.remarks.keys() {
+        loss(losses, format!("{at}/{}", segment(key)), "the namespace has no attribute for it");
+    }
+    let full = format!("{}{}", prefix.trim_end_matches('/'), t.osc);
+    method(&full, IMPULSE, &[], None)
+}
+
 fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     let d = &resolved.device;
     let Some(sources) = d.sources.as_ref().filter(|s| !s.is_empty()) else {
@@ -584,7 +820,6 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         ("/identity", d.identity.is_some()),
         ("/programs", d.programs.is_some()),
         ("/sysex", d.sysex.is_some()),
-        ("/triggers", d.triggers.is_some()),
         ("/midi_out", d.midi_out.is_some()),
         ("/midi_in", d.midi_in.is_some()),
         ("/replies", d.replies.is_some()),
@@ -735,6 +970,16 @@ fn finish(mut root: Value, d: &Device, mut losses: Vec<Loss>) -> Result<Translat
     for (n, c) in d.commands.iter().flatten().enumerate() {
         if let Some((address, node)) = command_node(n, c, prefix, &mut losses) {
             put(device, &format!("/commands/{n}"), &address, node, &mut losses);
+        }
+    }
+    // The triggers come last: an address a control, a parameter or a command takes stays theirs.
+    if let Some(triggers) = &d.triggers {
+        for key in triggers.remarks.keys() {
+            loss(&mut losses, format!("/triggers/{}", segment(key)), "the namespace has no attribute for it");
+        }
+        for (n, t) in triggers.entries.iter().enumerate() {
+            let node = trigger_node(n, t, prefix, &mut losses);
+            put(device, &format!("/triggers/entries/{n}"), &t.osc, node, &mut losses);
         }
     }
     let mut text = serde_json::to_string_pretty(&root).expect("a namespace is JSON");

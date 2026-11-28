@@ -9,7 +9,7 @@ mod tests;
 
 use crate::credit::source_text;
 use crate::{Contract, Fault, FaultKind, Loss, Translated};
-use osd::{Device, DumpKind, FrameToken, Resolved, Source};
+use osd::{Device, DumpKind, FrameToken, LicenseExpression, Resolved, Source};
 
 pub(crate) const CONTRACT: Contract = Contract {
     name: "knobkraft",
@@ -67,24 +67,78 @@ const AGPL_NOT_ALLOWED: [&str; 12] = [
     "EPL-1.0",
 ];
 
+#[derive(Clone, Copy, PartialEq)]
 enum Standing {
     Compatible,
     NotAllowed,
     NotRecognised,
 }
 
-/// A licence by its SPDX identifier, spaces and case removed, `X-only`, `X-or-later` and `X` the same.
+impl Standing {
+    /// `AND`: allowed when both are, not allowed when one is.
+    fn and(self, other: Standing) -> Standing {
+        match (self, other) {
+            (Standing::Compatible, Standing::Compatible) => Standing::Compatible,
+            (Standing::NotAllowed, _) | (_, Standing::NotAllowed) => Standing::NotAllowed,
+            _ => Standing::NotRecognised,
+        }
+    }
+
+    /// `OR`: allowed when one is, not allowed when both are.
+    fn or(self, other: Standing) -> Standing {
+        match (self, other) {
+            (Standing::Compatible, _) | (_, Standing::Compatible) => Standing::Compatible,
+            (Standing::NotAllowed, Standing::NotAllowed) => Standing::NotAllowed,
+            _ => Standing::NotRecognised,
+        }
+    }
+}
+
+/// A licence as written: an SPDX expression is judged branch by branch, as `osd` reads it; any
+/// other text is one id, its edge spaces ignored, which no list holds when it is not an id.
 fn classify(license: &str) -> Standing {
-    let id = license.trim().to_ascii_lowercase();
-    let id = id.strip_suffix("-only").or_else(|| id.strip_suffix("-or-later")).unwrap_or(&id);
+    match LicenseExpression::parse(license) {
+        Some(expression) => expression.judge(classify_with, Standing::and, Standing::or),
+        None => classify_id(license.trim()),
+    }
+}
+
+/// An id with its exception, if any: an exception may lift what the id forbids, so the pair is
+/// allowed when the id alone is, and otherwise not recognised.
+fn classify_with(id: &str, exception: Option<&str>) -> Standing {
+    match (classify_id(id), exception) {
+        (standing, None) => standing,
+        (Standing::Compatible, Some(_)) => Standing::Compatible,
+        (_, Some(_)) => Standing::NotRecognised,
+    }
+}
+
+/// A licence by its SPDX identifier, case ignored. `X-only` is `X`; `X+` and `X-or-later` are
+/// `X` or any later version of it: allowed when a later version is, else judged as `X`.
+fn classify_id(id: &str) -> Standing {
+    let id = id.to_ascii_lowercase();
+    let or_later = id.strip_suffix('+').or_else(|| id.strip_suffix("-or-later"));
+    let id = or_later.or_else(|| id.strip_suffix("-only")).unwrap_or(&id);
     let is = |list: &[&str]| list.iter().any(|k| k.eq_ignore_ascii_case(id));
-    if is(&AGPL_COMPATIBLE) {
+    if is(&AGPL_COMPATIBLE) || or_later.is_some_and(has_compatible_later_version) {
         Standing::Compatible
     } else if is(&AGPL_NOT_ALLOWED) {
         Standing::NotAllowed
     } else {
         Standing::NotRecognised
     }
+}
+
+/// An identifier as its licence and its version: `gpl-2.0` is `gpl`, version 2.0.
+fn versioned(id: &str) -> Option<(&str, Vec<u32>)> {
+    let (name, version) = id.rsplit_once('-')?;
+    let numbers = version.split('.').map(|n| n.parse().ok()).collect::<Option<Vec<u32>>>()?;
+    Some((name, numbers))
+}
+
+fn has_compatible_later_version(id: &str) -> bool {
+    let Some((name, version)) = versioned(id) else { return false };
+    AGPL_COMPATIBLE.iter().any(|k| versioned(k).is_some_and(|(n, v)| n.eq_ignore_ascii_case(name) && v > version))
 }
 
 fn lose(losses: &mut Vec<Loss>, place: &str, reason: impl Into<String>) {
@@ -139,7 +193,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         let line = source_text(s).replace(['\n', '\r'], " ");
         text.push_str(&format!("# Source: {line}\n"));
         let license = s.license.as_deref().unwrap_or("").trim().replace(['\n', '\r'], " ");
-        let warning = match classify(&license) {
+        let warning = match classify(s.license.as_deref().unwrap_or("")) {
             Standing::Compatible => continue,
             Standing::NotAllowed => format!("Licence not allowed under AGPL-3.0: {license}"),
             Standing::NotRecognised if license.is_empty() => "Licence not recognised, not checked against AGPL-3.0: none declared".to_string(),

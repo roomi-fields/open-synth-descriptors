@@ -1,0 +1,3 @@
+manufacturer,device,section,sound_name,sound_description,midi_channel,note_number_min_value,note_number_max_value,note_number_default_value,comments,velocity_usage
+Lofty,A device whose name is far too long for the controller,Drums,Kick,,10,36,38,37,choke,soft
+Lofty,A device whose name is far too long for the controller,,Snare,,,40,40,,,

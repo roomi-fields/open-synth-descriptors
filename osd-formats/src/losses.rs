@@ -18,14 +18,12 @@ fn under(pointer: &str, block: &str) -> bool {
     pointer.strip_prefix(block).is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
 }
 
-/// The JSON of a device in 0.7, the version the import returns: a device before 0.7 is converted
-/// by the chain of `osd`, and one the chain refuses is written in the form of 0.7 as it is typed.
-fn in_0_7(device: &Device) -> Value {
-    if device.schema >= Some(Version::V0_7) {
-        return written(device);
-    }
+/// The JSON of a device in 0.7, the version the import returns, for a device before 0.7: it is
+/// converted by the chain of `osd`, and one the chain refuses is written in the form of 0.7 as it
+/// is typed.
+fn converted(device: &Device) -> Value {
     let converted = crate::base::in_0_7(device.clone()).unwrap_or_else(|_| Device { schema: Some(Version::V0_7), ..device.clone() });
-    written(&converted)
+    written_once(converted)
 }
 
 /// Where what the writer wrote of a control comes back: its index in the descriptor given and in
@@ -62,7 +60,12 @@ fn align(given: &Value, back: &mut Value, pointer: &str, pairs: &[(usize, usize)
 }
 
 fn written(device: &Device) -> Value {
-    serde_json::from_str(&osd::write(&Descriptor::Device(Box::new(device.clone())))).expect("a written device is JSON")
+    written_once(device.clone())
+}
+
+/// [`written`] for a device nothing reads again: it is not copied.
+fn written_once(device: Device) -> Value {
+    serde_json::from_str(&osd::write(&Descriptor::Device(Box::new(device)))).expect("a written device is JSON")
 }
 
 /// Where `place` stands in `given`: for each of its segments, the index of a list item or the rank
@@ -90,9 +93,10 @@ fn position(given: &Value, place: &str) -> Vec<usize> {
 
 /// Puts the losses of an export in the order of the descriptor given (docs/INTERFACE.md,
 /// `Translated`): list items by their index, a block before what lies under it, the fields of an
-/// object in the order `osd` writes them. Losses of one place keep their order.
-pub(crate) fn in_the_order_of(device: &Device, losses: &mut [Loss]) {
-    let given = written(device);
+/// object in the order `osd` writes them. Losses of one place keep their order. `as_written` is the
+/// JSON of `device` as `osd` writes it, when [`name_what_does_not_come_back`] gave it.
+pub(crate) fn in_the_order_of(device: &Device, as_written: Option<Value>, losses: &mut [Loss]) {
+    let given = as_written.unwrap_or_else(|| written(device));
     losses.sort_by_cached_key(|l| position(&given, &l.place));
 }
 
@@ -100,6 +104,10 @@ pub(crate) fn in_the_order_of(device: &Device, losses: &mut [Loss]) {
 /// highest pointer that says it, in the order of the descriptor given. A list that does not come
 /// back is said item by item when `said`, the losses of the writer, already names one of its items.
 fn differences<'a>(given: Option<&'a Value>, back: Option<&'a Value>, at: String, said: &[Loss], out: &mut Vec<(String, bool)>) {
+    // What comes back equal is silent, with all it holds: no pointer under it is built.
+    if given == back {
+        return;
+    }
     let object = |o: Option<&'a Map<String, Value>>, k: &str| o.and_then(|o| o.get(k));
     match (given, back) {
         (Some(Value::Object(_)), Some(Value::Object(_))) | (Some(Value::Object(_)), None) if back.is_some() || at == "/cc_params" => {
@@ -115,17 +123,19 @@ fn differences<'a>(given: Option<&'a Value>, back: Option<&'a Value>, at: String
                 differences(a.get(i), b.and_then(|b| b.get(i)), format!("{at}/{i}"), said, out);
             }
         }
-        (a, b) if a != b => out.push((at, a.is_none())),
-        _ => {}
+        (a, _) => out.push((at, a.is_none())),
     }
 }
 
 /// Adds to `losses`, which hold what the writer says itself, each field of `device` that `back`,
 /// the import of the file written, does not give back and that none of them holds. `became` says
 /// which item of `back` each item written is; `why` says the reason at a pointer, `true` for a
-/// field the import adds.
-pub(crate) fn name_what_does_not_come_back(device: &Device, back: Option<&Device>, became: &Became, losses: &mut Vec<Loss>, why: fn(&str, bool) -> String) {
-    let (given, mut back) = (in_0_7(device), back.map_or(Value::Null, written));
+/// field the import adds. Returns the JSON of `device` as `osd` writes it, when it is what was compared:
+/// a device of 0.7 or later.
+pub(crate) fn name_what_does_not_come_back(device: &Device, back: Option<Device>, became: &Became, losses: &mut Vec<Loss>, why: fn(&str, bool) -> String) -> Option<Value> {
+    let as_it_is = device.schema >= Some(Version::V0_7);
+    let given = if as_it_is { written(device) } else { converted(device) };
+    let mut back = back.map_or(Value::Null, written_once);
     // The ways first, while each control is where the import put it.
     for c in &became.controls {
         let given = given.pointer(&format!("/cc_params/entries/{}", c.given));
@@ -144,4 +154,5 @@ pub(crate) fn name_what_does_not_come_back(device: &Device, back: Option<&Device
             losses.push(Loss { place, reason });
         }
     }
+    as_it_is.then_some(given)
 }

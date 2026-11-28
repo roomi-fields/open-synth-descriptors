@@ -186,7 +186,8 @@ fn of(attribute: &str) -> Shown {
                 (FIRST, json!({"id": "value", "message": {"deviceId": 1, "type": "cc7", "parameterNumber": 74, last: 20}})),
             ]),
         ]),
-        "controls[].values[].message.onValue" | "controls[].values[].message.offValue" => shown(CONDITIONAL, vec![
+        // On every pad they are named, even when they give the range carried: no pad is written back.
+        "controls[].values[].message.onValue" | "controls[].values[].message.offValue" => shown(LOST, vec![
             at(format!("{PAD}/{last}")),
             variant(format!("{PAD}/{last}"), &[(PAD, json!({"deviceId": 1, "type": "cc7", "parameterNumber": 75, last: 20}))]),
         ]),

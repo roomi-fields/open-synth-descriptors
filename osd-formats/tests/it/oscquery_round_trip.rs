@@ -1,5 +1,6 @@
 //! A device exported to OSCQuery then imported keeps everything the namespace carries: the
-//! address of each control, parameter and command, the type of its arguments and their range.
+//! address of each control, parameter, command and trigger, the type of its arguments and their
+//! range. A trigger comes back as a command with no argument.
 
 use crate::common::midnam::{device_with, lost_at};
 use crate::common::oscquery::{methods, source};
@@ -27,7 +28,8 @@ fn kind_span(way: &Value) -> Option<i64> {
 }
 
 /// What a namespace carries of a device: for each address, the tags and ranges of its arguments.
-/// A control or a parameter is a method of one integer.
+/// A control or a parameter is a method of one integer; a trigger, a method with no argument the
+/// descriptor holds, at an address nothing else takes.
 fn carried(d: &Value) -> Vec<(String, String, Vec<Value>)> {
     let prefix = d["device"]["osc_prefix"].as_str().unwrap().to_string();
     let mut out = Vec::new();
@@ -50,6 +52,13 @@ fn carried(d: &Value) -> Vec<(String, String, Vec<Value>)> {
         let tags: String = args.iter().map(|a| tag_of(a["type"].as_str().unwrap())).collect();
         let ranges = args.iter().map(|a| a.get("range").map_or(Value::Null, |r| json!({"MIN": r[0], "MAX": r[1]}))).collect();
         out.push((format!("{prefix}{osc}"), tags, ranges));
+    }
+    for t in d["triggers"]["entries"].as_array().into_iter().flatten() {
+        let address = format!("{prefix}{}", t["osc"].as_str().unwrap());
+        let under = |a: &str, b: &str| a == b || a.starts_with(&format!("{b}/"));
+        if !out.iter().any(|(o, _, _)| under(o, &address) || under(&address, o)) {
+            out.push((address, String::new(), Vec::new()));
+        }
     }
     out.sort_by(|a, b| a.0.cmp(&b.0));
     out
@@ -124,11 +133,11 @@ fn the_export_lists_every_element_present_that_the_namespace_does_not_carry() {
         "cc_params": {"entries": [{"osc": "/a", "cc": 1, "range": [0, 127], "section": "Filter"}]},
     }));
     let out = export(&d, Format::OscQuery).unwrap();
-    for place in ["/commands/0/frame", "/triggers", "/cc_params/entries/0/section"] {
+    for place in ["/commands/0/frame", "/triggers/entries/0/sound", "/cc_params/entries/0/section"] {
         assert_eq!(lost_at(&out.lost, place).len(), 1, "{place}: {:?}", out.lost);
     }
     let ns: Value = serde_json::from_str(&out.value).unwrap();
-    assert_eq!(methods(&ns).len(), 2);
+    assert_eq!(methods(&ns).len(), 3);
 }
 
 #[test]

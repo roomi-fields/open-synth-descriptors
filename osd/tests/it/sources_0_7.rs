@@ -54,8 +54,15 @@ fn a_source_of_0_7_without_a_type_is_refused_at_its_place_under_sources() {
 
 #[test]
 fn a_source_licence_outside_the_list_is_refused_at_its_place_under_sources() {
-    let doc = device(D07, json!({"sources": [{"type": "vendor-doc", "license": "free"}]}));
+    let doc = device(D07, json!({"sources": [{"type": "vendor-doc", "license": "two words"}]}));
     assert_eq!(refused(&doc), (FaultKind::BadValue, "/sources/0/license".to_string()));
+}
+
+#[test]
+fn a_source_licence_id_in_lower_case_is_read_under_sources() {
+    let doc = device(D07, json!({"sources": [{"type": "vendor-doc", "license": "free"}]}));
+    let d = osd::read(&doc.to_string(), Kind::Device).unwrap_or_else(|f| panic!("{f}"));
+    assert_eq!(serde_json::from_str::<Value>(&osd::write(&d)).unwrap(), doc);
 }
 
 #[test]

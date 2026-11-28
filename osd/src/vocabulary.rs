@@ -4,7 +4,7 @@
 //! `identity.firmware.decode`, which has none. spec/0.6.md § 6 writes the lists
 //! and the tables once.
 
-use crate::{Fault, FaultKind};
+use crate::{Fault, FaultKind, LicenseExpression};
 
 /// How the bytes of an identity reply read as a firmware version.
 pub(crate) const DECODE: [&str; 6] = ["raw_bytes", "json", "korg_minor_major", "yamaha_tenths", "ascii", "lua"];
@@ -82,9 +82,10 @@ pub(crate) fn is_extension(s: &str) -> bool {
     !registrant.is_empty() && registrant.chars().all(low) && !term.is_empty() && term.chars().all(|c| low(c) || c == '-')
 }
 
-/// An SPDX licence id by its shape (capital first, then letters, digits, `.`,
-/// `+`, `-`), `public-domain`, or SPDX's `NOASSERTION` and `NONE`; the registry
-/// itself is not read. Other spellings of the special values are refused.
+/// A `license` up to 0.6: an SPDX licence id by its shape (capital first, then
+/// letters, digits, `.`, `+`, `-`), `public-domain`, or SPDX's `NOASSERTION` and
+/// `NONE`; the registry itself is not read. Other spellings of the special values
+/// are refused.
 pub(crate) fn is_license(s: &str) -> bool {
     if s == "public-domain" || s == "NOASSERTION" || s == "NONE" {
         return true;
@@ -137,10 +138,17 @@ pub(crate) fn check_selects(value: &str, pointer: &str) -> Result<(), Fault> {
     list_or_extension(value, &KINDS, pointer)
 }
 
-pub(crate) fn check_license(license: Option<&str>, pointer: &str) -> Result<(), Fault> {
-    match license {
-        Some(l) if !is_license(l) => Err(fault(FaultKind::BadValue, pointer, LICENSE_RULE)),
-        _ => Ok(()),
+/// A `license` as its version judges it: from 0.7 an SPDX expression or a special
+/// value alone, before it one id or a special value.
+pub(crate) fn check_license(license: Option<&str>, from_0_7: bool, pointer: &str) -> Result<(), Fault> {
+    let Some(l) = license else { return Ok(()) };
+    let (admitted, rule) = match from_0_7 {
+        true => (matches!(l, "public-domain" | "NOASSERTION" | "NONE") || LicenseExpression::parse(l).is_some(), EXPRESSION_RULE),
+        false => (is_license(l), LICENSE_RULE),
+    };
+    match admitted {
+        true => Ok(()),
+        false => Err(fault(FaultKind::BadValue, pointer, rule)),
     }
 }
 
@@ -149,14 +157,7 @@ pub(crate) fn check_source(kind: &str, license: Option<&str>, from_0_7: bool, po
     let types: Vec<&str> =
         SOURCE_TYPES.into_iter().filter(|t| !from_0_7 || PRODUCT_SOURCE_TYPES.iter().all(|(product, _)| product != t)).collect();
     list_or_extension(kind, &types, &format!("{pointer}/type"))?;
-    match license {
-        Some(l) if !is_license(l) => Err(fault(
-            FaultKind::BadValue,
-            &format!("{pointer}/license"),
-            LICENSE_RULE,
-        )),
-        _ => Ok(()),
-    }
+    check_license(license, from_0_7, &format!("{pointer}/license"))
 }
 
 // ---- 0.4 to 0.5: the table --------------------------------------------------
@@ -221,5 +222,8 @@ pub(crate) fn convert_license(value: &str, pointer: &str) -> Result<String, Faul
     }
 }
 
-/// What a licence is, in words.
+/// What a licence is up to 0.6, in words.
 pub(crate) const LICENSE_RULE: &str = "an SPDX licence id, public-domain, NOASSERTION or NONE";
+
+/// What a licence is from 0.7, in words.
+const EXPRESSION_RULE: &str = "an SPDX licence expression, public-domain, NOASSERTION or NONE";

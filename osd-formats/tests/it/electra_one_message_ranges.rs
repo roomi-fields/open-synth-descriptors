@@ -122,15 +122,44 @@ fn a_lone_bound_of_a_message_gives_no_range_and_is_a_loss() {
     }
 }
 
+/// The `offValue` and `onValue` of a pad whose range is carried: each named at its pointer, the
+/// reason saying that the range is carried and that no pad is written back.
+fn assert_pad_values_named(lost: &[Loss], what: &str) {
+    for key in ["offValue", "onValue"] {
+        let place = format!("{MESSAGE}/{key}");
+        let found: Vec<&Loss> = lost.iter().filter(|l| l.place == place).collect();
+        assert_eq!(found.len(), 1, "{what}: one loss at {place}: {lost:?}");
+        let reason = found[0].reason.to_lowercase();
+        assert!(["range", "carried", "pad"].iter().all(|w| reason.contains(w)), "{what}: the range is carried, no pad is written: {reason:?}");
+    }
+}
+
 #[test]
-fn the_off_and_on_values_of_a_pad_are_the_range_of_its_way() {
+fn the_off_and_on_values_of_a_pad_are_the_range_of_its_way_and_are_named_for_the_pad() {
     for (message, _) in scales() {
         let (d, lost) = imported(&one("pad", message.clone(), json!({"offValue": 0, "onValue": 1}), json!({})));
         assert_eq!(way_range(&d), json!([0, 1]), "{message}: {d}");
-        assert!(bound_losses(&lost).is_empty(), "{message}: {lost:?}");
+        assert_eq!(bound_losses(&lost), [format!("{MESSAGE}/offValue"), format!("{MESSAGE}/onValue")], "{message}: {lost:?}");
+        assert_pad_values_named(&lost, &message.to_string());
     }
-    let (d, _) = imported(&one("pad", cc7(1), json!({"offValue": 20, "onValue": 100, "min": 0, "max": 127}), json!({})));
+    let (d, lost) = imported(&one("pad", cc7(1), json!({"offValue": 20, "onValue": 100}), json!({})));
     assert_eq!(way_range(&d), json!([20, 100]), "{d}");
+    assert_pad_values_named(&lost, "20..100");
+    let (d, lost) = imported(&one("pad", cc7(1), json!({"offValue": 20, "onValue": 100, "min": 0, "max": 127}), json!({})));
+    assert_eq!(way_range(&d), json!([20, 100]), "{d}");
+    assert_pad_values_named(&lost, "20..100 with a message range");
+}
+
+#[test]
+fn the_off_and_on_values_of_the_pad_of_a_command_are_the_range_of_its_argument_and_are_named_for_the_pad() {
+    for kind in ["u7", "u14"] {
+        let (message, _) = command_of(kind);
+        for (off, on) in [(0, 1), (20, 100)] {
+            let (d, lost) = imported(&one("pad", message.clone(), json!({"offValue": off, "onValue": on}), json!({})));
+            assert_eq!(arg_range(&d), json!([off, on]), "{kind}: {d}");
+            assert_pad_values_named(&lost, kind);
+        }
+    }
 }
 
 #[test]
@@ -327,8 +356,13 @@ fn the_off_and_on_values_of_a_pad_that_give_the_whole_scale_give_no_range_and_ar
 }
 
 #[test]
-fn the_off_and_on_values_of_a_pad_over_the_whole_scale_are_carried_when_the_value_has_a_bound() {
+fn the_off_and_on_values_of_a_pad_over_the_whole_scale_are_a_range_and_named_when_the_value_has_a_bound() {
     let (d, lost) = imported(&one("pad", cc7(1), json!({"offValue": 0, "onValue": 127}), json!({"min": 0, "max": 127})));
     assert_eq!(way_range(&d), json!([0, 127]), "{d}");
-    assert!(bound_losses(&lost).is_empty(), "{lost:?}");
+    assert_eq!(bound_losses(&lost), [format!("{MESSAGE}/offValue"), format!("{MESSAGE}/onValue")], "{lost:?}");
+    assert_pad_values_named(&lost, "whole scale with a bound on the value");
+    let (message, _) = command_of("u7");
+    let (d, lost) = imported(&one("pad", message, json!({"offValue": 0, "onValue": 127}), json!({"min": 0, "max": 127})));
+    assert_eq!(arg_range(&d), json!([0, 127]), "{d}");
+    assert_pad_values_named(&lost, "a command over the whole scale");
 }

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "midi_of": "acme/b",
+  "sources": [
+    {
+      "type": "vendor-doc",
+      "id": "only-a"
+    }
+  ],
+  "commands": [
+    {
+      "osc": "/replaced"
+    }
+  ],
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/resonance",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              71
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

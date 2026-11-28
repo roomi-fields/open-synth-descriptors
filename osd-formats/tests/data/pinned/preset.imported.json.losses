@@ -1,0 +1,55 @@
+/controls/3/values/0/message	the pitchbend message is not carried: the descriptor has no control bound to this channel message; it is lost in the round trip
+/projectId	the descriptor has no field for it
+/pages	the pages are the look of the preset
+/groups/0/pageId	the look of the group on the controller
+/groups/0/bounds	the look of the group on the controller
+/groups/0/color	the look of the group on the controller
+/overlays/0/items/0/color	the descriptor has no field for it
+/devices/0/id	the ports, channels and devices of the preset are the setup of the controller
+/devices/0/name	the ports, channels and devices of the preset are the setup of the controller
+/devices/0/port	the ports, channels and devices of the preset are the setup of the controller
+/devices/0/channel	the ports, channels and devices of the preset are the setup of the controller
+/devices/0/rate	the ports, channels and devices of the preset are the setup of the controller
+/controls/0/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/0/type	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/color	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/bounds	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/pageId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/controlSetId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/inputs	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/values/0/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/0/values/0/message/deviceId	the device a message is sent to is the setting of the controller
+/controls/0/values/0/message/lsbFirst	how the controller encodes or sends the value: the descriptor has no field for it
+/controls/0/values/0/formatter	how the value is shown on the controller
+/controls/0/visible	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/0/unknown~0key~1x	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/1/type	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/color	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/bounds	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/pageId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/controlSetId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/inputs	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/1/values/0/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/1/values/0/message/deviceId	the device a message is sent to is the setting of the controller
+/controls/2/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/2/type	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/color	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/bounds	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/pageId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/controlSetId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/inputs	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/2/values/0/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/2/values/0/message/deviceId	the device a message is sent to is the setting of the controller
+/controls/2/values/0/message/data/1/extra	how the controller encodes or sends the value: the descriptor has no field for it
+/controls/2/values/0/message/data/2/extra	how the controller encodes or sends the value: the descriptor has no field for it
+/controls/3/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/controls/3/type	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/name	no control or command is carried from this control: nothing takes its name
+/controls/3/color	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/bounds	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/pageId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/controlSetId	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/inputs	the look or the behaviour of the control on the controller: the descriptor says what a device speaks, not a screen
+/controls/3/values/0/id	the id of a control or of a value of the preset: the descriptor has no field for it
+/somethingElse	the descriptor has no field for it

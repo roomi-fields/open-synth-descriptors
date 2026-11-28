@@ -7,7 +7,7 @@ const CC_HEADER: &str = "manufacturer,device,section,parameter_name,parameter_de
 const TRIGGER_HEADER: &str = "manufacturer,device,section,sound_name,sound_description,midi_channel,note_number_min_value,note_number_max_value,note_number_default_value,comments,velocity_usage";
 const BASE: &str = r#"{"$schema": "https://w3id.org/osd/0.7/device.schema.json", "sources": [{"type": "vendor-doc", "url": "u", "license": "CC0-1.0"}],
     "device": {"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}}"#;
-const BAD_LICENSES: [&str; 3] = ["cc by", "mit", "None"];
+const BAD_LICENSES: [&str; 2] = ["cc by", "None"];
 
 /// A folder with a file of each CSV format and a base.
 struct Files {
@@ -56,6 +56,26 @@ fn import_with_a_license_the_reader_refuses_is_exit_2_naming_the_place_and_the_r
     for (format, file) in FORMATS {
         for license in BAD_LICENSES {
             assert_refused(&files.import(format, file, license, &[]), &format!("{format} {license}"));
+        }
+    }
+}
+
+#[test]
+fn import_with_a_license_id_in_lower_case_writes_it_as_given() {
+    let files = Files::new();
+    let base = files.path("base.device.json");
+    for license in ["curl", "mit"] {
+        for (format, file) in FORMATS {
+            for extra in [vec![], vec!["--into", base.as_str()]] {
+                let run = files.import(format, file, license, &extra);
+                let context = format!("{format} {license} {extra:?}");
+                assert_eq!(run.code, 0, "{context}: {:?}", run.stderr);
+                let Ok(osd::Descriptor::Device(device)) = osd::read(&run.stdout, osd::Kind::Device) else {
+                    panic!("{context}: no device is written: {:?}", run.stdout)
+                };
+                let last = device.sources.as_ref().and_then(|s| s.last()).expect("a source");
+                assert_eq!(last.license.as_deref(), Some(license), "{context}");
+            }
         }
     }
 }

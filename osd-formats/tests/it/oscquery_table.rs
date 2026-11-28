@@ -64,6 +64,67 @@ fn the_line_of_vals_says_the_list_of_permitted_values_is_written_and_what_has_no
     assert!(!reason.contains("no field for the named values"), "the line still says the export writes nothing: {reason:?}");
 }
 
+/// The sentences of a section of the page, the section named by its title.
+fn sentences(title: &str) -> Vec<String> {
+    let page = std::fs::read_to_string(DOC).unwrap_or_else(|e| panic!("{DOC}: {e}"));
+    let heading = format!("## {title}");
+    let body: Vec<&str> = page.lines().skip_while(|l| l.trim() != heading).skip(1).take_while(|l| !l.starts_with("## ")).collect();
+    assert!(!body.is_empty(), "no section {title:?} in {DOC}");
+    body.iter().flat_map(|l| l.split(". ")).map(str::to_string).collect()
+}
+
+/// A sentence of the section holds every one of these words.
+fn says(title: &str, words: &[&str]) {
+    let all = sentences(title);
+    assert!(all.iter().any(|s| words.iter().all(|w| s.contains(w))), "no sentence of {title:?} holds all of {words:?}");
+}
+
+/// The section holds every one of these words, in any case.
+fn holds(title: &str, words: &[&str]) {
+    let text = sentences(title).join(" ").to_lowercase();
+    for word in words {
+        assert!(text.contains(&word.to_lowercase()), "the section {title:?} does not say {word:?}");
+    }
+}
+
+#[test]
+fn the_page_names_the_parameters_among_the_addresses_the_export_writes() {
+    says("What the export writes", &["command", "trigger", "param"]);
+}
+
+#[test]
+fn the_page_says_a_trigger_is_an_impulse_method_with_no_velocity_argument() {
+    holds("What the export writes", &["`I`", "velocity"]);
+}
+
+#[test]
+fn the_page_says_a_node_is_a_method_or_a_container_never_both_and_the_trigger_left_out_is_a_loss() {
+    says("What the export writes", &["method", "container", "both"]);
+    says("What the export writes", &["trigger", "loss"]);
+}
+
+#[test]
+fn the_page_says_the_method_of_a_trigger_does_not_say_which_note_of_a_range_to_play() {
+    holds("What the export writes", &["which note"]);
+}
+
+#[test]
+fn the_page_lists_the_arguments_of_the_services_triggers_among_the_differences_with_the_reason() {
+    holds("Differences from the service", &["velocity", "note", "channel", "OVERLOADS", "no field"]);
+}
+
+#[test]
+fn the_page_says_an_impulse_method_is_read_back_as_a_command() {
+    says("What the import reads", &["`I`", "command"]);
+}
+
+#[test]
+fn the_line_of_type_says_the_impulse_tag_is_read_as_a_command_and_not_kept() {
+    let lines = doc_lines();
+    let line = lines.iter().find(|l| l[0] == "TYPE").expect("a line for TYPE");
+    assert!(line[2].contains("`I`") && line[2].contains("command"), "{:?}", line[2]);
+}
+
 #[test]
 fn the_checker_accepts_a_namespace_of_the_proposal_and_refuses_each_kind_of_break() {
     let ok = namespace(vec![("a", method("/synth/a", "if", &[Some((0, 1)), None]))]);

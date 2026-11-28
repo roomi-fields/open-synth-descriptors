@@ -3,6 +3,7 @@
 //! JSON pointer.
 
 use crate::common::electra::json_of;
+use crate::common::fields::held;
 use crate::common::midnam::lost_at;
 use crate::common::oscquery::*;
 use osd_formats::{import, FaultKind, Format};
@@ -83,6 +84,38 @@ fn a_container_alone_is_not_a_command_and_a_namespace_with_no_method_gives_a_dev
     let ns = namespace(vec![("filter", container("/synth/filter", vec![]))]);
     let (d, _) = imported(&ns);
     assert!(d.get("commands").is_none_or(|c| c.as_array().unwrap().is_empty()), "{d}");
+}
+
+#[test]
+fn a_container_that_leads_to_no_command_is_a_loss_and_one_that_leads_to_a_command_is_not() {
+    let read_only = |path: &str| json!({"FULL_PATH": path, "ACCESS": 1, "TYPE": "s"});
+    let blob = |path: &str| json!({"FULL_PATH": path, "ACCESS": 2, "TYPE": "b"});
+    let ns = namespace(vec![
+        ("empty", container("/synth/empty", vec![])),
+        ("bare", json!({"FULL_PATH": "/synth/bare", "ACCESS": 0})),
+        ("meters", container("/synth/meters", vec![("level", read_only("/synth/meters/level"))])),
+        ("blobs", container("/synth/blobs", vec![("dump", blob("/synth/blobs/dump"))])),
+        ("outer", container("/synth/outer", vec![("inner", container("/synth/outer/inner", vec![]))])),
+        ("deep", container("/synth/deep", vec![
+            ("a", container("/synth/deep/a", vec![("go", method("/synth/deep/a/go", "i", &[]))])),
+            ("void", container("/synth/deep/void", vec![])),
+        ])),
+    ]);
+    let (d, lost) = imported(&ns);
+    assert_eq!(d["commands"].as_array().map(Vec::len), Some(1), "{d}");
+    let base = "/CONTENTS/synth/CONTENTS";
+    for name in ["empty", "bare", "meters", "blobs", "outer", "outer/CONTENTS/inner", "deep/CONTENTS/void"] {
+        let pointer = format!("{base}/{name}");
+        assert!(held(&lost, &pointer), "{pointer} is not written and not named: {lost:?}");
+    }
+    for pointer in ["", "/CONTENTS", "/CONTENTS/synth", base] {
+        assert!(lost_at(&lost, pointer).is_empty(), "{pointer:?} leads to a command: {lost:?}");
+    }
+    for pointer in ["deep", "deep/CONTENTS", "deep/CONTENTS/a", "deep/CONTENTS/a/CONTENTS"] {
+        assert!(lost_at(&lost, &format!("{base}/{pointer}")).is_empty(), "{pointer} leads to a command: {lost:?}");
+    }
+    let got = crate::common::round_trip::count(Format::OscQuery, &ns.to_string());
+    assert!(got.unnamed.is_empty(), "lost and named by no loss:\n{}", got.unnamed.join("\n"));
 }
 
 #[test]

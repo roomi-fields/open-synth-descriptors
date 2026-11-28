@@ -88,7 +88,7 @@ fn every_block_a_device_holds_that_the_csv_cannot_carry_is_in_the_losses_by_its_
 #[test]
 fn the_identity_beyond_vendor_and_name_is_in_the_losses_by_its_pointer() {
     let text = format!(
-        r#"{{"$schema": "https://w3id.org/osd/0.5/device.schema.json", {SOURCES}, "device": {{"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler", "revision": "1.2"}}}}"#
+        r#"{{"$schema": "https://w3id.org/osd/0.5/device.schema.json", {SOURCES}, "device": {{"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler", "revision": "1.2"}}, "triggers": {{"entries": [{{"osc": "/a", "sound": "A", "note_range": [1, 2]}}]}}}}"#
     );
     let t = export(&resolved(device_from(&text)), Format::MidiTriggersCsv).unwrap();
     let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();

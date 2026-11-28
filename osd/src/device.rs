@@ -2081,7 +2081,8 @@ pub struct Source {
     pub firmware: Option<String>,
     pub author: Option<String>,
     pub attribution: Option<String>,
-    /// An SPDX id when it has one.
+    /// From 0.7 an SPDX licence expression ([`crate::LicenseExpression`]), before it an SPDX id;
+    /// or `public-domain`, `NOASSERTION` or `NONE`.
     pub license: Option<String>,
     pub commit: Option<String>,
     pub imported_at: Option<String>,

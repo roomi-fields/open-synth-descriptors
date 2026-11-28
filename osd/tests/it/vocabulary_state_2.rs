@@ -184,7 +184,7 @@ fn each_setting_of_state_2_applies_to_the_parts_of_the_closed_list_and_no_other(
     let tracks: Vec<&str> = ["track", "sample"].into_iter().chain(INSTRUMENTS).collect();
     let movement = movement_term();
     let mut failures = Vec::new();
-    for (name, t) in two.iter().filter(|(n, t)| t["type"] == "setting" && **n != movement) {
+    for (name, t) in two.iter().filter(|(_, t)| t["type"] == "setting") {
         let mut want = one.get(name).map(|t| strings(&t["applies_to"])).unwrap_or_default();
         let added: Vec<&str> = match name.as_str() {
             "level" | "pan" | "pitch" => tracks.clone(),
@@ -192,6 +192,8 @@ fn each_setting_of_state_2_applies_to_the_parts_of_the_closed_list_and_no_other(
             "filter-type" => vec!["filter"],
             "enabled" => EFFECTS.into_iter().chain(["oscillator", "track"]).collect(),
             "effect-type" => EFFECTS.to_vec(),
+            "depth" => vec!["delay", "equalizer"],
+            n if n == movement => EFFECTS.to_vec(),
             _ => vec![],
         };
         want.extend(set(&added));
@@ -302,14 +304,34 @@ fn carries_no_word_and_no_value(two: &BTreeMap<String, Value>, setting: &str) {
 }
 
 #[test]
-fn the_movement_of_an_effect_is_a_setting_of_effects_alone_that_cites_a_document() {
+fn the_send_and_the_movement_of_an_effect_apply_to_every_effect_and_keep_their_definitions() {
     let two = terms_of("2");
     let name = movement_term();
-    let t = &two[&name];
-    let parts = strings(&t["applies_to"]);
-    assert!(parts.is_superset(&set(&["effect", "chorus"])), "{name} applies to {parts:?}");
-    assert!(parts.is_subset(&set(&EFFECTS)), "{name} applies to {parts:?}: the depth of a vibrato is `depth`");
-    assert!(!documents(t).is_empty(), "{name} cites no manual: {}", t["source"]);
+    assert_eq!(name, "modulation-depth");
+    let send: BTreeSet<String> = EFFECTS.into_iter().chain(["vibrato"]).map(str::to_string).collect();
+    assert_eq!(strings(&two["depth"]["applies_to"]), send, "depth");
+    assert_eq!(strings(&two[&name]["applies_to"]), set(&EFFECTS), "{name}");
+    assert_eq!(two["depth"]["definition"], "How much of an effect, or of the vibrato, is applied to the sound.");
+    assert_eq!(
+        two[&name]["definition"],
+        "How far the own movement of an effect goes, such as the sweep a chorus makes, apart from how much of the effect is applied or heard."
+    );
+}
+
+#[test]
+fn the_movement_of_an_effect_cites_the_sfz_opcode_delay_moddepth_then_general_midi_2() {
+    let two = terms_of("2");
+    let t = &two[&movement_term()];
+    let sources = t["source"].as_array().expect("sources");
+    assert_eq!(sources.len(), 2, "two public norms: {}", t["source"]);
+    assert_eq!(sources[0], json!({"document": "SFZ format (sfzformat.com)", "table": "delay_moddepth", "name": "delay_moddepth"}));
+    let gm2 = &sources[1];
+    let document = gm2["document"].as_str().unwrap_or_default();
+    for said in ["General MIDI 2", "RP-024", "1.2a"] {
+        assert!(document.contains(said), "the second source does not name {said}: {gm2}");
+    }
+    assert!(gm2["table"].as_str().is_some_and(|v| v.contains("4.5.3")), "no section 4.5.3: {gm2}");
+    assert!(gm2["name"].as_str().is_some_and(|v| v.contains("Mod Depth")), "no parameter Mod Depth: {gm2}");
 }
 
 // Its roles.
@@ -605,6 +627,42 @@ fn a_chorus_reads_the_movement_of_its_own_beside_its_send_its_mix_and_its_level_
 }
 
 #[test]
+fn every_effect_reads_its_send_and_the_movement_of_its_own_with_state_2() {
+    let mut paths = owned(&["/Effect/1/Depth", "/Effect/1/ModulationDepth", "/Vibrato/Depth"]);
+    for effect in ["Effect", "Delay", "Reverb", "Chorus", "Equalizer"] {
+        paths.push(format!("/{effect}/Depth"));
+        paths.push(format!("/{effect}/ModulationDepth"));
+    }
+    common::report("roles fail", paths.iter().flat_map(|p| unread(p)).collect());
+}
+
+#[test]
+fn the_send_and_the_movement_of_an_effect_are_refused_on_a_part_that_is_no_effect() {
+    let paths = owned(&["/Vibrato/ModulationDepth", "/Filter/Depth", "/Filter/ModulationDepth"]);
+    common::report("roles not refused", not_refused_by_state_2(&paths));
+}
+
+#[test]
+fn state_1_refuses_the_send_to_a_delay_or_an_equalizer_and_every_movement_of_an_effect() {
+    let mut movements = owned(&["/Effect/1/ModulationDepth", "/Vibrato/ModulationDepth"]);
+    for effect in ["Effect", "Delay", "Reverb", "Chorus", "Equalizer"] {
+        movements.push(format!("/{effect}/ModulationDepth"));
+    }
+    // State 1 holds no term for the movement: neither a role nor a `paramPath` says it.
+    let mut failures = not_refused_by_state_1(&movements);
+    // It holds `depth`, `delay` and `equalizer`, so only the role of a device is refused.
+    for path in ["/Delay/Depth", "/Equalizer/Depth"] {
+        for version in ["0.6", "0.7"] {
+            match osd::read(&device(version, "1", &role_of(path)), Kind::Device) {
+                Err(f) if f.kind == osd::FaultKind::BadValue && f.pointer == "/cc_params/entries/0/role" => {}
+                other => failures.push(format!("{path} in {version}: {:?}", other.err().map(|f| f.to_string()))),
+            }
+        }
+    }
+    common::report("roles not refused", failures);
+}
+
+#[test]
 fn every_role_of_a_setting_on_a_part_of_state_1_reads_in_state_2_with_the_same_param_path() {
     let one = terms_of("1");
     // Every chain of parts of state 1 from a part that opens a path down to `part`.
@@ -708,6 +766,65 @@ fn the_text_of_state_2_tells_the_send_to_an_effect_from_its_level_and_from_its_o
     let movement = movement_term();
     for said in ["`depth`", "`mix`", "`level`", "`/Reverb/Depth`", "`/Reverb/Level`", &format!("`{movement}`")] {
         assert!(text.contains(said), "{TEXT} does not write {said}");
+    }
+}
+
+/// The text from the heading that opens with `heading` to the next heading of any level.
+fn section(text: &str, heading: &str) -> String {
+    let mut lines = text.lines().skip_while(|l| !l.starts_with(heading));
+    let first = lines.next().unwrap_or_else(|| panic!("{TEXT} has no heading {heading}"));
+    std::iter::once(first).chain(lines.take_while(|l| !l.starts_with('#'))).collect::<Vec<_>>().join("\n")
+}
+
+#[test]
+fn the_table_of_what_settings_apply_to_adds_the_send_to_delay_and_equalizer_and_the_movement_to_every_effect() {
+    let table = section(&repo_file(TEXT), "## 6 ");
+    let added = |setting: &str| -> BTreeSet<String> {
+        table
+            .lines()
+            .filter_map(|l| {
+                let cells: Vec<&str> = l.strip_prefix('|')?.split('|').collect();
+                cells.first()?.contains(&format!("`{setting}`")).then(|| cells.get(1).copied().unwrap_or(""))
+            })
+            .flat_map(|cell| cell.split('`').skip(1).step_by(2).map(str::to_string))
+            .collect()
+    };
+    assert_eq!(added("depth"), set(&["delay", "equalizer"]), "depth in the table of section 6");
+    assert_eq!(added(&movement_term()), set(&EFFECTS), "modulation-depth in the table of section 6");
+}
+
+#[test]
+fn the_text_of_state_2_cites_sfz_and_general_midi_2_for_the_movement_of_an_effect_and_no_longer_the_novation_peak() {
+    let text = repo_file(TEXT);
+    let row = section(&text, "### 4.2 ");
+    let row = row.lines().find(|l| l.starts_with("| `modulation-depth`")).expect("the row of modulation-depth in 4.2");
+    for said in ["SFZ", "delay_moddepth", "General MIDI 2"] {
+        assert!(row.contains(said), "the row of 4.2 does not cite {said}: {row}");
+    }
+    let note = section(&text, "### 6.1 ");
+    for said in ["delay_moddepth", "General MIDI 2"] {
+        assert!(note.contains(said), "section 6.1 does not cite {said}");
+    }
+    let sources = section(&text, "## 9 ");
+    for said in ["delay_moddepth", "sfzformat.com/opcodes/delay_moddepth", "General MIDI 2", "RP-024", "4.5.3"] {
+        assert!(sources.contains(said), "section 9 does not cite {said}");
+    }
+    for gone in ["Novation Peak", "userguides.novationmusic.com"] {
+        assert!(!text.contains(gone), "{TEXT} still cites {gone}");
+    }
+}
+
+#[test]
+fn the_note_of_limits_adds_the_speed_of_an_effect_s_movement_and_the_time_of_a_reverb_without_counting_the_limits() {
+    let part = section(&repo_file(TEXT), "### 6.1 ");
+    let notes: Vec<&str> = part.lines().filter(|l| l.starts_with('>')).collect();
+    let notes = notes.join("\n");
+    for said in ["`/Reverb/Depth`", "track", "mute", "`rate`", "`decay-time`", "`envelope`"] {
+        assert!(notes.contains(said), "the notes of 6.1 do not say {said}");
+    }
+    let lower = notes.to_lowercase();
+    for count in ["two", "three", "four", "five", "2", "3", "4"] {
+        assert!(!lower.contains(&format!("{count} limits")), "the notes of 6.1 count the limits: {count}");
     }
 }
 

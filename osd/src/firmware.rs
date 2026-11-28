@@ -39,7 +39,8 @@ object! {
         "repository" repository: Option<String> = Opt(STRING),
         "homepage" homepage: Option<String> = Opt(STRING),
         "release" release: Option<Release> = Opt(obj()),
-        /// An SPDX licence id, `public-domain`, `NOASSERTION` or `NONE`.
+        /// From 0.7 an SPDX licence expression, before it an SPDX licence id; or
+        /// `public-domain`, `NOASSERTION` or `NONE`.
         "license" license: Option<String> = Opt(STRING),
         "based_on" based_on: Option<BasedOn> = Opt(obj()),
         "midi" midi: Option<FirmwareMidi> = Opt(obj()),
@@ -60,7 +61,8 @@ object! {
 /// `device` and may name a `based_on` and a `midi`; from 0.6 it names `targets`, which carry the three.
 fn licence_of_its_version(f: &Firmware, at: &At) -> Result<(), crate::Fault> {
     if crate::is_05_form(f.schema) {
-        crate::vocabulary::check_license(f.license.as_deref(), "/license")?;
+        let from_0_7 = f.schema >= Some(crate::Version::V0_7);
+        crate::vocabulary::check_license(f.license.as_deref(), from_0_7, "/license")?;
     }
     crate::device::check_credit(f.schema, &[(at.pointer(), &f.sources)])?;
     let unknown = |key| At::Key(at, key).fault(FaultKind::UnknownField, format!("{key} is not a field of a 0.6 firmware: it names targets"));

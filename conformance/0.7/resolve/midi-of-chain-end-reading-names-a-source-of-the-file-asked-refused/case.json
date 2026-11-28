@@ -1,0 +1,9 @@
+{
+  "_about": "The end of a chain of `midi_of`, a file with no `midi_of`, is judged on its own text, as read alone: a reading of it that names an `id` only the file asked for writes is refused as BadValue in that file, at its pointer.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/c",
+    "pointer": "/commands/0/readings/0/source"
+  }
+}

@@ -224,6 +224,87 @@ fn a_value_whose_number_is_not_a_whole_number_is_named_with_its_reason_and_the_o
     assert!(lost_on_line(&lost, line_of(&text, "Name=\"Zero\"")).is_empty() && lost_on_line(&lost, line_of(&text, "Name=\"Two\"")).is_empty(), "{lost:?}");
 }
 
+/// No value of the kinds that begin with `kind` is counted lost without a loss that names it.
+fn assert_values_named(unnamed: &[String], kind: &str) {
+    let found: Vec<&String> = unnamed.iter().filter(|u| u.starts_with(kind)).collect();
+    assert!(found.is_empty(), "lost and named by no loss: {found:?}");
+}
+
+/// The one loss at the line of the `Value` named `name`, led by `Value` and naming `control`.
+fn assert_value_out_of_range(text: &str, lost: &[osd_formats::Loss], name: &str, control: &str) {
+    let found = lost_on_line(lost, line_of(text, &format!("Name=\"{name}\"")));
+    assert_eq!(found.len(), 1, "{name}: {lost:?}");
+    assert!(found[0].reason.starts_with("Value:"), "{name}: led by Value: {:?}", found[0]);
+    assert!(found[0].reason.contains(control), "{name}: names the control {control}: {:?}", found[0]);
+}
+
+#[test]
+fn a_named_value_outside_the_range_of_its_control_is_a_loss_at_its_value_element() {
+    let list = Node::new("ValueNameList", &[]).with(value("0", "Zero")).with(value("5", "Five")).with(value("9", "Nine"));
+    let text = document_of(vec![control_with("7bit", "70", "Wave", "0", "2", vec![list])], vec![]);
+    let (d, lost) = imported(&text);
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(0, "Zero")]));
+    assert_value_out_of_range(&text, &lost, "Five", "Wave");
+    assert_value_out_of_range(&text, &lost, "Nine", "Wave");
+    assert!(lost_on_line(&lost, line_of(&text, "<Values")).is_empty(), "the Values element is carried: {lost:?}");
+    assert!(lost_on_line(&lost, line_of(&text, "Name=\"Zero\"")).is_empty(), "{lost:?}");
+}
+
+#[test]
+fn a_value_of_a_shared_list_outside_the_range_of_one_control_is_named_for_that_control_at_its_line() {
+    let list = Node::new("ValueNameList", &[("Name", "Wave")]).with(value("0", "Sine")).with(value("7", "Saw"));
+    let uses = || vec![Node::new("UsesValueNameList", &[("Name", "Wave")])];
+    let text = document_of(
+        vec![control_with("7bit", "70", "Wide Wave", "0", "10", uses()), control_with("7bit", "71", "Narrow Wave", "0", "2", uses())],
+        vec![list],
+    );
+    let (d, lost) = imported(&text);
+    assert_eq!(listed(&entries(&d)[0]["values"]), named_values(&[(0, "Sine"), (7, "Saw")]));
+    assert_eq!(listed(&entries(&d)[1]["values"]), named_values(&[(0, "Sine")]));
+    assert_value_out_of_range(&text, &lost, "Saw", "Narrow Wave");
+    for line in text.lines().enumerate().filter(|(_, l)| l.contains("<Values")).map(|(n, _)| n + 1) {
+        assert!(lost_on_line(&lost, line).is_empty(), "{lost:?}");
+    }
+}
+
+#[test]
+fn the_bounds_and_default_of_values_with_a_value_out_of_range_count_carried_and_nothing_lost_is_unnamed() {
+    let mut control = control_with("7bit", "70", "Wave", "0", "10", vec![Node::new("ValueNameList", &[]).with(value("1", "In")).with(value("20", "Out"))]);
+    control.children[0].attrs.push(("Default".into(), "5".into()));
+    let text = document_of(vec![control], vec![]);
+    let got = crate::common::round_trip::count(Format::Midnam, &text);
+    assert_values_named(&got.unnamed, "Value");
+    for kind in ["Values@Min", "Values@Max", "Values@Default"] {
+        assert_eq!(got.kinds.get(kind), Some(&crate::common::round_trip::Figures::of(1, 0, 0)), "{kind}:\n{}", got.markdown());
+    }
+}
+
+#[test]
+fn the_notes_of_a_group_count_carried_the_name_of_the_group_alone_being_lost() {
+    let note = |number: &str, name: &str| Node::new("Note", &[("Number", number), ("Name", name)]);
+    let mut doc = rich_document();
+    let list = doc.at_mut(&[1, 4]);
+    assert_eq!(list.name, "NoteNameList");
+    list.children = vec![
+        Node::new("NoteGroup", &[("Name", "Drums")]).with(note("36", "Kick")).with(note("38", "Snare")),
+        Node::new("NoteGroup", &[]).with(note("42", "Hat")),
+    ];
+    let text = document_text(&doc);
+    let (d, lost) = imported(&text);
+    assert_eq!(d["triggers"]["entries"].as_array().map(Vec::len), Some(3), "{d}");
+    for needle in ["<NoteGroup Name=\"Drums\"", "<NoteGroup>"] {
+        let found = lost_on_line(&lost, line_of(&text, needle));
+        assert_eq!(found.len(), 1, "{needle}: {lost:?}");
+        assert!(found[0].reason.starts_with("NoteGroup@Name:"), "{needle}: the grouping is led by NoteGroup@Name: {:?}", found[0]);
+    }
+    let got = crate::common::round_trip::count(Format::Midnam, &text);
+    assert_values_named(&got.unnamed, "Note");
+    use crate::common::round_trip::Figures;
+    for (kind, figures) in [("Note@Name", Figures::of(3, 0, 0)), ("Note@Number", Figures::of(3, 0, 0)), ("NoteGroup@Name", Figures::of(0, 1, 0))] {
+        assert_eq!(got.kinds.get(kind), Some(&figures), "{kind}:\n{}", got.markdown());
+    }
+}
+
 #[test]
 fn a_list_with_no_value_it_can_carry_gives_an_entry_without_values() {
     let list = Node::new("ValueNameList", &[]).with(value("1.5", "Half"));

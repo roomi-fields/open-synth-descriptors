@@ -1,0 +1,9 @@
+{
+  "_about": "A parenthesis that is not closed is a bad value at the field. The schema accepts it: a pattern cannot count parentheses.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/license"
+  },
+  "schema_accepts": true
+}

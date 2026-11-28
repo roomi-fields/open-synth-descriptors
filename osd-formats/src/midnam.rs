@@ -229,28 +229,29 @@ fn span_of(kind: &str) -> i64 {
 /// The lists of value names of a document, read once each, and which a control used.
 struct ValueLists<'a> {
     named: Vec<&'a Node>,
-    read: BTreeMap<usize, Vec<(String, i64)>>,
+    read: BTreeMap<usize, Vec<(String, i64, &'a Node)>>,
     used: BTreeSet<usize>,
 }
 
 impl<'a> ValueLists<'a> {
-    /// The (label, number) pairs of a list; a Value whose Number is not whole is lost, once.
-    fn pairs(&mut self, list: &Node, losses: &mut Vec<Loss>) -> Vec<(String, i64)> {
+    /// The (label, number) pairs of a list, each with its Value; a Value whose Number is not whole
+    /// is lost, once.
+    fn pairs(&mut self, list: &'a Node, losses: &mut Vec<Loss>) -> Vec<(String, i64, &'a Node)> {
         self.used.insert(list.line);
         if let Some(done) = self.read.get(&list.line) {
             return done.clone();
         }
-        let mut pairs: Vec<(String, i64)> = Vec::new();
+        let mut pairs: Vec<(String, i64, &Node)> = Vec::new();
         for v in list.kids("Value") {
             let (text, label) = (v.attr("Number").unwrap_or(""), v.attr("Name").unwrap_or("").to_string());
             let Some(number) = whole(text) else {
                 lost_element(losses, v, Some("Number"), &format!("{text:?} is not a whole number: the descriptor's values hold whole numbers"));
                 continue;
             };
-            match pairs.iter().find(|(l, _)| *l == label) {
-                Some((_, n)) if *n == number => {}
+            match pairs.iter().find(|(l, ..)| *l == label) {
+                Some((_, n, _)) if *n == number => {}
                 Some(_) => lost_element(losses, v, Some("Name"), &format!("the label {label:?} is already on another number: a label has one integer in the descriptor")),
-                None => pairs.push((label, number)),
+                None => pairs.push((label, number, v)),
             }
         }
         self.read.insert(list.line, pairs.clone());
@@ -258,7 +259,7 @@ impl<'a> ValueLists<'a> {
     }
 }
 
-fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses: &mut Vec<Loss>) -> Result<Value, Fault> {
+fn control<'a>(c: &'a Node, used: &mut BTreeSet<String>, lists: &mut ValueLists<'a>, losses: &mut Vec<Loss>) -> Result<Value, Fault> {
     let kind = c.attr("Type").unwrap_or("7bit");
     let number_text = c.attr("Number").unwrap_or("");
     let number = whole(number_text).ok_or_else(|| invalid(at_attr(c, "Number"), format!("{number_text:?} is not a whole number")))?;
@@ -306,11 +307,11 @@ fn control(c: &Node, used: &mut BTreeSet<String>, lists: &mut ValueLists, losses
         };
         if let Some(list) = list {
             let mut named = Vec::new();
-            for (label, number) in lists.pairs(list, losses) {
+            for (label, number, value) in lists.pairs(list, losses) {
                 if (low..=high).contains(&number) {
                     named.push(json!({"value": number, "title": label}));
                 } else {
-                    lost_element(losses, values, None, &format!("the value {number} named {label:?} is outside the range of the control {low} to {high}"));
+                    lost_element(losses, value, None, &format!("the value {number} named {label:?} is outside the range of the control {name:?}, {low} to {high}"));
                 }
             }
             if !named.is_empty() {
@@ -335,7 +336,8 @@ fn trigger(note: &Node, used: &mut BTreeSet<String>) -> Result<Value, Fault> {
 fn notes_of(list: &Node, used: &mut BTreeSet<String>, entries: &mut Vec<Value>, losses: &mut Vec<Loss>) -> Result<(), Fault> {
     for c in &list.children {
         if c.name == "NoteGroup" {
-            lost_element(losses, c, None, "the descriptor does not group its sounds: the notes of the group are read one by one");
+            // Led by the name of the group, named or not: the loss is the grouping, not the notes.
+            lost_element(losses, c, Some("Name"), "the descriptor does not group its sounds: the notes of the group are read one by one");
             for note in c.kids("Note") {
                 entries.push(trigger(note, used)?);
             }

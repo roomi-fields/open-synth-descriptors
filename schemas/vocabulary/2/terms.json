@@ -1,7 +1,7 @@
 {
   "$schema": "https://w3id.org/osd/vocabulary/2/vocabulary.schema.json",
   "state": "2",
-  "_about": "State 2 of the vocabulary of roles: state 1, unchanged but for the elements added to its stands_under and applies_to, and the terms of drum machines and samplers (the track, the sample with its loop and slices, the drum instruments, where each starts and ends), the type of a filter, whether a part is on or off, the type of an effect, how far the own movement of an effect goes (its modulation depth, apart from depth, which keeps its meaning of state 1), and the type value, a choice of a selector, with the waveforms and the filter types. spec/vocabulary/2.md says each new term, where it stands and what it applies to.",
+  "_about": "State 2 of the vocabulary of roles: state 1, unchanged but for the elements added to its stands_under and applies_to, and the terms of drum machines and samplers (the track, the sample with its loop and slices, the drum instruments, where each starts and ends), the type of a filter, whether a part is on or off, the type of an effect, how far the own movement of an effect goes (its modulation depth, apart from depth, which keeps its meaning of state 1), the send (depth) and that movement holding for every effect, and the type value, a choice of a selector, with the waveforms and the filter types. spec/vocabulary/2.md says each new term, where it stands and what it applies to.",
   "terms": [
     {
       "name": "voice",
@@ -341,7 +341,7 @@
       "name": "depth",
       "type": "setting",
       "definition": "How much of an effect, or of the vibrato, is applied to the sound.",
-      "applies_to": ["effect", "reverb", "chorus", "vibrato"],
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer", "vibrato"],
       "words": [
         { "word": "Reverb Send Level", "origin": "M2-104-UM v1.1.2" },
         { "word": "Chorus Send Level", "origin": "M2-104-UM v1.1.2" }
@@ -694,10 +694,11 @@
       "name": "modulation-depth",
       "type": "setting",
       "definition": "How far the own movement of an effect goes, such as the sweep a chorus makes, apart from how much of the effect is applied or heard.",
-      "applies_to": ["effect", "chorus"],
+      "applies_to": ["effect", "delay", "reverb", "chorus", "equalizer"],
       "words": [],
       "source": [
-        { "document": "Novation Peak User Guide (userguides.novationmusic.com)", "table": "Chorus pages", "name": "Chorus Depth" }
+        { "document": "SFZ format (sfzformat.com)", "table": "delay_moddepth", "name": "delay_moddepth" },
+        { "document": "General MIDI 2 (MIDI Association, RP-024, v1.2a)", "table": "4.5.3 Mod Depth", "name": "Mod Depth" }
       ]
     },
     {

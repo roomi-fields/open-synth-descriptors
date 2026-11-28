@@ -1,0 +1,42 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "T",
+    "osc_prefix": "/t"
+  },
+  "midi_of": "acme/b",
+  "commands": [
+    {
+      "osc": "/dump",
+      "readings": [
+        {
+          "state": "valid",
+          "firmware": "1.2",
+          "source": "ghost"
+        }
+      ]
+    }
+  ],
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/cutoff",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "phantom"
+          }
+        ],
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              74
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

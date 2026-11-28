@@ -14,7 +14,8 @@
 //!   reads it: a number written as text equals that number (a byte of a template written as text
 //!   is hexadecimal), an omitted attribute equals the default of the format, F0 and F7 in a
 //!   template are the framing, relcc is a relative cc7, the one range (and default) of a CSV row
-//!   with a CC and an NRPN of one range reads for both.
+//!   with a CC and an NRPN of one range reads for both, and an OSCQuery RANGE object or
+//!   EXTENDED_TYPE text written alone equals the list that repeats it for each argument.
 //! - Keys: the elements of one key are paired in the order of the files, and an element left
 //!   without a pair loses all its values. CSV: a row, by its CC (cc_msb), else its NRPN; of the
 //!   triggers CSV, by its note range; else its rank among the rows that have none. Electra One: a
@@ -807,6 +808,27 @@ fn leaves(v: &Value, pointer: &str, kind: &str, field: &str, e: &mut Element) {
     }
 }
 
+/// A list that repeats one value for each argument reads as that value written alone: the text
+/// of an EXTENDED_TYPE, each key of a RANGE object.
+fn read_repeated_as_one(node: &Value, e: &mut Element) {
+    let repeated = |values: Vec<Option<&Value>>| -> Option<String> {
+        let first = (*values.first()?)?;
+        values.iter().all(|v| *v == Some(first)).then(|| scalar(first))
+    };
+    if let Some(names) = node.get("EXTENDED_TYPE").and_then(Value::as_array) {
+        if let Some(name) = repeated(names.iter().map(Some).collect()) {
+            e.reads.insert("EXTENDED_TYPE".to_string(), name);
+        }
+    }
+    if let Some(ranges) = node.get("RANGE").and_then(Value::as_array) {
+        for key in ["MIN", "MAX"] {
+            if let Some(bound) = repeated(ranges.iter().map(|r| r.get(key)).collect()) {
+                e.reads.insert(format!("RANGE/{key}"), bound);
+            }
+        }
+    }
+}
+
 fn oscquery_elements(text: &str, device: Option<&Value>) -> Vec<Element> {
     let root: Value = serde_json::from_str(text).expect("a namespace is JSON");
     let mut targets: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -830,6 +852,7 @@ fn oscquery_elements(text: &str, device: Option<&Value>) -> Vec<Element> {
         for (k, v) in node.as_object().into_iter().flatten().filter(|(k, _)| *k != "CONTENTS") {
             leaves(v, &format!("{pointer}/{}", escaped(k)), &format!("/{k}"), k, &mut e);
         }
+        read_repeated_as_one(node, &mut e);
         out.push(e);
         for (k, c) in node.get("CONTENTS").and_then(Value::as_object).into_iter().flatten() {
             walk(c, &format!("{pointer}/CONTENTS/{}", escaped(k)), &format!("{}/{k}", path.trim_end_matches('/')), targets, out);

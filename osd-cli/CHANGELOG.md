@@ -4,6 +4,8 @@ The changes of the `osd` command. The changes of the reader it is built on are i
 
 ## Unreleased
 
+- `osd import --license` accepts a licence id that starts in lowercase or with a digit (`curl`, `mit`) and writes it as given; `cc by` and `None` are still refused.
+
 - `validate`, `convert`, `resolve`, `import` and `export` print on the error output, for each place of a sound transfer whose control that transfer places at places that differ, `<file or id asked>: warning at "<pointer>": the sound transfer places this control at places that differ: to be confirmed`; the standard output and the exit codes do not change. `osd conformance` writes it as `UnconfirmedPlace`.
 
 - 0.7 (candidate): `validate` and `convert` print on the error output, for each source a maker profile, a sound, a fingerprint, a firmware or an assembly keeps in a note `_sources_<n>`, `<file>: warning at "<pointer>": the source is kept as a note and not carried as credit`; the standard output and the exit codes do not change. `osd conformance` writes it as `UncreditedSource`.

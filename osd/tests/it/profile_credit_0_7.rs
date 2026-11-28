@@ -166,11 +166,11 @@ fn a_source_of_a_profile_refuses_the_product_types_and_a_word_outside_the_terms(
 }
 
 #[test]
-fn a_source_of_a_profile_takes_a_licence_of_the_closed_list_alone() {
-    for license in ["CC-BY-4.0", "public-domain", "NOASSERTION", "NONE"] {
+fn a_source_of_a_profile_takes_a_licence_of_0_7_alone() {
+    for license in ["CC-BY-4.0", "free", "curl", "public-domain", "NOASSERTION", "NONE"] {
         read_ok(&with_sources(json!([{"type": "vendor-doc", "license": license}])));
     }
-    for license in ["free", "none", "Public-Domain"] {
+    for license in ["two words", "none", "Public-Domain"] {
         refused_by_both(json!([{"type": "vendor-doc", "license": license}]), FaultKind::BadValue, "/sources/0/license");
     }
 }

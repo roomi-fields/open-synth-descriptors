@@ -1,0 +1,17 @@
+{
+  "_about": "An SPDX expression with an exception is read and written back as written.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "Synth",
+      "osc_prefix": "/synth"
+    },
+    "sources": [
+      {
+        "type": "community-re",
+        "license": "GPL-3.0-only WITH GPL-3.0-linking-exception"
+      }
+    ]
+  }
+}

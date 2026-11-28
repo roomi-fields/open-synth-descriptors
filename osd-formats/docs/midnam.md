@@ -12,7 +12,7 @@ The `values` of a control are written as `ValueNameList` (one `Value` per label,
 
 ## What the import reads
 
-Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The `ValueNameList` of a control, inline or by `UsesValueNameList`, becomes its `values`; two names on the same number are both read, and a `Value` whose number is not whole is lost while the others are carried. A `Values` that states the bounds MIDI fixes for the type of its control (0 to 127, or 0 to 16383) gives an entry without `range` and no loss: those bounds are the ones MIDI imposes. A `Patch@Number` that is not a whole number and a `ProgramChange` that is no program change number are lost at their line. So is the `Name` of a set or of a list of names that the export writes otherwise (`ChannelNameSet`, `ControlNameList`, `NoteNameList`, `PatchNameList` and the references to them). The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence. The date of the import the caller passes in that source (`imported_at`) is kept as the note `_imported_at` of the source added, its value unchanged, 0.7 having no field for it: a `_imported_at` the source already holds stays, and the date goes under `_imported_at_2` (then `_imported_at_3`, then the next number not taken). It is no loss, no date is invented, and the other keys of the source are kept.
+Every element of the document is read by the DTD first. The first device and its first model are read; the controls, notes and patches are carried, and each element the descriptor cannot hold has a loss at its line (`line N`, the element or `Element@Attribute` leading the reason). The `ValueNameList` of a control, inline or by `UsesValueNameList`, becomes its `values`; two names on the same number are both read, and a `Value` whose number is not whole is lost while the others are carried. A `Value` outside the range of a control that uses it is lost at the line of the `Value`, its reason naming the control; the `Values` of the control keeps its bounds and its default. The grouping of a `NoteGroup` is lost at its line (`NoteGroup@Name`), named or not, while its notes are read. A `Values` that states the bounds MIDI fixes for the type of its control (0 to 127, or 0 to 16383) gives an entry without `range` and no loss: those bounds are the ones MIDI imposes. A `Patch@Number` that is not a whole number and a `ProgramChange` that is no program change number are lost at their line. So is the `Name` of a set or of a list of names that the export writes otherwise (`ChannelNameSet`, `ControlNameList`, `NoteNameList`, `PatchNameList` and the references to them). The source of the descriptor is the one given to the import: the `Author` is never copied as a credit or a licence. The date of the import the caller passes in that source (`imported_at`) is kept as the note `_imported_at` of the source added, its value unchanged, 0.7 having no field for it: a `_imported_at` the source already holds stays, and the date goes under `_imported_at_2` (then `_imported_at_3`, then the next number not taken). It is no loss, no date is invented, and the other keys of the source are kept.
 
 ## Elements and attributes
 
@@ -211,8 +211,8 @@ A value belongs to its element. The key of a Control is its type and number; of 
 | `CustomDeviceMode@Name` | 0 | 10 | 0 |
 | `Manufacturer` | 10 | 0 | 0 |
 | `Model` | 10 | 2 | 0 |
-| `Note@Name` | 1097 | 184 | 0 |
-| `Note@Number` | 1097 | 184 | 0 |
+| `Note@Name` | 1281 | 0 | 0 |
+| `Note@Number` | 1281 | 0 | 0 |
 | `NoteGroup@Name` | 0 | 76 | 0 |
 | `NoteNameList@Name` | 0 | 21 | 0 |
 | `Patch@Name` | 0 | 3621 | 0 |
@@ -224,4 +224,4 @@ A value belongs to its element. The key of a Control is its type and number; of 
 | `UsesControlNameList@Name` | 0 | 1 | 0 |
 | `UsesNoteNameList@Name` | 0 | 21 | 0 |
 | `UsesPatchNameList@Name` | 0 | 2 | 0 |
-| **Total** | 6812 | 7540 | 0 |
+| **Total** | 7180 | 7172 | 0 |

@@ -1,0 +1,43 @@
+/device/osc_prefix	the CSV has no column for it: the import builds the prefix from the name of the device
+/device/device_id	the CSV carries controls only
+/device/rate_limit_hz	the CSV carries controls only
+/device/_a~1b~0c	the CSV carries controls only
+/device/_zz	the CSV carries controls only
+/role_vocabulary	the CSV carries controls only
+/programs	the CSV carries controls only
+/sysex	the CSV carries controls only
+/cc_params/channel	the CSV has no column for it
+/cc_params/entries/0/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/0/channel	the CSV has no column for it
+/cc_params/entries/0/_zz	the CSV has no column for it
+/cc_params/entries/0/title	the CSV has no column for it
+/cc_params/entries/0/description	the CSV has no column for it
+/cc_params/entries/0/value_description	the CSV has no column for it
+/cc_params/entries/0/notes	the CSV has no column for it
+/cc_params/entries/0/ways/1/range	the import adds this range, read from the bounds columns: one range of a row goes to both ways
+/cc_params/entries/1/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/1/title	the CSV has no column for it
+/cc_params/entries/2	the control gives no message: the row has neither a CC nor an NRPN, and an import drops it
+/cc_params/entries/2/nrpn_msb	no way of the control says this field (a message not fully known, or the block beside one): it is not written, and no number is added to complete it
+/cc_params/entries/3	the control gives no message: the row has neither a CC nor an NRPN, and an import drops it
+/cc_params/entries/3/cc_lsb	no way of the control says this field (a message not fully known, or the block beside one): it is not written, and no number is added to complete it
+/cc_params/entries/4/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/4/title	the row needs a name: the export writes the address, which the import reads as the title
+/cc_params/entries/5/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/5/also/0/nrpn_msb	no way of the control says this field (a message not fully known, or the block beside one): it is not written, and no number is added to complete it
+/cc_params/entries/5/title	the CSV has no column for it
+/cc_params/entries/5/_incomplete	the CSV has no column for it
+/cc_params/entries/6/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/6/values	the CSV has no column for it
+/cc_params/entries/6/title	the CSV has no column for it
+/cc_params/entries/7/osc	the CSV has no column for an address: the import builds it from the section and the name
+/cc_params/entries/7/title	the CSV has no column for it
+/cc_params/entries/7/ways/0/nrpn_lsb_range	the CSV has no column for it
+/cc_params/entries/8	the control gives no message: the row has neither a CC nor an NRPN, and an import drops it
+/cc_params/_zz	the CSV has no column for it
+/commands	the CSV carries controls only
+/triggers	the CSV carries controls only
+/_coverage	the CSV carries controls only
+/_a~1b~0c	the CSV carries controls only
+/_zz	the CSV carries controls only
+/sources	the CSV has no column for the credit or the licence of the sources

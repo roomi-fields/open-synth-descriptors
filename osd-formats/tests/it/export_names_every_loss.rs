@@ -1,4 +1,4 @@
-//! The losses of the MIDI CSV and Electra One exports (osd-formats/docs/CADRE.md R8, docs/CADRE.md R16): on a
+//! The losses of the MIDI CSV, triggers CSV and Electra One exports (osd-formats/docs/CADRE.md R8, docs/CADRE.md R16): on a
 //! device that fills every field, each field that importing the file written gives back missing,
 //! changed or added is in the losses at its pointer or at a block that holds it, and a field given
 //! back unchanged is not named.
@@ -254,6 +254,101 @@ fn the_csv_export_names_the_values_role_priority_steps_readings_and_scale_of_a_c
     let mut pointers: Vec<&str> = pointers.iter().map(String::as_str).collect();
     pointers.extend(["/contexts", "/sound_transfers", "/resources"]);
     assert_held(&t, &pointers);
+}
+
+// ---- the triggers CSV -----------------------------------------------------------------------
+
+/// Two sources with a credit, neither the one the import of the file is given.
+fn two_sources() -> Value {
+    json!([
+        source(),
+        {"type": "vendor-doc", "id": "s2", "url": "https://example.org/e", "author": "Eve", "license": "MIT"},
+    ])
+}
+
+/// A device whose triggers the CSV gives back whole: its name, vendor and prefix, and the
+/// address the import builds from the section and the name.
+fn plain_triggers() -> Value {
+    small(
+        json!({"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"}),
+        json!({"triggers": {"entries": [
+            {"osc": "/drums/kick", "sound": "Kick", "section": "Drums", "channel": 9, "note_range": [36, 38], "note": 37,
+             "description": "The big one", "comments": "choke", "velocity_usage": "soft"},
+        ]}}),
+    )
+}
+
+#[test]
+fn the_triggers_export_names_the_rebuilt_prefix_and_address_and_the_blocks_the_csv_does_not_hold() {
+    let doc = small(
+        json!({"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/custom", "kind": "software", "stands_for": "acme/box", "fidelity": "modelled"}),
+        json!({
+            "role_vocabulary": "1",
+            "contexts": {"part": {"values": [{"id": "a"}]}},
+            "sound_transfers": crate::common::knobkraft::base()["sound_transfers"].clone(),
+            "resources": [{"resource": "patch", "canSet": "none", "export": "sysex"}],
+            "midi_of_sources": [{"type": "vendor-doc", "url": "https://example.org/m", "license": "MIT"}],
+            "sources": two_sources(),
+            "triggers": {"entries": [{"osc": "/my/kick", "section": "Drums", "sound": "Kick", "note_range": [36, 36]}]},
+        }),
+    );
+    let t = every_loss_is_named(Format::MidiTriggersCsv, &doc);
+    let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
+    assert!(!places.contains(&"") && !places.contains(&"/device"), "a block that comes back is not named whole: {places:?}");
+    assert_held(&t, &[
+        "/sources", "/device/osc_prefix", "/triggers/entries/0/osc", "/role_vocabulary", "/contexts", "/sound_transfers",
+        "/resources", "/midi_of_sources", "/device/stands_for", "/device/fidelity",
+    ]);
+    assert_in_the_order_of_the_descriptor(&t);
+}
+
+#[test]
+fn the_triggers_export_names_every_field_of_a_full_device_it_does_not_give_back_and_no_other_in_its_order() {
+    let mut doc = full(json!([full_command("/filter/dump", json!([240, 247]))]), json!([full_control(json!([{"ctrlType": "cc", "ctrlIndex": [74]}]))]));
+    doc["sound_transfers"] = crate::common::knobkraft::base()["sound_transfers"].clone();
+    doc["triggers"] = json!({"_zz": "n", "_a/b~c": "n", "entries": [
+        {"osc": "/a/first", "title": "First", "sound": "Kick", "section": "Drums", "channel": 9, "note_range": [36, 38], "note": 37,
+         "description": "d", "comments": "c", "velocity_usage": "v", "_zz": "n", "_a/b~c": "n"},
+        {"osc": "/second", "sound": "Snare", "channel_mode": "omni", "note_range": [40, 40]},
+    ]});
+    let t = every_loss_is_named(Format::MidiTriggersCsv, &doc);
+    assert_held(&t, &["/sources", "/triggers/entries/0/osc", "/triggers/entries/0/title", "/triggers/entries/1/channel_mode"]);
+    assert_in_the_order_of_the_descriptor(&t);
+}
+
+#[test]
+fn a_device_the_triggers_csv_gives_back_whole_names_its_sources_only() {
+    let t = every_loss_is_named(Format::MidiTriggersCsv, &plain_triggers());
+    let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
+    assert_eq!(places, ["/sources"]);
+}
+
+#[test]
+fn the_triggers_export_always_names_the_sources_and_gives_one_credit_line_for_each() {
+    let mut doc = plain_triggers();
+    doc["sources"] = two_sources();
+    let device = crate::common::resolved(device_from(&doc.to_string()));
+    let t = osd_formats::export(&device, Format::MidiTriggersCsv).expect("exports");
+    assert!(t.lost.iter().any(|l| l.place == "/sources" && !l.reason.is_empty()), "{:?}", t.lost);
+    let lines = osd_formats::credit_to_carry(&device, &t.lost);
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert!(lines[0].contains("Dee") && lines[0].contains("CC0-1.0") && lines[1].contains("Eve") && lines[1].contains("MIT"), "{lines:?}");
+}
+
+#[test]
+fn the_triggers_export_that_writes_no_row_names_the_name_and_the_manufacturer_of_the_device() {
+    let device = json!({"name": "Trundler", "vendor": "Lofty", "osc_prefix": "/trundler"});
+    for extra in [
+        json!({}),
+        json!({"triggers": {"entries": []}}),
+        json!({"commands": [{"osc": "/dump", "frame": [240, 247]}]}),
+    ] {
+        let t = every_loss_is_named(Format::MidiTriggersCsv, &small(device.clone(), extra.clone()));
+        let places: Vec<&str> = t.lost.iter().map(|l| l.place.as_str()).collect();
+        for pointer in ["/sources", "/device/name", "/device/vendor"] {
+            assert!(places.contains(&pointer), "{extra}: {pointer} is not in {places:?}");
+        }
+    }
 }
 
 // ---- the Electra One ------------------------------------------------------------------------

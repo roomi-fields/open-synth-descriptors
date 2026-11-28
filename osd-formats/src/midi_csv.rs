@@ -630,8 +630,8 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     // Every field the CSV read back does not give is named.
     let back = device_of(&out, &Source::default()).ok();
     let became = back.as_ref().map_or_else(Became::default, |(t, lines)| became(&rows, &t.value, lines));
-    crate::losses::name_what_does_not_come_back(d, back.as_ref().map(|(t, _)| &t.value), &became, &mut losses, why_not_back);
+    let as_written = crate::losses::name_what_does_not_come_back(d, back.map(|(t, _)| t.value), &became, &mut losses, why_not_back);
     losses.append(&mut reordered);
-    crate::losses::in_the_order_of(d, &mut losses);
+    crate::losses::in_the_order_of(d, as_written, &mut losses);
     Ok(Translated { value: out, lost: losses })
 }

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+  "device": {
+    "name": "A preset",
+    "osc_prefix": "/a-preset"
+  },
+  "cc_params": {
+    "entries": [
+      {
+        "osc": "/filter/cutoff",
+        "title": "Cutoff",
+        "section": "Filter",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              74
+            ],
+            "value_bits": 7,
+            "range": [
+              0,
+              100
+            ]
+          }
+        ]
+      },
+      {
+        "osc": "/filter/waves",
+        "title": "Waves",
+        "values": [
+          {
+            "value": 0,
+            "title": "Saw"
+          },
+          {
+            "value": 1,
+            "title": "Square"
+          }
+        ],
+        "section": "Filter",
+        "ways": [
+          {
+            "ctrlType": "cc",
+            "ctrlIndex": [
+              75
+            ],
+            "value_bits": 7,
+            "range": [
+              0,
+              1
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "commands": [
+    {
+      "osc": "/dump",
+      "title": "Dump",
+      "args": [
+        {
+          "name": "value",
+          "type": "u7",
+          "range": [
+            0,
+            100
+          ]
+        }
+      ],
+      "frame": [
+        240,
+        67,
+        {
+          "arg": "value"
+        },
+        {
+          "checksum": "sum7",
+          "from": 1,
+          "length": 2
+        },
+        247
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "type": "community-re",
+      "url": "https://app.electra.one/preset/abc",
+      "author": "A preset maker",
+      "license": "CC-BY-4.0",
+      "sha256": "c63f8ecc7d107560f68b84fd86875254f5607b53fb12bef31ad75b31053dc85d"
+    }
+  ]
+}

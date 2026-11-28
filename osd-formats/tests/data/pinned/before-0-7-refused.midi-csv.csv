@@ -1,0 +1,10 @@
+manufacturer,device,section,parameter_name,parameter_description,cc_msb,cc_lsb,cc_min_value,cc_max_value,cc_default_value,nrpn_msb,nrpn_lsb,nrpn_min_value,nrpn_max_value,nrpn_default_value,orientation,notes,usage
+Lofty,A device whose name is far too long for the controller,Filter,/filter/cutoff,,74,,0,100,64,1,8,0,16383,,,,
+Lofty,A device whose name is far too long for the controller,Lfo,/lfo/rate,,1,33,,,9000,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Filter,/filter/half,,,,,,,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Filter,/filter/lsb,,,,,,,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Lfo,/lfo/pair,,40,41,,,,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Filter,/filter/beside,,75,,,,,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Filter,/filter/waves,,76,,,,,,,,,,,,
+Lofty,A device whose name is far too long for the controller,Lfo,/lfo/spread,,,,,,,3,4,,,,,,
+Lofty,A device whose name is far too long for the controller,Last,/bank,,,,,,,,,,,,,,

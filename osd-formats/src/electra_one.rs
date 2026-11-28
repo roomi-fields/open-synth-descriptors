@@ -9,7 +9,9 @@ use crate::{lose_what_no_way_says, Contract, Fault, FaultKind, Loss, Translated}
 use osd::{Address, Algorithm, Arg, ArgType, CcEntry, CcParams, Command, Device, DeviceInfo, Encoding, FramePart, FrameToken, Resolved, Source, Version, Way};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 
 pub(crate) const CONTRACT: Contract = Contract {
     name: "electra-one",
@@ -101,7 +103,7 @@ fn message_range(
     at: &str,
     pad: bool,
     scale: [i64; 2],
-    read: &mut BTreeSet<String>,
+    read: &mut ReadKeys,
     losses: &mut Vec<Loss>,
 ) -> Result<Option<[i64; 2]>, Fault> {
     let of_message = format!("{at}/message");
@@ -141,18 +143,23 @@ fn message_range(
     for (side, bounds) in [&own, &shown].into_iter().flat_map(|b| b.iter().enumerate()) {
         match bounds {
             Some((n, at)) if *n == range[side] => {
-                read.insert(at.clone());
+                read.note(|| at.clone());
             }
             Some((_, at)) => loss(losses, at.clone(), format!("the range carried is {}..{}, the MIDI range of the message: this bound differs from it", range[0], range[1])),
             None => {}
         }
     }
     let kept = range != scale || shown.iter().any(Option::is_some);
-    if !kept && pad {
-        // No range says the off and on values, and nothing says the control is a pad: what takes
-        // a range is written back as a fader, which has neither.
+    if pad {
+        // Nothing in the descriptor says the control is a pad: what takes a range is written back
+        // as a fader, which has no off and on values.
+        let reason = if kept {
+            "the range is carried, but no pad is written back: the descriptor does not say the control is a pad"
+        } else {
+            "the pad gives the whole scale of its message: no range is written, nor that the control is a pad"
+        };
         for key in ["offValue", "onValue"].iter().filter(|k| message.contains_key(**k)) {
-            loss(losses, format!("{of_message}/{key}"), "the pad gives the whole scale of its message: no range is written, nor that the control is a pad");
+            loss(losses, format!("{of_message}/{key}"), reason);
         }
     }
     Ok(kept.then_some(range))
@@ -218,8 +225,26 @@ fn whole(v: &Value) -> Option<u64> {
     }
 }
 
+/// The keys of the preset the reading follows or carries, by pointer. They serve to name every
+/// other one: a reading that names no key notes none, and builds no pointer for one.
+struct ReadKeys(Option<BTreeSet<String>>);
+
+impl ReadKeys {
+    /// Notes each key `keys` gives; `keys` is not walked when none is noted.
+    fn extend(&mut self, keys: impl IntoIterator<Item = String>) {
+        if let Some(read) = &mut self.0 {
+            read.extend(keys);
+        }
+    }
+
+    /// Notes the key `key` gives, which is not called when none is noted.
+    fn note(&mut self, key: impl FnOnce() -> String) {
+        self.extend(std::iter::once_with(key));
+    }
+}
+
 /// Notes in `read` the keys of a template element, at `at`, that its part of the frame takes.
-fn read_element(element: &Value, at: &str, read: &mut BTreeSet<String>) {
+fn read_element(element: &Value, at: &str, read: &mut ReadKeys) {
     let keys: &[&str] = match element.get("type").and_then(Value::as_str) {
         Some("checksum") => &["type", "algorithm", "start", "length"],
         Some("value") => &["type", "rules", "rules/0/parameterBitPosition", "rules/0/byteBitPosition", "rules/0/bitWidth"],
@@ -317,10 +342,10 @@ fn sha256_hex(data: &[u8]) -> String {
     Sha256::digest(data).iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Why the import does not read the key at `pointer`.
-fn why_unread(pointer: &str) -> &'static str {
-    let mut path = pointer.split('/').skip(1);
-    let (block, key) = (path.next().unwrap_or_default(), pointer.rsplit('/').next().unwrap_or_default());
+/// Why the import does not read `key`, the key at `pointer`.
+fn why_unread(pointer: &str, key: &str) -> &'static str {
+    let path = pointer.get(1..).unwrap_or_default();
+    let block = path.split_once('/').map_or(path, |(block, _)| block);
     let at = |part: &str| pointer.contains(part);
     match block {
         "pages" => "the pages are the look of the preset",
@@ -339,31 +364,57 @@ fn why_unread(pointer: &str) -> &'static str {
 }
 
 /// Names each key of the preset, at any depth, that is not in `read` and that no loss holds.
-fn name_unread(value: &Value, at: &str, read: &BTreeSet<String>, held: &BTreeSet<String>, losses: &mut Vec<Loss>) {
-    let items: Vec<(String, &Value)> = match value {
-        Value::Object(o) => o.iter().map(|(k, v)| (format!("{at}/{}", segment(k)), v)).collect(),
-        Value::Array(a) => a.iter().enumerate().map(|(i, v)| (format!("{at}/{i}"), v)).collect(),
-        _ => return,
-    };
-    for (pointer, item) in items {
-        let under = format!("{pointer}/");
-        let read_under = || read.range(under.clone()..).next().is_some_and(|r| r.starts_with(&under));
-        // A block a loss holds is named already, unless another control reads under it.
-        if held.contains(&pointer) && !read_under() {
-            continue;
+/// `at` is the pointer of `value`; the walk writes each pointer under it in the same buffer and
+/// leaves it as it found it, so that only a pointer a loss names is allocated.
+fn name_unread(value: &Value, at: &mut String, read: &BTreeSet<String>, held: &BTreeSet<String>, losses: &mut Vec<Loss>) {
+    let end = at.len();
+    match value {
+        Value::Object(o) => {
+            for (key, item) in o {
+                at.truncate(end);
+                at.push('/');
+                if key.contains('~') || key.contains('/') {
+                    at.push_str(&segment(key));
+                } else {
+                    at.push_str(key);
+                }
+                if held.contains(at.as_str()) {
+                    name_held(item, at, read, held, losses);
+                } else if !read.contains(at.as_str()) {
+                    loss(losses, at.as_str(), why_unread(at, key));
+                } else if item.is_object() || item.is_array() {
+                    name_unread(item, at, read, held, losses);
+                }
+            }
         }
-        if value.is_object() && !read.contains(&pointer) && !held.contains(&pointer) {
-            let reason = why_unread(&pointer);
-            loss(losses, pointer, reason);
-        } else {
-            name_unread(item, &pointer, read, held, losses);
+        Value::Array(a) => {
+            // An item of a list is no key: only what it holds is named.
+            for (i, item) in a.iter().enumerate().filter(|(_, item)| item.is_object() || item.is_array()) {
+                at.truncate(end);
+                let _ = write!(at, "/{i}");
+                if held.contains(at.as_str()) {
+                    name_held(item, at, read, held, losses);
+                } else {
+                    name_unread(item, at, read, held, losses);
+                }
+            }
         }
+        _ => {}
+    }
+    at.truncate(end);
+}
+
+/// A block a loss holds, at `at`, is named already, unless another control reads under it.
+fn name_held(value: &Value, at: &mut String, read: &BTreeSet<String>, held: &BTreeSet<String>, losses: &mut Vec<Loss>) {
+    let under = format!("{at}/");
+    if read.range::<String, _>(&under..).next().is_some_and(|r| r.starts_with(&under)) {
+        name_unread(value, at, read, held, losses);
     }
 }
 
 fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
-    read_back(read_preset(text, source)?.0)
+    read_back(read_preset(text, source, ReadKeys(Some(BTreeSet::new())))?.0)
 }
 
 /// The control of the preset each control, and each command, of the device read comes from.
@@ -373,9 +424,12 @@ struct From {
     commands: Vec<usize>,
 }
 
-/// The device a preset gives, before the reader of `osd` judges it, and where it comes from.
-fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From), Fault> {
-    let document: Value = serde_json::from_str(text).map_err(|e| invalid("", format!("the file is not valid JSON: {e}")))?;
+/// The device a preset gives, before the reader of `osd` judges it, and where it comes from. The
+/// keys it does not read are among the losses only when `read` notes the keys.
+fn read_preset(text: &str, source: &Source, mut read: ReadKeys) -> Result<(Translated<Device>, From), Fault> {
+    // Parsed through `FromStr`, which is built with `serde_json` itself: the parser runs as that
+    // crate is built, in the profile of the tests too.
+    let document: Value = text.parse().map_err(|e: serde_json::Error| invalid("", format!("the file is not valid JSON: {e}")))?;
     let document = &document;
     let Some(root) = document.as_object() else {
         return Err(invalid("", "a preset is a JSON object"));
@@ -397,18 +451,15 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
         .collect();
 
     let mut losses = Vec::new();
-    // The keys the import follows or carries, by pointer: every other one is named at the end.
-    let mut read: BTreeSet<String> = ["version", "name", "controls", "groups", "devices", "overlays"].iter().map(|k| format!("/{k}")).collect();
-    for n in 0..groups.len() {
-        read.insert(format!("/groups/{n}/id"));
-    }
+    // The keys the import follows or carries: every other one is named at the end.
+    read.extend(["version", "name", "controls", "groups", "devices", "overlays"].iter().map(|k| format!("/{k}")));
+    read.extend((0..groups.len()).map(|n| format!("/groups/{n}/id")));
     for (d, device) in root.get("devices").and_then(Value::as_array).into_iter().flatten().enumerate() {
-        read.insert(format!("/devices/{d}/messages"));
-        for m in 0..device.get("messages").and_then(Value::as_array).map_or(0, Vec::len) {
-            read.insert(format!("/devices/{d}/messages/{m}/id"));
-        }
+        read.note(|| format!("/devices/{d}/messages"));
+        let messages = device.get("messages").and_then(Value::as_array).map_or(0, Vec::len);
+        read.extend((0..messages).map(|m| format!("/devices/{d}/messages/{m}/id")));
     }
-    let overlays: Vec<Value> = root.get("overlays").and_then(Value::as_array).cloned().unwrap_or_default();
+    let overlays: &[Value] = root.get("overlays").and_then(Value::as_array).map_or(&[], Vec::as_slice);
     // The overlays a carried control refers to: their labels are its `values`.
     let mut overlays_read: BTreeSet<usize> = BTreeSet::new();
     // The items, by overlay and index, that the `values` of at least one control hold.
@@ -437,7 +488,7 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
         };
         let section = group.and_then(|g| groups[g].1.clone());
         // What a control or a command written takes of its control: the name and the section.
-        let named: Vec<String> = std::iter::once(format!("{here}/name")).chain(group.map(|g| format!("/groups/{g}/name"))).collect();
+        let named = || std::iter::once_with(|| format!("{here}/name")).chain(group.into_iter().map(|g| format!("/groups/{g}/name")));
         let Some(values) = c.get("values").and_then(Value::as_array) else {
             loss(&mut losses, format!("{here}/values"), "the control has no value: no message to carry");
             continue;
@@ -452,9 +503,9 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
                 loss(&mut losses, at, "the value has no message");
                 continue;
             };
-            read.insert(format!("{at}/message"));
+            read.note(|| format!("{at}/message"));
             if overlay_at.is_some() {
-                read.insert(format!("{at}/overlayId"));
+                read.note(|| format!("{at}/overlayId"));
             }
             let value_at = at;
             let at = format!("{value_at}/message");
@@ -500,9 +551,9 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
                     read.extend(["type", "parameterNumber"].iter().map(|k| format!("{at}/{k}")));
                     // A relative CC is relative by its type: its `relative` key says nothing more.
                     if relative.is_some() && (kind != "relcc" || relative == Some(true)) {
-                        read.insert(format!("{at}/relative"));
+                        read.note(|| format!("{at}/relative"));
                     }
-                    read.extend(named.iter().cloned());
+                    read.extend(named());
                     let path = {
                         let (s, n) = (slug(section.as_deref().unwrap_or("")), slug(&name));
                         let joined: Vec<&str> = [s.as_str(), n.as_str()].into_iter().filter(|x| !x.is_empty()).collect();
@@ -572,7 +623,8 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
                         }
                         Ok((held, data)) => {
                             let wide = data.iter().any(|e| value_bit_position(e) == Some(7));
-                            let mut elements = BTreeSet::new();
+                            // Noted apart: they count only when the whole template is carried.
+                            let mut elements = ReadKeys(read.0.is_some().then(BTreeSet::new));
                             for (i, e) in data.iter().enumerate() {
                                 match template_element(e, &format!("{held}/{i}"), wide, &name)? {
                                     Element::Byte(b) => {
@@ -602,7 +654,7 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
                                 }
                             }
                             if carried {
-                                read.append(&mut elements);
+                                read.extend(elements.0.into_iter().flatten());
                             }
                         }
                         Err(why) => {
@@ -623,12 +675,12 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
                     }
                     read.extend(["type", "data", "direction"].iter().map(|k| format!("{at}/{k}")));
                     if message.get("parameterNumber").is_some_and(Value::is_u64) {
-                        read.insert(format!("{at}/parameterNumber"));
+                        read.note(|| format!("{at}/parameterNumber"));
                     }
                     // The template and the direction that decided it is sent, where a device holds them.
                     read.extend(template.ok().map(|(held, _)| held));
                     read.extend(direction.map(|(_, at)| at));
-                    read.extend(named.iter().cloned());
+                    read.extend(named());
                     frame.push(FrameToken::Byte(0xF7));
                     let path = {
                         let (s, n) = (slug(section.as_deref().unwrap_or("")), slug(&name));
@@ -677,8 +729,10 @@ fn read_preset(text: &str, source: &Source) -> Result<(Translated<Device>, From)
         loss(&mut losses, format!("/overlays/{n}"), "the list of labels is the look of the preset: no control of the descriptor uses it");
     }
     read.extend(items_carried.iter().flat_map(|(o, i)| ["value", "label"].map(|k| format!("/overlays/{o}/items/{i}/{k}"))));
-    let held: BTreeSet<String> = losses.iter().map(|l| l.place.clone()).collect();
-    name_unread(document, "", &read, &held, &mut losses);
+    if let Some(read) = &read.0 {
+        let held: BTreeSet<String> = losses.iter().map(|l| l.place.clone()).collect();
+        name_unread(document, &mut String::new(), read, &held, &mut losses);
+    }
     let name = root.get("name").and_then(Value::as_str).filter(|n| !n.is_empty()).unwrap_or("Electra One preset").to_string();
     let prefix = match slug(&name) {
         s if s.is_empty() => "/electra-one-preset".to_string(),
@@ -833,8 +887,13 @@ fn became(items: &[Item], from: &From) -> Became {
 }
 
 /// The device with the length of each checksum written out: one without it covers every byte from
-/// its start up to itself, which is the length the preset writes and the import reads.
-fn with_checksum_lengths(d: &Device) -> Device {
+/// its start up to itself, which is the length the preset writes and the import reads. A device
+/// whose checksums all have one is not copied.
+fn with_checksum_lengths(d: &Device) -> Cow<'_, Device> {
+    let lacks = |t: &FrameToken| matches!(t, FrameToken::Part(FramePart::Checksum { length: None, .. }));
+    if !d.commands.iter().flatten().filter_map(|c| c.frame.as_ref()).flatten().any(lacks) {
+        return Cow::Borrowed(d);
+    }
     let mut d = d.clone();
     for frame in d.commands.iter_mut().flatten().filter_map(|c| c.frame.as_mut()) {
         for (position, token) in frame.iter_mut().enumerate() {
@@ -843,7 +902,7 @@ fn with_checksum_lengths(d: &Device) -> Device {
             }
         }
     }
-    d
+    Cow::Owned(d)
 }
 
 /// A control to place: what it says, where the descriptor has it.
@@ -1256,7 +1315,9 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         if let Look::List(list) = &item.look {
             let mut taken = BTreeSet::new();
             let items: Vec<Value> = list.iter().map(|(n, label)| json!({"value": n, "label": unique_cut(label, LABEL_MAX, &mut taken)})).collect();
-            overlays.push(json!({"id": overlays.len() + 1, "items": items}));
+            let mut overlay = json!({"id": overlays.len() + 1, "items": null});
+            overlay["items"] = Value::Array(items);
+            overlays.push(overlay);
             value.insert("overlayId".to_string(), json!(overlays.len()));
         }
         let name = unique_cut(&item.name, CONTROL_NAME_MAX, names.entry(item.section.clone()).or_default());
@@ -1277,7 +1338,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
             control.insert("groupId".to_string(), json!(g));
         }
         control.insert("inputs".to_string(), json!([{"potId": pot + 1, "valueId": "value"}]));
-        control.insert("values".to_string(), json!([Value::Object(value)]));
+        control.insert("values".to_string(), Value::Array(vec![Value::Object(value)]));
         controls.push(Value::Object(control));
     }
     let pages = slots.last().map_or(1, |s| s / SLOTS_PER_PAGE + 1).clamp(1, PAGES);
@@ -1294,25 +1355,33 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         s if s.is_empty() => "osd".to_string(),
         s => s,
     };
-    let preset = json!({
+    // The lists built above are moved in, at the place of their key: `json!` would copy them.
+    let mut preset = json!({
         "version": 3,
         "name": preset_name,
         "projectId": id,
         "pages": (1..=pages).map(|p| json!({"id": p, "name": format!("Page {p}")})).collect::<Vec<_>>(),
         "devices": [{"id": 1, "name": preset_name, "port": 1, "channel": 1}],
-        "overlays": overlays,
-        "groups": groups,
-        "controls": controls,
+        "overlays": null,
+        "groups": null,
+        "controls": null,
     });
+    for (key, list) in [("overlays", overlays), ("groups", groups), ("controls", controls)] {
+        preset[key] = Value::Array(list);
+    }
     let mut text = serde_json::to_string_pretty(&preset).expect("a preset is JSON");
     text.push('\n');
     // Every field the preset read back does not give is named.
-    let back = read_preset(&text, &Source::default()).ok();
+    // The losses of that reading are not those of the export: it notes no key.
+    let back = read_preset(&text, &Source::default(), ReadKeys(None)).ok();
     let became = back.as_ref().map_or_else(Became::default, |(_, from)| became(&items, from));
     let given = with_checksum_lengths(d);
-    crate::losses::name_what_does_not_come_back(&given, back.as_ref().map(|(t, _)| &t.value), &became, &mut losses, why_not_back);
+    let compared = crate::losses::name_what_does_not_come_back(&given, back.map(|(t, _)| t.value), &became, &mut losses, why_not_back);
+    // The order is that of the device given: what was compared is its writing only when no length
+    // was added to it.
+    let as_written = compared.filter(|_| matches!(given, Cow::Borrowed(_)));
     losses.append(&mut moved);
     lose_parameter_numbers(d, &items, &mut losses);
-    crate::losses::in_the_order_of(d, &mut losses);
+    crate::losses::in_the_order_of(d, as_written, &mut losses);
     Ok(Translated { value: text, lost: losses })
 }

@@ -1,0 +1,19 @@
+/device/osc_prefix	the CSV has no column for the prefix: the import builds it from the name of the device
+/device/device_id	the CSV has no column for it
+/device/rate_limit_hz	the CSV has no column for it
+/device/_a~1b~0c	the CSV has no column for it
+/device/_zz	the CSV has no column for it
+/role_vocabulary	the CSV has no column for it
+/programs	the CSV carries triggers only
+/sysex	the CSV carries triggers only
+/cc_params	the CSV carries triggers only
+/commands	the CSV carries triggers only
+/triggers/entries/0/_description	the CSV has no column for it
+/triggers/entries/0/_zz	the CSV has no column for it
+/triggers/entries/0/description	the CSV has no column for it
+/triggers/entries/1/osc	the CSV has no column for the address: the import builds it from the section and the sound
+/triggers/_zz	the CSV has no column for it
+/_coverage	the CSV carries triggers only
+/_a~1b~0c	the CSV has no column for it
+/_zz	the CSV has no column for it
+/sources	the CSV has no column for the credit or the licence of the sources

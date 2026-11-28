@@ -1,0 +1,8 @@
+{
+  "_about": "An operator without its second operand is not an expression: a bad value at the field.",
+  "read": "device",
+  "fault": {
+    "kind": "BadValue",
+    "pointer": "/sources/0/license"
+  }
+}

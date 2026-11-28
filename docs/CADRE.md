@@ -24,7 +24,7 @@
 
 - **R6** Changing a published version: a change is a new version, a correction a patch version (rule in `spec/ERRATA.md`).
 - **R7** A field whose meaning no conformance case shows.
-- **R8** Structure hidden inside a string (a mini-language), and open vocabularies where a closed list can hold the values.
+- **R8** Structure hidden inside a string (a mini-language), and open vocabularies where a closed list can hold the values. One exception, taken from the mature reference: a `license` is an SPDX license expression, a string, as Cargo and npm write it (`spec/0.7.md`, 6.7).
 - **R9** Executable content not declared as a capability.
 
 ## Invariants

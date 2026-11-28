@@ -73,9 +73,13 @@ pub(crate) fn way_claims(w: &Way, channel: Option<u8>) -> Vec<Claim> {
 /// The result of an import as the reader of `osd` judges it (docs/CADRE.md R15): the descriptor is returned
 /// only when its text reads; otherwise the import is refused, with the reader's rule and pointer.
 pub(crate) fn read_back(imported: Translated<Device>) -> Result<Translated<Device>, Fault> {
-    let text = osd::write(&osd::Descriptor::Device(Box::new(imported.value.clone())));
+    let Translated { value, lost } = imported;
+    // The device is written where it is held, and taken back: it is not copied.
+    let written = osd::Descriptor::Device(Box::new(value));
+    let text = osd::write(&written);
+    let osd::Descriptor::Device(value) = written else { unreachable!("a device is written as a device") };
     match osd::read(&text, osd::Kind::Device) {
-        Ok(_) => Ok(imported),
+        Ok(_) => Ok(Translated { value: *value, lost }),
         Err(f) => Err(Fault {
             kind: FaultKind::InvalidFile,
             place: String::new(),

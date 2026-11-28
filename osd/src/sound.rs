@@ -79,7 +79,8 @@ object! {
         "firmware" firmware: Option<String> = Opt(STRING),
         "content" content: Content = obj(),
         "author" author: Option<Author> = Opt(obj()),
-        /// An SPDX licence id, `public-domain`, `NOASSERTION` or `NONE`.
+        /// From 0.7 an SPDX licence expression, before it an SPDX licence id; or
+        /// `public-domain`, `NOASSERTION` or `NONE`.
         "license" license: Option<String> = Opt(STRING),
         /// The author's own terms, when they are not a known licence.
         "license_terms" license_terms: Option<String> = Opt(STRING),
@@ -238,7 +239,8 @@ fn device_unless_clip(s: &Sound, at: &At) -> Result<(), Fault> {
     check_needs_and_made_on(s, at)?;
     check_sound_credit(s, at)?;
     if crate::is_05_form(s.schema) {
-        crate::vocabulary::check_license(s.license.as_deref(), "/license")?;
+        let from_0_7 = s.schema >= Some(crate::Version::V0_7);
+        crate::vocabulary::check_license(s.license.as_deref(), from_0_7, "/license")?;
     }
     let newer = matches!(s.kind, SoundKind::Performance | SoundKind::Scene | SoundKind::Setlist);
     if newer && !crate::is_05_form(s.schema) {

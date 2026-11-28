@@ -43,7 +43,7 @@ fn refusals() -> Vec<(Value, FaultKind, &'static str)> {
     for provider in [json!("Electra One"), json!(""), json!("a--b"), json!("a".repeat(65)), json!(5), json!(null)] {
         out.push((one(json!({"type": "vendor-doc", "provider": provider})), BadValue, "/sources/0/provider"));
     }
-    for license in ["mit", "none", "Public-Domain", "two words"] {
+    for license in ["none", "Public-Domain", "two words"] {
         out.push((one(json!({"type": "vendor-doc", "license": license})), BadValue, "/sources/0/license"));
     }
     for id in [json!(""), json!(5), json!(null)] {
@@ -64,7 +64,7 @@ fn accepted() -> Vec<Value> {
     .iter()
     .map(|t| json!([{"type": t}]))
     .collect();
-    for license in ["MIT", "public-domain", "NOASSERTION", "NONE"] {
+    for license in ["MIT", "mit", "public-domain", "NOASSERTION", "NONE"] {
         out.push(json!([{"type": "contributed", "license": license}]));
     }
     out.push(json!([{"type": "contributed", "provider": "a-new-firmware"}]));

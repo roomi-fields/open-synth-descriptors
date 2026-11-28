@@ -3,6 +3,7 @@
 
 use crate::csv;
 use crate::importer::{adopt_identity, blank_device, check_new_id, check_source, read_back, slug, unique, used_addresses};
+use crate::losses::{segment, Became};
 use crate::{Contract, Fault, FaultKind, Loss, Translated};
 use osd::{Device, Resolved, Source, Trigger, Triggers};
 use std::collections::BTreeSet;
@@ -80,12 +81,18 @@ fn lost(losses: &mut Vec<(usize, Loss)>, line: usize, column: usize, reason: &st
 
 fn import(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     check_source(source)?;
+    read_back(device_of(text, source)?)
+}
+
+/// The device a file gives, before the reader of `osd` judges it.
+fn device_of(text: &str, source: &Source) -> Result<Translated<Device>, Fault> {
     let (mut identity, mut used) = ((String::new(), String::new()), BTreeSet::new());
     let (entries, losses) = read(text, &mut identity, &mut used)?;
     let (vendor, name) = identity;
     let mut device = blank_device(name, Some(vendor).filter(|v| !v.is_empty()), source);
-    device.triggers = Some(Triggers { entries, remarks: Default::default() });
-    read_back(Translated { value: device, lost: losses })
+    // A file with no trigger gives no block.
+    device.triggers = (!entries.is_empty()).then(|| Triggers { entries, remarks: Default::default() });
+    Ok(Translated { value: device, lost: losses })
 }
 
 /// Adds the triggers of `text` to `base`, which keeps its identity and its other blocks; a base
@@ -216,6 +223,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
     }
     let mut losses = Vec::new();
     let mut out = csv::line(&HEADER);
+    gone(&mut losses, "/sources".to_string(), "the CSV has no column for the credit or the licence of the sources");
 
     let info = &d.device;
     for (pointer, present) in [
@@ -231,7 +239,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
     for key in info.remarks.keys() {
-        gone(&mut losses, format!("/device/{key}"), "the CSV has no column for it");
+        gone(&mut losses, format!("/device/{}", segment(key)), "the CSV has no column for it");
     }
     for (pointer, present) in [
         ("/capabilities", d.capabilities.is_some()),
@@ -249,7 +257,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
 
     if let Some(triggers) = &d.triggers {
         for key in triggers.remarks.keys() {
-            gone(&mut losses, format!("/triggers/{key}"), "the CSV has no column for it");
+            gone(&mut losses, format!("/triggers/{}", segment(key)), "the CSV has no column for it");
         }
         for (n, e) in triggers.entries.iter().enumerate() {
             let at = |field: &str| format!("/triggers/entries/{n}/{field}");
@@ -276,7 +284,7 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
                 gone(&mut losses, at("title"), "the CSV has no column for it: the name of the row is the sound");
             }
             for key in e.remarks.keys() {
-                gone(&mut losses, at(key), "the CSV has no column for it");
+                gone(&mut losses, at(&segment(key)), "the CSV has no column for it");
             }
             let cells: Vec<&str> = row.iter().map(String::as_str).collect();
             out.push_str(&csv::line(&cells));
@@ -298,7 +306,24 @@ fn export(resolved: &Resolved) -> Result<Translated<String>, Fault> {
         }
     }
     for key in d.remarks.keys() {
-        gone(&mut losses, format!("/{key}"), "the CSV has no column for it");
+        gone(&mut losses, format!("/{}", segment(key)), "the CSV has no column for it");
     }
+    // Every field the CSV read back does not give is named: each trigger is a row, in order.
+    let back = device_of(&out, &Source::default()).ok().map(|t| t.value);
+    let as_written = crate::losses::name_what_does_not_come_back(d, back, &Became::default(), &mut losses, why_not_back);
+    crate::losses::in_the_order_of(d, as_written, &mut losses);
     Ok(Translated { value: out, lost: losses })
+}
+
+/// Why a field the CSV read back does not give is lost.
+fn why_not_back(pointer: &str, added: bool) -> String {
+    let reason = match pointer.rsplit('/').next().unwrap_or_default() {
+        "triggers" if pointer == "/triggers" => "the block has no entry: no row is written, and the import gives no block",
+        "osc" => "the CSV has no column for the address: the import builds it from the section and the sound",
+        "osc_prefix" => "the CSV has no column for the prefix: the import builds it from the name of the device",
+        "name" | "vendor" if pointer.starts_with("/device/") => "the CSV says it on the rows of its triggers: the import does not give it back",
+        _ if added => "the import of the CSV adds it: the descriptor given does not hold it",
+        _ => "the CSV has no column for it",
+    };
+    reason.to_string()
 }

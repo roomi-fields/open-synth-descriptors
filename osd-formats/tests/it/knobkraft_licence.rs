@@ -75,12 +75,139 @@ fn the_skeleton_licence_is_stated_once_and_not_confused_with_a_source_licence() 
 #[test]
 fn a_source_under_a_compatible_licence_gets_its_source_line_alone_and_no_loss() {
     for license in ["CC-BY-4.0", "MIT", "Apache-2.0", "GPL-3.0", "AGPL-3.0", "AGPL-3.0-only", "GPL-3.0-or-later"] {
-        let (text, lost) = exported(&with_license(license));
-        let h = header(&text);
-        assert_eq!(h.len(), 5, "{license}: {h:?}");
-        assert!(h[4].starts_with("# Source: ") && h[4].contains(license), "{license}: {h:?}");
-        assert!(!places(&lost).iter().any(|p| p.starts_with("/sources")), "{license}: {lost:?}");
+        assert_permitted(license);
     }
+}
+
+/// The source line alone, citing the licence, and no loss about the sources.
+fn assert_permitted(license: &str) {
+    let (text, lost) = exported(&with_license(license));
+    let h = header(&text);
+    assert_eq!(h.len(), 5, "{license}: {h:?}");
+    assert!(h[4].starts_with("# Source: ") && h[4].contains(license), "{license}: {h:?}");
+    assert!(!places(&lost).iter().any(|p| p.starts_with("/sources")), "{license}: {lost:?}");
+}
+
+/// The warning line under the source line, citing the whole licence, and the loss with its words.
+fn assert_warned(warning: &str, license: &str) {
+    let (text, lost) = exported(&with_license(license));
+    let h = header(&text);
+    assert_eq!(h.len(), 6, "{license}: {h:?}");
+    assert_eq!(h[5], format!("{warning}{license}"));
+    let l = lost.iter().find(|l| l.place == "/sources/0/license").unwrap_or_else(|| panic!("{license}: {lost:?}"));
+    assert_eq!(l.reason, h[5].trim_start_matches("# "));
+}
+
+#[test]
+fn an_or_is_allowed_when_one_branch_is() {
+    for license in ["MIT OR Apache-2.0", "MIT OR GPL-2.0-only", "GPL-2.0-only OR MIT", "Foo-1.0 OR CC-BY-4.0", "(CC-BY-NC-4.0)OR(MIT)"] {
+        assert_permitted(license);
+    }
+}
+
+#[test]
+fn an_or_is_not_allowed_when_every_branch_is_not_allowed() {
+    for license in ["GPL-2.0-only OR CC-BY-NC-4.0", "GPL-2.0-only OR LGPL-2.1-only OR EPL-1.0"] {
+        assert_warned(NOT_ALLOWED, license);
+    }
+}
+
+#[test]
+fn an_or_with_no_allowed_branch_and_one_not_recognised_is_not_recognised() {
+    for license in ["GPL-2.0-only OR Foo-1.0", "Foo-1.0 OR GPL-2.0-only", "Foo-1.0 OR LicenseRef-x"] {
+        assert_warned(NOT_RECOGNISED, license);
+    }
+}
+
+#[test]
+fn an_and_is_allowed_when_every_branch_is() {
+    for license in ["MIT AND Apache-2.0", "MIT AND CC-BY-4.0 AND GPL-3.0-only", "(MIT) AND (Apache-2.0)"] {
+        assert_permitted(license);
+    }
+}
+
+#[test]
+fn an_and_is_not_allowed_when_one_branch_is_not_allowed() {
+    for license in ["MIT AND GPL-2.0-only", "GPL-2.0-only AND MIT", "Foo-1.0 AND CC-BY-NC-4.0", "MIT AND Foo-1.0 AND GPL-2.0-only"] {
+        assert_warned(NOT_ALLOWED, license);
+    }
+}
+
+#[test]
+fn an_and_with_no_branch_forbidden_and_one_not_recognised_is_not_recognised() {
+    for license in ["MIT AND Foo-1.0", "LicenseRef-x AND MIT", "Foo-1.0 AND Bar-1.0"] {
+        assert_warned(NOT_RECOGNISED, license);
+    }
+}
+
+#[test]
+fn an_expression_is_judged_by_the_spdx_precedence_and_its_parentheses() {
+    for license in [
+        "GPL-2.0-only AND Foo-1.0 OR MIT",
+        "MIT OR GPL-2.0-only AND Foo-1.0",
+        "Apache-2.0 AND (GPL-2.0-only OR (MIT AND CC-BY-4.0))",
+    ] {
+        assert_permitted(license);
+    }
+    for license in ["(MIT OR GPL-2.0-only) AND CC-BY-NC-4.0", "GPL-2.0-only AND (MIT OR Apache-2.0)"] {
+        assert_warned(NOT_ALLOWED, license);
+    }
+    assert_warned(NOT_RECOGNISED, "MIT AND (GPL-2.0-only OR Foo-1.0)");
+}
+
+#[test]
+fn a_licence_with_an_exception_is_allowed_when_the_licence_alone_is() {
+    for license in [
+        "GPL-3.0-only WITH GPL-3.0-linking-exception",
+        "MIT WITH Some-exception",
+        "GPL-2.0-or-later WITH Classpath-exception-2.0",
+        "MIT AND (GPL-3.0-only WITH GPL-3.0-linking-exception)",
+    ] {
+        assert_permitted(license);
+    }
+}
+
+#[test]
+fn a_licence_not_allowed_or_not_recognised_with_an_exception_is_not_recognised() {
+    for license in [
+        "GPL-2.0-only WITH Classpath-exception-2.0",
+        "Foo-1.0 WITH Bar",
+        "MIT AND GPL-2.0-only WITH Classpath-exception-2.0",
+        "GPL-2.0-only WITH Classpath-exception-2.0 OR CC-BY-NC-4.0",
+    ] {
+        assert_warned(NOT_RECOGNISED, license);
+    }
+}
+
+#[test]
+fn a_licence_or_any_later_version_is_allowed_when_it_or_a_later_version_is() {
+    for license in [
+        "GPL-2.0+",
+        "GPL-2.0-or-later",
+        "gpl-2.0-or-later",
+        " gpl-2.0+ ",
+        "GPL-1.0+",
+        "GPL-3.0+",
+        "AGPL-1.0-or-later",
+        "CC-BY-3.0-or-later",
+        "Apache-1.1+",
+        "MIT+",
+        "GPL-2.0+ OR CC-BY-NC-4.0",
+    ] {
+        assert_permitted(license);
+    }
+}
+
+#[test]
+fn a_licence_or_any_later_version_with_no_allowed_version_is_judged_as_the_licence() {
+    for license in ["LGPL-2.1-or-later", "LGPL-2.1+", "LGPL-2.0+", "EPL-1.0+", "CC-BY-SA-3.0-or-later", "CC-BY-NC-3.0+"] {
+        assert_warned(NOT_ALLOWED, license);
+    }
+    // A later version is of the same licence, and never an earlier one.
+    for license in ["Foo-1.0+", "Foo-1.0-or-later", "GPL-4.0+", "CC-BY-3.0", "CC-BY-3.0-only"] {
+        assert_warned(NOT_RECOGNISED, license);
+    }
+    assert_warned(NOT_ALLOWED, "GPL-2.0-only");
 }
 
 #[test]
@@ -89,6 +216,19 @@ fn the_licence_is_read_by_its_identifier_without_spaces_or_case() {
         let (text, lost) = exported(&with_license(license));
         assert_eq!(header(&text).len(), 5, "{license:?}: {text}");
         assert!(!places(&lost).iter().any(|p| p.starts_with("/sources")), "{license:?}: {lost:?}");
+    }
+}
+
+#[test]
+fn an_expression_of_ids_in_lower_case_is_judged_by_the_rules_of_its_licences() {
+    for license in ["mit OR GPL-2.0-only", "gpl-2.0-only OR apache-2.0", "mit AND cc-by-4.0", "(curl)OR(mit)"] {
+        assert_permitted(license);
+    }
+    for license in ["mit AND gpl-2.0-only", "gpl-2.0-only OR cc-by-nc-4.0"] {
+        assert_warned(NOT_ALLOWED, license);
+    }
+    for license in ["curl", "mit AND curl", "gpl-2.0-only OR zlib-acknowledgement"] {
+        assert_warned(NOT_RECOGNISED, license);
     }
 }
 
@@ -105,7 +245,7 @@ fn a_source_under_a_licence_not_allowed_under_the_agpl_is_named_under_its_source
 
 #[test]
 fn another_known_licence_outside_the_list_is_not_allowed_too() {
-    for license in ["GPL-2.0-only", "GPL-2.0", "gpl-2.0-or-later", "CC-BY-NC-4.0"] {
+    for license in ["GPL-2.0-only", "GPL-2.0", "gpl-2.0-only", "CC-BY-NC-4.0"] {
         let (text, lost) = exported(&with_license(license));
         let h = header(&text);
         assert_eq!(h.len(), 6, "{license}: {h:?}");
@@ -115,8 +255,8 @@ fn another_known_licence_outside_the_list_is_not_allowed_too() {
 }
 
 #[test]
-fn a_source_with_a_free_text_licence_an_expression_or_an_unknown_identifier_is_not_recognised() {
-    for license in ["MIT-like", "MIT OR Apache-2.0", "Foo-1.0", "all rights reserved"] {
+fn a_source_with_a_free_text_licence_a_malformed_expression_or_an_unknown_identifier_is_not_recognised() {
+    for license in ["MIT-like", "MIT or Apache-2.0", "MIT OR", "(MIT", "MIT OR NONE", "Foo-1.0", "all rights reserved"] {
         let (text, lost) = exported(&with_license(license));
         let h = header(&text);
         assert_eq!(h.len(), 6, "{license}: {h:?}");

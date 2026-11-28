@@ -152,7 +152,9 @@ fn each_element_the_format_cannot_carry_has_a_loss_with_its_place() {
         "/sysex",
         "/midi_out",
         "/programs",
-        "/triggers",
+        "/triggers/entries/0/sound",
+        "/triggers/entries/0/note_range",
+        "/triggers/entries/0/note",
         "/replies",
         "/cc_params/entries/0/section",
         "/cc_params/entries/0/expects",
@@ -182,7 +184,8 @@ fn the_example_devices_export_and_every_loss_has_a_pointer_and_a_reason() {
     let t = export(&resolved(device_from(&text)), Format::OscQuery).unwrap();
     let ns: Value = serde_json::from_str(&t.value).unwrap();
     assert!(node_at(&ns, "/test_synth/filter/cutoff").is_some(), "{ns}");
-    assert!(t.lost.iter().any(|l| l.place == "/triggers"), "{:?}", t.lost);
+    assert!(node_at(&ns, "/test_synth/drum/kick").is_some_and(|n| n["TYPE"] == "I"), "{ns}");
+    assert!(t.lost.iter().any(|l| l.place == "/triggers/entries/0/sound"), "{:?}", t.lost);
 }
 
 fn capture_command(osc: Value, args: Value) -> Value {

@@ -8,11 +8,19 @@ The guides are cited at the revision 9e2522cd44765603162b4afd31419c3597ff85fc of
 
 The skeleton states its own licence in its header, before the credit of the sources: `# SPDX-License-Identifier: AGPL-3.0-only`. It is the licence of KnobKraft Orm, the only software the skeleton runs in. The piece, at the revision 9e2522cd44765603162b4afd31419c3597ff85fc of KnobKraft Orm: `LICENSE.md` is the text of the GNU Affero General Public License version 3, and no sentence of the project grants "or any later version" (the only "any later version" are the licence's own text and its header template); 84 of the 115 Python files of `adaptations/` open with "Dual licensed: Distributed under Affero GPL license by default, an MIT license is available for purchase", with no version. Without an "or later" sentence the exact identifier is `AGPL-3.0-only`. The MIT licence that KnobKraft sells does not concern the skeleton.
 
-The licence of the skeleton and the licences of its sources are two things: each `# Source:` line keeps the licence the descriptor gives. The skeleton borrows from the descriptor only facts (a name, a count of banks, the bytes of a request), so the export warns and never refuses. The export reads each source's licence by its SPDX identifier, spaces and case removed, `X-only`, `X-or-later` and `X` being the same identifier:
+The licence of the skeleton and the licences of its sources are two things: each `# Source:` line keeps the licence the descriptor gives. The skeleton borrows from the descriptor only facts (a name, a count of banks, the bytes of a request), so the export warns and never refuses. The export judges each source's licence as an SPDX expression, as `osd` reads it (`LicenseExpression`); a single identifier is read with its edge spaces and its case ignored, and a text that is not an expression is not recognised.
 
-- allowed under the AGPL-3.0 (the table below): no line more;
-- an identifier known not to be allowed (for example `GPL-2.0`, `CC-BY-SA-4.0`, `CC-BY-NC-4.0`): the line `# Licence not allowed under AGPL-3.0: <licence>` under its `# Source:` line;
-- anything else (free text, an expression, an unknown identifier, no licence): the line `# Licence not recognised, not checked against AGPL-3.0: <licence>`.
+- `X-only` is `X`;
+- `X+` and `X-or-later` mean `X` or any later version of it: allowed when `X` or a later version of the same licence is in the table below (`GPL-2.0+`, `GPL-2.0-or-later`), else judged as `X` (`LGPL-2.1-or-later` not allowed, `Foo-1.0+` not recognised);
+- `X WITH <exception>` is allowed when `X` alone is, else not recognised, since an exception may lift what `X` forbids;
+- an `OR` is allowed when one branch is, not allowed when every branch is, else not recognised;
+- an `AND` is allowed when every branch is, not allowed when one branch is, else not recognised.
+
+The judgement of the whole expression gives one of three results:
+
+- allowed under the AGPL-3.0: no line more and no loss;
+- not allowed (for example `GPL-2.0-only`, `CC-BY-SA-4.0`, `CC-BY-NC-4.0`): the line `# Licence not allowed under AGPL-3.0: <licence>` under its `# Source:` line, citing the whole expression;
+- not recognised (free text, a malformed expression, an unknown identifier, no licence, or an expression so judged): the line `# Licence not recognised, not checked against AGPL-3.0: <licence>`.
 
 Each such line is also a loss at `/sources/N/license`, with the same words: whoever publishes the completed skeleton checks that licence. A source without a declared licence is published credited until a claim, the project's rule.
 

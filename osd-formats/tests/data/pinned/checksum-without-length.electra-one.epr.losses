@@ -1,0 +1,24 @@
+/commands/0	the parameter number a source keeps for this command (parameter_numbers) is not written in the preset
+/commands/0/osc	the preset has no field for an address: the import builds it from the group and the name
+/commands/0/id	the preset has no field for it
+/commands/0/title	the preset needs a name, cuts it and keeps two names of a group apart: the import reads what is written
+/commands/0/description	the preset has no field for it
+/commands/0/notes	the preset has no field for it
+/commands/0/args/0/values	the preset has no field for it
+/commands/0/args/0/default	the preset has no field for it
+/commands/0/args/0/_zz	the preset has no field for it
+/commands/0/readings	the preset has no field for it
+/commands/0/_a~1b~0c	the preset has no field for it
+/commands/0/_zz	the preset has no field for it
+/commands/1	the preset lays its controls out by group: the import gives this one before one that precedes it
+/commands/1/notes	the preset has no field for it
+/commands/1/title	the preset needs a name, cuts it and keeps two names of a group apart: the import reads what is written
+/commands/2	the preset written gives no control, or no command, back as this one at this place
+/commands/2/args/0/name	the command is not written: the preset holds no part of its argument
+/commands/2/args/0/type	the command is not written: the preset holds no part of its argument
+/commands/2/frame	the preset template written holds fixed bytes between F0 and F7, the argument `value` (u7, or u14 as u14_lsb and u14_msb, nothing added) and checksums: this frame is none such
+/commands/3	the preset written gives no control, or no command, back as this one at this place
+/commands/3/frame	the preset template written holds fixed bytes between F0 and F7, the argument `value` (u7, or u14 as u14_lsb and u14_msb, nothing added) and checksums: this frame is none such
+/commands/4	the preset written gives no control, or no command, back as this one at this place
+/commands/4/frame	the preset template written holds fixed bytes between F0 and F7, the argument `value` (u7, or u14 as u14_lsb and u14_msb, nothing added) and checksums: this frame is none such
+/sources	the preset has no field for the credit and the licence of its sources

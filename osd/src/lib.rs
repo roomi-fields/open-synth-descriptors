@@ -18,6 +18,7 @@ mod fingerprint;
 mod firmware;
 mod frame;
 mod json;
+mod license;
 mod matching;
 mod providers;
 mod resolve;
@@ -46,6 +47,7 @@ pub use firmware::{
 };
 pub use assembly::{judge_needs, resolve_assembly, Assembly, NeedJudgement, PinnedFirmware, PinnedModule, Verdict};
 pub use json::Remarks;
+pub use license::LicenseExpression;
 pub use matching::{match_identity, same_product_instance_id, MatchVerdict, RuleMatch};
 pub use providers::PROVIDERS_VERSION;
 pub use warnings::{warnings, Warning, WarningKind};

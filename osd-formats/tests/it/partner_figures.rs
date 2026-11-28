@@ -3,7 +3,7 @@
 //! replay reads them in the folder `OSD_PARTNER_FILES` names, and without it says it is skipped.
 
 use crate::common::fields::page;
-use crate::common::partner::{importable, page_faults, replay, SECTION};
+use crate::common::partner::{importable, listed, page_faults, replay, section, SECTION};
 use osd_formats::Format;
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
@@ -105,6 +105,21 @@ fn the_midi2_controllers_page_publishes_its_round_trip_figures_or_says_no_public
 fn the_pages_of_the_formats_that_are_not_imported_say_there_is_no_round_trip() {
     let faults: Vec<String> = Format::ALL.into_iter().filter(|f| !importable(*f)).flat_map(|f| page_faults(f, &page(f.name()))).collect();
     assert!(faults.is_empty(), "{}", faults.join("\n"));
+}
+
+#[test]
+fn the_oscquery_page_lists_the_namespace_of_the_rnbo_runner_and_says_why_the_vidvox_capture_is_refused() {
+    const REVISION: &str = "09326e9f3acd1a54a8b9ea39c1b9314eb6d2f2f8";
+    let page = page(Format::OscQuery.name());
+    let files = listed(&page);
+    let runner = files.iter().find(|f| f.name() == "example-http.json").unwrap_or_else(|| panic!("docs/oscquery.md does not list example-http.json: {files:?}"));
+    assert!(runner.address.contains("Cycling74/rnbo.oscquery.runner") && runner.address.ends_with("/docs/example-http.json"), "{runner:?}");
+    assert_eq!(runner.revision, REVISION);
+    assert_eq!(runner.sha256, "39c9122f34885ab3f88d67e9a35f6c8a29c25cc6ae347b7330f0ad806e57a13c");
+    assert!(runner.licence.contains("MIT") && runner.credit.contains("Cycling '74"), "{runner:?}");
+    assert!(!files.iter().any(|f| f.name() == "helper-root.json"), "a refused file has no figure: {files:?}");
+    let prose = section(&page).expect("the section").join(" ");
+    assert!(prose.contains("helper-root.json") && prose.contains("`/CONTENTS`") && !prose.contains("/CONTENTS/tuples"), "helper-root.json is refused at /CONTENTS");
 }
 
 // ---- what the checks refuse -------------------------------------------------------------------

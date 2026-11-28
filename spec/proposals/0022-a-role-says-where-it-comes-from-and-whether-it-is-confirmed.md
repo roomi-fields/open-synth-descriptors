@@ -65,8 +65,10 @@ A role that a resolution takes from the target of a `midi_of` keeps the keys wri
 
 The `source` of a role is judged as the `source` of a reading (section 5.3.4 of 0.7):
 
-- in a resolved file, it is an `id` of the sources of the file or of its `midi_of` target;
-- in a file read without being resolved, it is an `id` of the sources of that file alone.
+- in a resolution, for a file without `midi_of`, the end of a `midi_of` chain included, it is first an `id` of the `sources` or `midi_of_sources` of that file itself, whether the join keeps the role or discards it, and a refusal is in that file;
+- in a resolution, for a file with `midi_of`, it is an `id` of the `sources` or `midi_of_sources` written in the file asked for and its `midi_of` targets, without the sources the resolution adds from profiles; such a role that the joined device does not keep is not judged;
+- in a file without `midi_of` read without being resolved, it is an `id` of an entry of its `sources` or `midi_of_sources`, an entry that carries `profile` included;
+- in a `midi_of` file read alone, it is not judged: a reader MUST NOT refuse the file for it, and the resolution judges it.
 
 ### A role carries no firmware
 
@@ -210,7 +212,6 @@ A converter to a format that has not these keys (0.7 and earlier, the `paramPath
 The owner decides them at the acceptance.
 
 - A contradicted role whose origin the publisher does not know cannot be written: `state` calls for `origin`, and none of the six words says that the origin is unknown.
-- A `midi_of` file read alone that names in the `source` of a role an `id` of its target: the text of section 5.3.4 of 0.7 refuses it, since only the sources of the file count there, while the reader of 0.7 leaves the `source` of a reading of such a file to be judged at resolution.
 - A second, competing role on one control, as when two origins disagree and neither is refuted, has no place.
 
 ## What a reference does

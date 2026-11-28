@@ -1,0 +1,62 @@
+{
+  "_about": "In a file without `midi_of` read without being resolved, the `source` of a reading, of a command and of a control, may name an `id` of `midi_of_sources`, an entry that carries `profile` included.",
+  "read": "device",
+  "result": {
+    "$schema": "https://w3id.org/osd/0.7/device.schema.json",
+    "device": {
+      "name": "T",
+      "osc_prefix": "/t"
+    },
+    "sources": [
+      {
+        "type": "vendor-doc",
+        "id": "mine"
+      }
+    ],
+    "midi_of_sources": [
+      {
+        "type": "vendor-doc",
+        "id": "manual"
+      },
+      {
+        "type": "vendor-doc",
+        "id": "from-profile",
+        "profile": "acme"
+      }
+    ],
+    "commands": [
+      {
+        "osc": "/dump",
+        "readings": [
+          {
+            "state": "valid",
+            "firmware": "1.2",
+            "source": "from-profile"
+          }
+        ]
+      }
+    ],
+    "cc_params": {
+      "entries": [
+        {
+          "osc": "/cutoff",
+          "readings": [
+            {
+              "state": "valid",
+              "firmware": "1.2",
+              "source": "manual"
+            }
+          ],
+          "ways": [
+            {
+              "ctrlType": "cc",
+              "ctrlIndex": [
+                74
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

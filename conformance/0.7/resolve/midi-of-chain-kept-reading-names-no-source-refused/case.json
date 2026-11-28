@@ -1,0 +1,9 @@
+{
+  "_about": "In a chain of `midi_of`, a reading the joined device keeps from a target with `midi_of` and that names no `id` of the sources of the files joined is refused as BadValue in the file asked for, at its `source` in the joined device.",
+  "resolve": "acme/a",
+  "fault": {
+    "kind": "BadValue",
+    "file": "acme/a",
+    "pointer": "/commands/1/readings/0/source"
+  }
+}
